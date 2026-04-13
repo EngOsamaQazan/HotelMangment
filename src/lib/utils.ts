@@ -5,23 +5,27 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+function toWesternNumerals(str: string): string {
+  return str.replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d).toString());
+}
+
 export function formatDate(date: Date | string | null): string {
   if (!date) return "";
   const d = new Date(date);
-  return d.toLocaleDateString("ar-JO-u-nu-latn", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
 }
 
 export function formatAmount(amount: number | string | null): string {
   if (amount === null || amount === undefined) return "0.00";
   const num = typeof amount === "string" ? parseFloat(amount) : amount;
-  return num.toLocaleString("ar-JO-u-nu-latn", {
+  const formatted = num.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+  return formatted;
 }
 
 export function numberToArabicWords(num: number): string {
