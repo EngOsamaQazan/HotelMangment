@@ -18,7 +18,12 @@ jobs:
             cd /opt/hotel-app
             git fetch origin main
             git reset --hard origin/main
-            docker compose build --no-cache
-            docker compose up -d
-            docker compose exec -T app npx prisma@6 db push --accept-data-loss
+            npm ci
+            npx prisma db push --accept-data-loss
+            npm run build
+            cp -r public .next/standalone/public
+            cp -r .next/static .next/standalone/.next/static
+            cp .env .next/standalone/.env
+            cp google-vision-key.json .next/standalone/google-vision-key.json 2>/dev/null
+            pm2 restart hotel-app || PORT=3000 HOSTNAME=0.0.0.0 pm2 start .next/standalone/server.js --name hotel-app
             echo "Deployment completed at $(date)"
