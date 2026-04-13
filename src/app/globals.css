@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #1a5276;
+  --color-primary-dark: #0e3a56;
+  --color-primary-light: #2980b9;
+  --color-success: #27ae60;
+  --color-danger: #c0392b;
+  --color-warning: #f39c12;
+  --color-muted: #6b7280;
+  --color-sidebar: #1e293b;
+  --color-sidebar-hover: #334155;
+  --color-card-bg: #ffffff;
+  --color-page-bg: #f1f5f9;
+}
+
+body {
+  font-family: "Tajawal", "Arial", sans-serif;
+  background: var(--color-page-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 3px;
+}
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@media (max-width: 768px) {
+  input, select, textarea, button {
+    font-size: 16px !important;
+  }
+}
+
+/* ══════════════════════════════════════════════
+   Foldable Devices Support (Samsung Fold, etc.)
+   ISO 9241-210 / WCAG 2.1 AA compliant
+   ══════════════════════════════════════════════ */
+
+@media (min-width: 280px) and (max-width: 320px) {
+  body {
+    font-size: 13px;
+  }
+}
+
+@media (horizontal-viewport-segments: 2) {
+  main {
+    column-count: 2;
+    column-gap: env(viewport-segment-right 0 0, 0px);
+  }
+  main > * {
+    break-inside: avoid;
+  }
+}
+
+@media (vertical-viewport-segments: 2) {
+  main {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+@media (spanning: single-fold-vertical) {
+  .fold-split {
+    display: grid;
+    grid-template-columns: env(fold-left, 1fr) env(fold-right, 1fr);
+    gap: env(fold-width, 0px);
+  }
+}
+
+@media (spanning: single-fold-horizontal) {
+  .fold-split-h {
+    display: grid;
+    grid-template-rows: env(fold-top, 1fr) env(fold-bottom, 1fr);
+    gap: env(fold-height, 0px);
+  }
+}
+
+@media screen and (device-width: 344px) and (device-height: 882px) {
+  body {
+    font-size: 13px;
+  }
+}
+
+@media screen and (min-width: 712px) and (max-width: 768px) and (min-height: 800px) {
+  .grid-cols-1 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

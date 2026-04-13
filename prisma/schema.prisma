@@ -1,0 +1,124 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         String   @default("receptionist")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("users")
+}
+
+model Unit {
+  id          Int    @id @default(autoincrement())
+  unitNumber  String @unique @map("unit_number")
+  unitType    String @map("unit_type")
+  status      String @default("available")
+  floor       Int    @default(1)
+  description String?
+
+  reservations Reservation[]
+  maintenance  Maintenance[]
+
+  @@map("units")
+}
+
+model Reservation {
+  id            Int      @id @default(autoincrement())
+  unitId        Int      @map("unit_id")
+  guestName     String   @map("guest_name")
+  guestIdNumber String?  @map("guest_id_number")
+  nationality   String?
+  phone         String?
+  numNights     Int      @map("num_nights")
+  stayType      String   @default("daily") @map("stay_type")
+  checkIn       DateTime @map("check_in")
+  checkOut      DateTime @map("check_out")
+  unitPrice     Float    @map("unit_price")
+  totalAmount   Float    @map("total_amount")
+  paidAmount    Float    @default(0) @map("paid_amount")
+  remaining     Float    @default(0)
+  paymentMethod String?  @map("payment_method")
+  status        String   @default("active")
+  groupId       String?  @map("group_id")
+  numGuests     Int      @default(1) @map("num_guests")
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  unit         Unit          @relation(fields: [unitId], references: [id])
+  guests       Guest[]
+  transactions Transaction[]
+
+  @@map("reservations")
+}
+
+model Guest {
+  id            Int    @id @default(autoincrement())
+  reservationId Int    @map("reservation_id")
+  guestOrder    Int    @map("guest_order")
+  fullName      String @map("full_name")
+  idNumber      String @map("id_number")
+  nationality   String @default("")
+  idDocImage    String? @map("id_doc_image")
+  notes         String?
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@map("guests")
+}
+
+model SeasonalPrice {
+  id          Int      @id @default(autoincrement())
+  seasonName  String   @map("season_name")
+  startDate   DateTime @map("start_date")
+  endDate     DateTime @map("end_date")
+  roomDaily   Float    @map("room_daily")
+  roomWeekly  Float    @map("room_weekly")
+  roomMonthly Float    @map("room_monthly")
+  aptDaily    Float    @map("apt_daily")
+  aptWeekly   Float    @map("apt_weekly")
+  aptMonthly  Float    @map("apt_monthly")
+
+  @@map("seasonal_prices")
+}
+
+model Maintenance {
+  id             Int       @id @default(autoincrement())
+  unitId         Int       @map("unit_id")
+  description    String
+  contractor     String?
+  cost           Float     @default(0)
+  status         String    @default("pending")
+  requestDate    DateTime  @default(now()) @map("request_date")
+  completionDate DateTime? @map("completion_date")
+  notes          String?
+
+  unit Unit @relation(fields: [unitId], references: [id])
+
+  @@map("maintenance")
+}
+
+model Transaction {
+  id            Int      @id @default(autoincrement())
+  date          DateTime
+  description   String
+  reservationId Int?     @map("reservation_id")
+  amount        Float
+  type          String
+  account       String
+  bankRef       String?  @map("bank_ref")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  reservation Reservation? @relation(fields: [reservationId], references: [id])
+
+  @@map("transactions")
+}

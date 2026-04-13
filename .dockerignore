@@ -1,0 +1,8 @@
+node_modules
+.next
+dev.db
+*.sqlite
+*.tar.gz
+.git
+.env.local
+test-*.mjs
