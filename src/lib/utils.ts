@@ -8,7 +8,7 @@ export function cn(...inputs: ClassValue[]) {
 export function formatDate(date: Date | string | null): string {
   if (!date) return "";
   const d = new Date(date);
-  return d.toLocaleDateString("ar-JO", {
+  return d.toLocaleDateString("ar-JO-u-nu-latn", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -18,7 +18,7 @@ export function formatDate(date: Date | string | null): string {
 export function formatAmount(amount: number | string | null): string {
   if (amount === null || amount === undefined) return "0.00";
   const num = typeof amount === "string" ? parseFloat(amount) : amount;
-  return num.toLocaleString("ar-JO", {
+  return num.toLocaleString("ar-JO-u-nu-latn", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
