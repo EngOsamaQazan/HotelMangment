@@ -1,7 +1,13 @@
-name: Deploy to Production (disabled - using webhook)
+name: Deploy to Production
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -13,7 +19,9 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 20m
           script: |
+            set -e
             cd /opt/hotel-app
             git fetch origin main
             git reset --hard origin/main
@@ -23,6 +31,7 @@ jobs:
             cp -r public .next/standalone/public
             cp -r .next/static .next/standalone/.next/static
             cp .env .next/standalone/.env
-            cp google-vision-key.json .next/standalone/google-vision-key.json 2>/dev/null
+            cp google-vision-key.json .next/standalone/google-vision-key.json 2>/dev/null || true
             pm2 restart hotel-app || PORT=3000 HOSTNAME=0.0.0.0 pm2 start .next/standalone/server.js --name hotel-app
+            pm2 save
             echo "Deployment completed at $(date)"
