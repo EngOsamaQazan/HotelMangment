@@ -19,7 +19,11 @@ const amiri = Amiri({
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://hotel.aqssat.co";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "فندق المفرق — نظام الإدارة",
     template: "%s · فندق المفرق",
@@ -30,6 +34,7 @@ export const metadata: Metadata = {
     title: "فندق المفرق — نظام الإدارة",
     description: "نظام إدارة فندق المفرق",
     siteName: "فندق المفرق",
+    url: SITE_URL,
     locale: "ar_JO",
     type: "website",
   },
