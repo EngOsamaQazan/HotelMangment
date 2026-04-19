@@ -76,7 +76,7 @@ export default function DebtsReportPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl sm:text-2xl font-bold text-gray-800">تقرير الديون</h1>
+      <h1 className="text-xl sm:text-2xl font-bold text-primary">تقرير الديون</h1>
 
       {loading ? (
         <div className="flex items-center justify-center py-20">

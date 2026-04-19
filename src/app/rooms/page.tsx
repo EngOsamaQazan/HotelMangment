@@ -147,7 +147,7 @@ export default function RoomsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl sm:text-2xl font-bold text-gray-800">حالة الغرف والشقق</h1>
+      <h1 className="text-xl sm:text-2xl font-bold text-primary">حالة الغرف والشقق</h1>
 
       {/* Legend / Filter */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-card-bg rounded-xl shadow-sm p-3 sm:p-4">
@@ -287,7 +287,7 @@ function UnitCard({ unit, onClick }: { unit: Unit; onClick: () => void }) {
       )}
     >
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xl sm:text-2xl font-bold text-gray-800">
+        <span className="text-xl sm:text-2xl font-bold text-primary">
           {unit.unitNumber}
         </span>
         <span

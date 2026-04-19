@@ -206,7 +206,7 @@ export default function FinancePage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">الصندوق والبنك</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-primary">الصندوق والبنك</h1>
         <button
           onClick={() => {
             setForm(buildEmptyForm());

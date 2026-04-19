@@ -133,7 +133,7 @@ export default function PeriodsPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <CalendarRange size={28} className="text-primary" />
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
+        <h1 className="text-xl sm:text-2xl font-bold text-primary">
           الفترات المالية
         </h1>
       </div>

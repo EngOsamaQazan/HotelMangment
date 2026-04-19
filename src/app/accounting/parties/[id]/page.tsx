@@ -135,7 +135,7 @@ export default function PartyStatementPage() {
             <User size={28} className="text-primary" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
+            <h1 className="text-xl sm:text-2xl font-bold text-primary">
               {data.party.name}
             </h1>
             <span className="text-sm text-gray-500">

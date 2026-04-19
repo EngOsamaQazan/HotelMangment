@@ -156,7 +156,7 @@ export default function JournalDetailPage() {
               <BookText size={28} className="text-primary" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-800 font-mono">
+              <h1 className="text-xl sm:text-2xl font-bold text-primary font-mono">
                 {entry.entryNumber}
               </h1>
               <span className="text-sm text-gray-500">

@@ -74,11 +74,14 @@ const SECTIONS = [
 export default function AccountingHomePage() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
-          النظام المحاسبي
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">
+      <div className="border-b-2 border-gold/30 pb-3">
+        <div className="flex items-center gap-3">
+          <span className="inline-block w-1 h-8 bg-gold rounded-full" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-primary">
+            النظام المحاسبي
+          </h1>
+        </div>
+        <p className="text-sm text-gray-500 mt-1 ms-4">
           نظام قيد مزدوج كامل مع أطراف متعددة وتقارير مالية احترافية
         </p>
       </div>

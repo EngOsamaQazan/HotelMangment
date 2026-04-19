@@ -182,7 +182,7 @@ export default function MaintenancePage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">سجل الصيانة</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-primary">سجل الصيانة</h1>
         <button
           onClick={() => setShowForm(true)}
           className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium w-full sm:w-auto justify-center"

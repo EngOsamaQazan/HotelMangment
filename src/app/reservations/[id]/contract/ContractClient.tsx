@@ -74,7 +74,7 @@ function fmtAmount(a: string | number): string {
 }
 
 function contractNumber(id: number): string {
-  return `FH-${String(id).padStart(4, "0")}`;
+  return `MH-${String(id).padStart(4, "0")}`;
 }
 
 export default function ContractClient({ id }: { id: string }) {
@@ -134,44 +134,51 @@ export default function ContractClient({ id }: { id: string }) {
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
         @media screen { body { background:#f0f0f0; } }
-        .header { text-align:center; border-bottom:3px double #1a5276; padding-bottom:6px; margin-bottom:6px; }
-        .hotel-name { font-size:22px; font-weight:900; color:#1a5276; letter-spacing:1px; }
-        .hotel-sub { font-size:11px; color:#555; margin-top:1px; }
-        .contract-title { text-align:center; background:#1a5276; color:#fff; padding:5px; font-size:17px; font-weight:800; margin:6px 0; border-radius:4px; }
+        /* ═══ فندق المفرق — Brand Palette ═══
+           Emerald: #0E3B33 / #092923 / #155A4C
+           Gold:    #D4B273 / #B8945A / #E8D0A0 */
+        .header { text-align:center; border-bottom:2px solid #0E3B33; padding-bottom:8px; margin-bottom:6px; position:relative; background:#0E3B33; border-radius:6px; padding:10px 8px 8px; }
+        .header::after { content:""; display:block; width:60%; height:1px; background:#D4B273; margin:4px auto 0; }
+        .brand-logo { display:block; max-width:220px; height:auto; margin:0 auto 2px; filter: brightness(1.05); }
+        .brand-caption { font-size:11px; letter-spacing:7px; color:#fff; font-weight:600; text-transform:uppercase; margin-top:2px; }
+        .hotel-name { font-size:22px; font-weight:900; color:#0E3B33; letter-spacing:1px; }
+        .hotel-sub { font-size:11px; color:#fff; margin-top:3px; opacity:0.92; }
+        .hotel-sub-dark { font-size:11px; color:#555; margin-top:3px; }
+        .contract-title { text-align:center; background:#0E3B33; color:#D4B273; padding:6px; font-size:17px; font-weight:800; margin:6px 0; border-radius:4px; border:1px solid #D4B273; letter-spacing:0.5px; }
         .contract-number { text-align:center; font-size:10.5px; color:#777; margin-top:2px; }
-        .section-title { background:#2c3e50; color:#fff; padding:4px 10px; font-size:12px; font-weight:700; margin:7px 0 4px 0; border-radius:3px; }
+        .section-title { background:#092923; color:#D4B273; padding:4px 10px; font-size:12px; font-weight:700; margin:7px 0 4px 0; border-radius:3px; border-right:3px solid #D4B273; }
         .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:2px 15px; margin:3px 0; }
         .info-item { padding:2px 0; border-bottom:1px dotted #ccc; font-size:11px; }
-        .info-label { font-weight:700; color:#1a5276; }
+        .info-label { font-weight:700; color:#0E3B33; }
         .info-value { color:#333; }
-        .payment-box { border:1.5px solid #1a5276; border-radius:6px; padding:6px 8px; margin:5px 0; background:#f8fbff; }
+        .payment-box { border:1.5px solid #0E3B33; border-radius:6px; padding:6px 8px; margin:5px 0; background:#FAF3E3; }
         .payment-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:5px; text-align:center; }
-        .payment-item { background:#fff; border:1px solid #ddd; border-radius:4px; padding:4px; }
-        .payment-amount { font-size:16px; font-weight:900; color:#1a5276; }
+        .payment-item { background:#fff; border:1px solid #D4B273; border-radius:4px; padding:4px; }
+        .payment-amount { font-size:16px; font-weight:900; color:#0E3B33; }
         .payment-label { font-size:9.5px; color:#777; }
         .clause { padding:1px 8px; margin:1px 0; font-size:10.5px; line-height:1.55; }
-        .clause-number { display:inline-block; background:#1a5276; color:#fff; width:17px; height:17px; line-height:17px; text-align:center; border-radius:50%; font-size:9px; font-weight:700; margin-left:4px; }
+        .clause-number { display:inline-block; background:#0E3B33; color:#D4B273; width:17px; height:17px; line-height:17px; text-align:center; border-radius:50%; font-size:9px; font-weight:700; margin-left:4px; }
         .warning-box { border:2px solid #c0392b; border-radius:6px; padding:6px 8px; margin:6px 0; background:#fef2f2; }
         .warning-title { color:#c0392b; font-size:13px; font-weight:900; text-align:center; margin-bottom:3px; }
         .warning-item { font-size:12px; font-weight:800; color:#c0392b; padding:3px 8px; margin:2px 0; background:#fff; border-right:3px solid #c0392b; border-radius:0 3px 3px 0; }
         .service-box { border:1.5px solid #27ae60; border-radius:6px; padding:5px 8px; margin:5px 0; background:#f0faf4; text-align:center; }
         .service-title { color:#27ae60; font-size:12px; font-weight:800; }
-        .verse-box { border:1.5px solid #8e6f3e; border-radius:6px; padding:6px 8px; margin:6px 0; background:#fefcf5; text-align:center; }
-        .verse-text { font-family:'Amiri',serif; font-size:14px; font-weight:700; color:#5a4020; line-height:1.7; margin-bottom:1px; }
-        .verse-ref { font-size:9.5px; color:#8e6f3e; font-weight:700; }
-        .hadith-text { font-family:'Amiri',serif; font-size:13px; color:#5a4020; line-height:1.6; margin-top:4px; }
-        .hadith-ref { font-size:9.5px; color:#8e6f3e; }
-        .signatures { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:10px; padding-top:8px; border-top:2px solid #1a5276; }
+        .verse-box { border:1.5px solid #D4B273; border-radius:6px; padding:6px 8px; margin:6px 0; background:#FAF3E3; text-align:center; }
+        .verse-text { font-family:'Amiri',serif; font-size:14px; font-weight:700; color:#0E3B33; line-height:1.7; margin-bottom:1px; }
+        .verse-ref { font-size:9.5px; color:#B8945A; font-weight:700; }
+        .hadith-text { font-family:'Amiri',serif; font-size:13px; color:#0E3B33; line-height:1.6; margin-top:4px; }
+        .hadith-ref { font-size:9.5px; color:#B8945A; }
+        .signatures { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:10px; padding-top:8px; border-top:2px solid #0E3B33; }
         .signature-block { text-align:center; }
-        .signature-label { font-weight:700; color:#1a5276; font-size:11px; margin-bottom:25px; }
+        .signature-label { font-weight:700; color:#0E3B33; font-size:11px; margin-bottom:25px; }
         .signature-line { border-bottom:1px solid #333; margin:0 15px; padding-top:30px; }
         .signature-name { font-size:10px; color:#777; margin-top:3px; }
         .contract-table { width:100%; border-collapse:collapse; }
-        .contract-table th { background:#1a5276; color:#fff; padding:4px; font-size:10.5px; font-weight:700; border:1px solid #333; }
+        .contract-table th { background:#0E3B33; color:#D4B273; padding:4px; font-size:10.5px; font-weight:700; border:1px solid #092923; }
         .contract-table td { padding:8px; font-size:10.5px; border:1px solid #333; }
-        .print-btn { position:fixed; top:15px; left:15px; background:#1a5276; color:#fff; border:none; padding:10px 25px; font-size:14px; font-family:'Tajawal',sans-serif; font-weight:700; border-radius:6px; cursor:pointer; box-shadow:0 3px 10px rgba(0,0,0,0.3); z-index:1000; }
-        .print-btn:hover { background:#2c3e50; }
-        .footer-note { text-align:center; font-size:9.5px; color:#999; margin-top:6px; border-top:1px solid #ddd; padding-top:4px; }
+        .print-btn { position:fixed; top:15px; left:15px; background:#0E3B33; color:#D4B273; border:1px solid #D4B273; padding:10px 25px; font-size:14px; font-family:'Tajawal',sans-serif; font-weight:700; border-radius:6px; cursor:pointer; box-shadow:0 3px 10px rgba(0,0,0,0.3); z-index:1000; }
+        .print-btn:hover { background:#092923; color:#E8D0A0; }
+        .footer-note { text-align:center; font-size:9.5px; color:#999; margin-top:6px; border-top:1px solid #D4B273; padding-top:4px; }
       `}</style>
 
       <button className="print-btn no-print" onClick={() => window.print()}>🖨️ طباعة العقد</button>
@@ -180,9 +187,11 @@ export default function ContractClient({ id }: { id: string }) {
 
         {/* ═══ HEADER ═══ */}
         <div className="header">
-          <div className="hotel-name">🏨 فندق الفاخر 🏨</div>
-          <div className="hotel-sub">Al-Fakher Hotel — المملكة الأردنية الهاشمية — للإقامة الفندقية والشقق المفروشة</div>
-          <div className="hotel-sub">الغرف الفندقية (101–109) &bull; الشقق المفروشة (01–06)</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="فندق المفرق" className="brand-logo" />
+          <div className="brand-caption">Hotel</div>
+          <div className="hotel-sub" style={{ marginTop: 6 }}>فندق المفرق — Al-Mafraq Hotel — المملكة الأردنية الهاشمية</div>
+          <div className="hotel-sub">للإقامة الفندقية والشقق المفروشة &bull; الغرف الفندقية (101–109) &bull; الشقق المفروشة (01–06)</div>
         </div>
 
         {/* ═══ CONTRACT TITLE ═══ */}
@@ -194,7 +203,7 @@ export default function ContractClient({ id }: { id: string }) {
         {/* ═══ PARTIES ═══ */}
         <div className="section-title">أولاً: بيانات أطراف العقد</div>
         <div className="info-grid">
-          <div className="info-item"><span className="info-label">الطرف الأول (المؤجر):</span> <span className="info-value">إدارة فندق الفاخر</span></div>
+          <div className="info-item"><span className="info-label">الطرف الأول (المؤجر):</span> <span className="info-value">إدارة فندق المفرق</span></div>
           <div className="info-item"><span className="info-label">السجل التجاري:</span> <span className="info-value">_______________</span></div>
           <div className="info-item"><span className="info-label">الطرف الثاني (المستأجر):</span> <span className="info-value"><strong>{r.guestName}</strong></span></div>
           <div className="info-item"><span className="info-label">رقم الهاتف:</span> <span className="info-value">{r.phone || "—"}</span></div>
@@ -280,7 +289,7 @@ export default function ContractClient({ id }: { id: string }) {
         {/* ═══ TERMS AND CONDITIONS ═══ */}
         <div className="section-title">خامساً: الشروط والأحكام العامة</div>
 
-        <div className="clause"><span className="clause-number">1</span> <strong>محل العقد:</strong> وافق الطرف الأول (إدارة فندق الفاخر) على تأجير الوحدة الفندقية المبيّنة أعلاه للطرف الثاني بالشروط الواردة في هذا العقد، ويُقرّ المستأجر بأنه عاين الوحدة وقبلها بحالتها الراهنة.</div>
+        <div className="clause"><span className="clause-number">1</span> <strong>محل العقد:</strong> وافق الطرف الأول (إدارة فندق المفرق) على تأجير الوحدة الفندقية المبيّنة أعلاه للطرف الثاني بالشروط الواردة في هذا العقد، ويُقرّ المستأجر بأنه عاين الوحدة وقبلها بحالتها الراهنة.</div>
 
         <div className="clause"><span className="clause-number">2</span> <strong>مدة الإيجار:</strong> تبدأ من <strong>{fmtDate(r.checkIn)}</strong> وتنتهي في <strong>{fmtDate(r.checkOut)}</strong> بمدة <strong>{r.numNights} {sDuration} (إقامة {sType === "يومي" ? "يومية" : sType === "أسبوعي" ? "أسبوعية" : "شهرية"})</strong>. لا يتم التجديد تلقائياً إلا باتفاق مكتوب.</div>
 
@@ -317,7 +326,7 @@ export default function ContractClient({ id }: { id: string }) {
         {/* ═══ HOUSEKEEPING ═══ */}
         <div className="service-box">
           <div className="service-title">🧹 خدمة تنظيف الغرف — House Keeping</div>
-          <div style={{ marginTop: 2, fontSize: 10.5, color: "#333" }}>يتوفر لدى فندق الفاخر خدمة <strong>House Keeping</strong> لضمان راحة نزلائنا الكرام. يمكنكم طلب الخدمة من مكتب الاستقبال أو عبر الاتصال الداخلي.</div>
+          <div style={{ marginTop: 2, fontSize: 10.5, color: "#333" }}>يتوفر لدى فندق المفرق خدمة <strong>House Keeping</strong> لضمان راحة نزلائنا الكرام. يمكنكم طلب الخدمة من مكتب الاستقبال أو عبر الاتصال الداخلي.</div>
         </div>
 
         {/* ═══ QURAN & HADITH ═══ */}
@@ -343,7 +352,7 @@ export default function ContractClient({ id }: { id: string }) {
           <div className="signature-block">
             <div className="signature-label">الطرف الأول (المؤجر)</div>
             <div className="signature-line"></div>
-            <div className="signature-name">إدارة فندق الفاخر</div>
+            <div className="signature-name">إدارة فندق المفرق</div>
           </div>
           <div className="signature-block">
             <div className="signature-label">الطرف الثاني (المستأجر)</div>
@@ -355,7 +364,7 @@ export default function ContractClient({ id }: { id: string }) {
         {/* ═══ FOOTER ═══ */}
         <div className="footer-note">
           حُرر هذا العقد من نسختين أصليتين، بيد كل طرف نسخة للعمل بموجبها — تاريخ التحرير: {todayStr}
-          <br/>فندق الفاخر — المملكة الأردنية الهاشمية — جميع الحقوق محفوظة © 2026
+          <br/>فندق المفرق — المملكة الأردنية الهاشمية — جميع الحقوق محفوظة © 2026
         </div>
 
       </div>

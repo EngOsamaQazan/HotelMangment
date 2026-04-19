@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -33,15 +34,35 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary to-primary-dark !mr-0 !pt-0 px-4 sm:px-6">
-      <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="text-5xl mb-3">🏨</div>
-          <h1 className="text-2xl font-bold text-primary">فندق الفاخر</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            نظام الإدارة المتكامل — المملكة الأردنية الهاشمية
+    <div
+      className="min-h-screen flex items-center justify-center !mr-0 !pt-0 px-4 sm:px-6 relative"
+      style={{
+        background:
+          "radial-gradient(ellipse at top, #155A4C 0%, #0E3B33 50%, #092923 100%)",
+      }}
+    >
+      {/* Decorative gold ornaments */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-10 right-10 w-64 h-64 rounded-full bg-gold/5 blur-3xl" />
+        <div className="absolute bottom-10 left-10 w-80 h-80 rounded-full bg-gold/5 blur-3xl" />
+      </div>
+
+      <div className="relative w-full max-w-md">
+        {/* Brand lockup above card */}
+        <div className="text-center mb-6">
+          <BrandLogo size="xl" />
+          <p className="text-gold-light/80 text-xs sm:text-sm mt-3 tracking-widest">
+            المملكة الأردنية الهاشمية
           </p>
         </div>
+
+        <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 border-t-4 border-gold">
+          <div className="text-center mb-6">
+            <h2 className="text-lg font-bold text-primary">تسجيل الدخول</h2>
+            <p className="text-gray-500 text-xs mt-1">
+              نظام الإدارة المتكامل
+            </p>
+          </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
@@ -81,16 +102,21 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-primary text-white py-2.5 rounded-lg font-bold hover:bg-primary-dark transition disabled:opacity-50"
+            className="w-full bg-primary text-white py-2.5 rounded-lg font-bold hover:bg-primary-dark transition disabled:opacity-50 border border-gold/40 shadow-md"
           >
             {loading ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
           </button>
         </form>
 
-        <div className="mt-6 text-center text-xs text-gray-400">
-          <p>الحسابات الافتراضية:</p>
-          <p className="mt-1">admin@fakher.jo / admin123</p>
+          <div className="mt-6 text-center text-xs text-gray-400">
+            <p>الحسابات الافتراضية:</p>
+            <p className="mt-1">admin@fakher.jo / admin123</p>
+          </div>
         </div>
+
+        <p className="text-center text-gold/60 text-[11px] mt-6 tracking-wider">
+          © 2026 فندق المفرق — جميع الحقوق محفوظة
+        </p>
       </div>
     </div>
   );

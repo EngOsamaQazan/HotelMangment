@@ -104,7 +104,7 @@ export default function ReservationsPage() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <CalendarCheck className="text-primary" size={24} />
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">سجل الحجوزات</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-primary">سجل الحجوزات</h1>
         </div>
         <Link
           href="/reservations/new"

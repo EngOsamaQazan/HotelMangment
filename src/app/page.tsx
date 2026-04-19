@@ -75,10 +75,12 @@ const statCards = [
     key: "totalUnits" as const,
     label: "إجمالي الوحدات",
     icon: Building2,
-    bg: "bg-blue-50",
-    iconBg: "bg-blue-100",
-    iconColor: "text-blue-600",
-    valueColor: "text-blue-700",
+    bg: "bg-primary",
+    iconBg: "bg-gold/20",
+    iconColor: "text-gold",
+    valueColor: "text-gold",
+    labelColor: "text-gold-light",
+    isBrand: true,
   },
   {
     key: "occupied" as const,
@@ -88,6 +90,8 @@ const statCards = [
     iconBg: "bg-red-100",
     iconColor: "text-red-600",
     valueColor: "text-red-700",
+    labelColor: "text-gray-500",
+    isBrand: false,
   },
   {
     key: "available" as const,
@@ -97,15 +101,19 @@ const statCards = [
     iconBg: "bg-green-100",
     iconColor: "text-green-600",
     valueColor: "text-green-700",
+    labelColor: "text-gray-500",
+    isBrand: false,
   },
   {
     key: "activeReservations" as const,
     label: "حجوزات نشطة",
     icon: CalendarCheck,
-    bg: "bg-purple-50",
-    iconBg: "bg-purple-100",
-    iconColor: "text-purple-600",
-    valueColor: "text-purple-700",
+    bg: "bg-gold-soft",
+    iconBg: "bg-gold/20",
+    iconColor: "text-gold-dark",
+    valueColor: "text-gold-dark",
+    labelColor: "text-gray-600",
+    isBrand: false,
   },
 ];
 
@@ -158,8 +166,13 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">لوحة التحكم</h1>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b-2 border-gold/30 pb-3">
+        <div className="flex items-center gap-3">
+          <span className="inline-block w-1 h-7 bg-gold rounded-full" />
+          <h1 className="text-xl sm:text-2xl font-bold text-primary">
+            لوحة التحكم
+          </h1>
+        </div>
         <p className="text-xs sm:text-sm text-muted" suppressHydrationWarning>
           {todayLabel}
         </p>
@@ -174,12 +187,15 @@ export default function DashboardPage() {
                 key={card.key}
                 className={cn(
                   "rounded-xl shadow-sm p-5 transition-transform hover:scale-[1.02]",
-                  card.bg
+                  card.bg,
+                  card.isBrand && "border border-gold/40 shadow-md"
                 )}
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">{card.label}</p>
+                    <p className={cn("text-sm mb-1", card.labelColor)}>
+                      {card.label}
+                    </p>
                     <p className={cn("text-2xl sm:text-3xl font-bold", card.valueColor)}>
                       {data?.stats[card.key] ?? 0}
                     </p>
@@ -196,14 +212,14 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row gap-3">
         <Link
           href="/reservations/new"
-          className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors shadow-sm"
+          className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors shadow-sm border border-gold/30"
         >
           <Plus size={18} />
           <span>حجز جديد</span>
         </Link>
         <Link
           href="/rooms"
-          className="flex items-center gap-2 px-5 py-2.5 bg-card-bg text-gray-700 rounded-lg hover:bg-gray-100 transition-colors shadow-sm border border-gray-200"
+          className="flex items-center gap-2 px-5 py-2.5 bg-card-bg text-primary rounded-lg hover:bg-gold-soft transition-colors shadow-sm border border-gold/40"
         >
           <LayoutGrid size={18} />
           <span>حالة الغرف</span>
@@ -216,9 +232,9 @@ export default function DashboardPage() {
         {loading ? (
           <TableSkeleton />
         ) : (
-          <div className="bg-card-bg rounded-xl shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-gray-800">
+          <div className="bg-card-bg rounded-xl shadow-sm overflow-hidden border-t-2 border-gold/50">
+            <div className="px-5 py-4 border-b border-gold/20 bg-gold-soft/40">
+              <h2 className="text-lg font-bold text-primary">
                 عمليات الدخول والخروج اليوم
               </h2>
             </div>
@@ -286,9 +302,9 @@ export default function DashboardPage() {
         {loading ? (
           <TableSkeleton />
         ) : (
-          <div className="bg-card-bg rounded-xl shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-gray-800">
+          <div className="bg-card-bg rounded-xl shadow-sm overflow-hidden border-t-2 border-gold/50">
+            <div className="px-5 py-4 border-b border-gold/20 bg-gold-soft/40">
+              <h2 className="text-lg font-bold text-primary">
                 ملخص الديون المستحقة
               </h2>
             </div>

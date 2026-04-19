@@ -229,7 +229,7 @@ export default function NewReservationPage() {
             <ArrowRight size={20} className="text-gray-600" />
           </Link>
           <CalendarCheck className="text-primary" size={28} />
-          <h1 className="text-2xl font-bold text-gray-800">حجز جديد</h1>
+          <h1 className="text-2xl font-bold text-primary">حجز جديد</h1>
         </div>
       </div>
 

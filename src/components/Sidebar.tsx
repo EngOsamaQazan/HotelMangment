@@ -20,6 +20,7 @@ import {
   Calculator,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
+import { BrandLogo, BrandLogoInline } from "@/components/BrandLogo";
 
 const navItems = [
   { href: "/", label: "لوحة التحكم", icon: LayoutDashboard },
@@ -60,7 +61,7 @@ export function Sidebar() {
   return (
     <>
       {/* Mobile Top Bar */}
-      <div className="fixed top-0 right-0 left-0 h-14 bg-sidebar text-white flex items-center justify-between px-4 z-50 md:hidden no-print safe-bottom">
+      <div className="fixed top-0 right-0 left-0 h-14 bg-sidebar text-white flex items-center justify-between px-4 z-50 md:hidden no-print safe-bottom border-b border-gold/30">
         <button
           onClick={() => setMobileOpen(true)}
           className="p-2 rounded-lg hover:bg-sidebar-hover transition-colors"
@@ -68,7 +69,7 @@ export function Sidebar() {
         >
           <Menu size={24} />
         </button>
-        <h1 className="text-base font-bold">🏨 فندق الفاخر</h1>
+        <BrandLogoInline />
         <div className="w-10" />
       </div>
 
@@ -84,21 +85,26 @@ export function Sidebar() {
       <aside
         className={cn(
           "fixed right-0 top-0 h-screen w-64 bg-sidebar text-white flex flex-col z-[70] no-print transition-transform duration-300 ease-in-out",
+          "border-l border-gold/20",
           "md:translate-x-0",
           mobileOpen ? "translate-x-0" : "translate-x-full md:translate-x-0"
         )}
       >
-        <div className="p-5 border-b border-white/10 text-center flex items-center justify-between md:justify-center">
-          <h1 className="text-xl font-bold">🏨 فندق الفاخر</h1>
+        <div className="px-5 pt-6 pb-5 border-b border-gold/20 flex items-start justify-between md:justify-center">
+          <div className="flex-1 flex justify-center">
+            <BrandLogo size="md" />
+          </div>
           <button
             onClick={closeMobile}
-            className="p-1.5 rounded-lg hover:bg-sidebar-hover transition-colors md:hidden"
+            className="p-1.5 rounded-lg hover:bg-sidebar-hover transition-colors md:hidden text-gold"
             aria-label="إغلاق القائمة"
           >
             <X size={20} />
           </button>
         </div>
-        <p className="text-xs text-gray-400 text-center pb-2 hidden md:block">نظام الإدارة المتكامل</p>
+        <p className="text-[11px] text-gold/70 text-center pt-2 pb-1 hidden md:block tracking-wider">
+          نظام الإدارة المتكامل
+        </p>
 
         <nav className="flex-1 py-3 overflow-y-auto scrollbar-thin">
           {navItems.map((item) => {
@@ -110,10 +116,10 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-5 py-3 text-sm transition-colors",
+                  "flex items-center gap-3 px-5 py-3 text-sm transition-colors relative",
                   isActive
-                    ? "bg-primary text-white font-bold"
-                    : "text-gray-300 hover:bg-sidebar-hover hover:text-white"
+                    ? "bg-primary-dark text-gold font-bold border-r-[3px] border-gold"
+                    : "text-white/80 hover:bg-sidebar-hover hover:text-gold-light"
                 )}
               >
                 <item.icon size={20} />
@@ -123,10 +129,10 @@ export function Sidebar() {
           })}
         </nav>
 
-        <div className="p-3 border-t border-white/10 safe-bottom">
+        <div className="p-3 border-t border-gold/20 safe-bottom">
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
-            className="flex items-center gap-3 px-5 py-2 text-sm text-gray-400 hover:text-red-400 transition-colors w-full"
+            className="flex items-center gap-3 px-5 py-2 text-sm text-white/70 hover:text-red-300 transition-colors w-full"
           >
             <LogOut size={18} />
             <span>تسجيل خروج</span>

@@ -231,8 +231,8 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-2">
-        <Settings size={24} className="text-primary" />
+      <h1 className="text-xl sm:text-2xl font-bold text-primary flex items-center gap-2 border-b-2 border-gold/30 pb-3">
+        <Settings size={24} className="text-gold-dark" />
         الإعدادات
       </h1>
 
@@ -319,7 +319,7 @@ export default function SettingsPage() {
                               });
                               setShowUserForm(false);
                             }}
-                            className="p-1.5 text-primary-light hover:text-primary hover:bg-blue-50 rounded-lg transition-colors"
+                            className="p-1.5 text-primary-light hover:text-primary hover:bg-gold-soft rounded-lg transition-colors"
                             title="تعديل"
                           >
                             <Pencil size={16} />
@@ -367,7 +367,7 @@ export default function SettingsPage() {
                           });
                           setShowUserForm(false);
                         }}
-                        className="p-2 text-primary-light hover:text-primary hover:bg-blue-50 rounded-lg transition-colors"
+                        className="p-2 text-primary-light hover:text-primary hover:bg-gold-soft rounded-lg transition-colors"
                       >
                         <Pencil size={16} />
                       </button>

@@ -99,7 +99,7 @@ export default function IdScanner({ onExtracted, label }: IdScannerProps) {
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors text-xs font-medium"
+            className="flex items-center gap-1.5 px-3 py-2 bg-gold-soft text-primary border border-gold/40 rounded-lg hover:bg-gold/20 transition-colors text-xs font-medium"
           >
             <Upload size={14} />
             {label || "رفع وثيقة"}
@@ -130,7 +130,7 @@ export default function IdScanner({ onExtracted, label }: IdScannerProps) {
             </div>
 
             {scanning && (
-              <div className="flex items-center gap-2 text-xs text-blue-600 bg-blue-50 px-3 py-2 rounded-lg">
+              <div className="flex items-center gap-2 text-xs text-primary bg-gold-soft border border-gold/30 px-3 py-2 rounded-lg">
                 <Loader2 size={14} className="animate-spin" />
                 {progress}
               </div>

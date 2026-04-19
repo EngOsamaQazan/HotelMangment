@@ -56,7 +56,7 @@ export default function GuestsPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <Users className="text-primary" size={24} />
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">سجل النزلاء</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-primary">سجل النزلاء</h1>
       </div>
 
       {/* Search */}

@@ -150,7 +150,7 @@ export default function MonthlyReportPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 no-print">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">التقرير الشهري</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-primary">التقرير الشهري</h1>
         <button
           onClick={() => window.print()}
           className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium w-full sm:w-auto"
@@ -202,9 +202,15 @@ export default function MonthlyReportPage() {
       ) : data ? (
         <>
           {/* Print Header */}
-          <div className="hidden print:block text-center mb-6">
-            <h2 className="text-xl font-bold">
-              فندق الفاخر — التقرير الشهري
+          <div className="hidden print:block text-center mb-6 pb-3 border-b-2 border-[#0E3B33]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="فندق المفرق"
+              style={{ display: "block", margin: "0 auto 6px", maxWidth: 180, height: "auto" }}
+            />
+            <h2 className="text-xl font-bold" style={{ color: "#0E3B33" }}>
+              فندق المفرق — التقرير الشهري
             </h2>
             <p className="text-gray-600">
               {MONTHS[month - 1]} {year}

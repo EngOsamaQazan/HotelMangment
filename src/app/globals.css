@@ -1,17 +1,33 @@
 @import "tailwindcss";
 
+/* ══════════════════════════════════════════════
+   فندق المفرق — الهوية البصرية
+   Brand palette: Deep Emerald Green + Warm Gold
+   ══════════════════════════════════════════════ */
+
 @theme {
-  --color-primary: #1a5276;
-  --color-primary-dark: #0e3a56;
-  --color-primary-light: #2980b9;
+  /* Primary = Deep Emerald Green (from brand identity) */
+  --color-primary: #0E3B33;
+  --color-primary-dark: #092923;
+  --color-primary-light: #155A4C;
+
+  /* Gold accent (from brand calligraphy) */
+  --color-gold: #D4B273;
+  --color-gold-dark: #B8945A;
+  --color-gold-light: #E8D0A0;
+  --color-gold-soft: #FAF3E3;
+
+  /* Semantic colors */
   --color-success: #27ae60;
   --color-danger: #c0392b;
-  --color-warning: #f39c12;
+  --color-warning: #D4B273;
   --color-muted: #6b7280;
-  --color-sidebar: #1e293b;
-  --color-sidebar-hover: #334155;
+
+  /* Layout surfaces */
+  --color-sidebar: #0E3B33;
+  --color-sidebar-hover: #155A4C;
   --color-card-bg: #ffffff;
-  --color-page-bg: #f1f5f9;
+  --color-page-bg: #F6F3ED;
 }
 
 body {

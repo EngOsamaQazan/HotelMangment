@@ -101,7 +101,7 @@ export default function LedgerPage() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 no-print">
         <div className="flex items-center gap-3">
           <BookOpen size={28} className="text-primary" />
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
+          <h1 className="text-xl sm:text-2xl font-bold text-primary">
             الأستاذ العام
           </h1>
         </div>

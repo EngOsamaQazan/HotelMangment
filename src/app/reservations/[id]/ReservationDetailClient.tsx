@@ -287,7 +287,7 @@ export default function ReservationDetailClient({ id }: { id: string }) {
             <ArrowRight size={20} className="text-gray-600" />
           </Link>
           <CalendarCheck className="text-primary" size={28} />
-          <h1 className="text-2xl font-bold text-gray-800">
+          <h1 className="text-2xl font-bold text-primary">
             حجز #{reservation.id}
           </h1>
           <span

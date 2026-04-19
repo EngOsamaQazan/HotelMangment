@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Tajawal } from "next/font/google";
+import { Tajawal, Amiri } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
 import { AuthProvider } from "@/components/AuthProvider";
@@ -10,12 +10,18 @@ const tajawal = Tajawal({
   variable: "--font-tajawal",
 });
 
+const amiri = Amiri({
+  subsets: ["arabic", "latin"],
+  weight: ["400", "700"],
+  variable: "--font-amiri",
+});
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-  title: "فندق الفاخر — نظام الإدارة",
-  description: "نظام إدارة فندق الفاخر — المملكة الأردنية الهاشمية",
+  title: "فندق المفرق — نظام الإدارة",
+  description: "نظام إدارة فندق المفرق — المملكة الأردنية الهاشمية",
 };
 
 export const viewport: Viewport = {
@@ -23,7 +29,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   viewportFit: "cover",
-  themeColor: "#1e293b",
+  themeColor: "#0E3B33",
 };
 
 export default function RootLayout({
@@ -32,7 +38,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ar" dir="rtl" className={tajawal.variable}>
+    <html
+      lang="ar"
+      dir="rtl"
+      className={`${tajawal.variable} ${amiri.variable}`}
+    >
       <body className="font-[family-name:var(--font-tajawal)] antialiased">
         <AuthProvider>
           <div className="flex min-h-screen">
