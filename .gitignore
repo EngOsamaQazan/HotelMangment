@@ -56,3 +56,6 @@ next-env.d.ts
 tmp-import/
 excel-import-preview.json
 import-guests-preview.json
+
+# PM2
+.pm2-logs/
