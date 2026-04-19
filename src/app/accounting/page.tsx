@@ -11,6 +11,7 @@ import {
   CalendarRange,
   Calculator,
   Banknote,
+  AlertTriangle,
 } from "lucide-react";
 
 const SECTIONS: Array<{
@@ -66,6 +67,12 @@ const SECTIONS: Array<{
     title: "الميزانية العمومية",
     desc: "الأصول = الخصوم + حقوق الملكية",
     icon: Wallet,
+  },
+  {
+    href: "/accounting/reports/guest-debts",
+    title: "تقرير ذمم النزلاء",
+    desc: "الحجوزات غير المسددة — مربوطة بحساب 1100",
+    icon: AlertTriangle,
   },
   {
     href: "/accounting/periods",

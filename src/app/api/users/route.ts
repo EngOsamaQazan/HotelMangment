@@ -11,6 +11,7 @@ export async function GET() {
         id: true,
         name: true,
         email: true,
+        username: true,
         role: true,
         createdAt: true,
       },
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
   try {
     await requirePermission("settings.users:create");
     const body = await request.json();
-    const { name, email, password, role } = body;
+    const { name, email, username, password, role } = body;
 
     if (!name || !email || !password) {
       return NextResponse.json(
@@ -42,12 +43,28 @@ export async function POST(request: Request) {
       );
     }
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
+    const existingEmail = await prisma.user.findUnique({ where: { email } });
+    if (existingEmail) {
       return NextResponse.json(
         { error: "A user with this email already exists" },
         { status: 409 }
       );
+    }
+
+    const usernameClean =
+      typeof username === "string" && username.trim().length > 0
+        ? username.trim()
+        : null;
+    if (usernameClean) {
+      const existingUsername = await prisma.user.findUnique({
+        where: { username: usernameClean },
+      });
+      if (existingUsername) {
+        return NextResponse.json(
+          { error: "A user with this username already exists" },
+          { status: 409 }
+        );
+      }
     }
 
     const validRoles = ["admin", "receptionist", "accountant"];
@@ -66,6 +83,7 @@ export async function POST(request: Request) {
         data: {
           name,
           email,
+          username: usernameClean,
           passwordHash,
           role: roleKey,
         },
@@ -73,6 +91,7 @@ export async function POST(request: Request) {
           id: true,
           name: true,
           email: true,
+          username: true,
           role: true,
           createdAt: true,
         },

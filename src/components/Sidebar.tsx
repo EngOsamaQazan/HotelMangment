@@ -11,7 +11,6 @@ import {
   Users,
   Wrench,
   BarChart3,
-  FileText,
   Settings,
   LogOut,
   Menu,
@@ -38,7 +37,6 @@ const navItems: NavItem[] = [
   { href: "/accounting", label: "المحاسبة", icon: Calculator, permission: "accounting:view" },
   { href: "/maintenance", label: "الصيانة", icon: Wrench, permission: "maintenance:view" },
   { href: "/reports/monthly", label: "التقرير الشهري", icon: BarChart3, permission: "reports.monthly:view" },
-  { href: "/reports/debts", label: "تقرير الديون", icon: FileText, permission: "reports.debts:view" },
   { href: "/settings", label: "الإعدادات", icon: Settings, permission: "settings:view" },
 ];
 

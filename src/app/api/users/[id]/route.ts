@@ -26,9 +26,15 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { name, email, password, role } = body;
+    const { name, email, username, password, role } = body;
 
-    const updateData: { name?: string; email?: string; passwordHash?: string; role?: "admin" | "receptionist" | "accountant" } = {};
+    const updateData: {
+      name?: string;
+      email?: string;
+      username?: string | null;
+      passwordHash?: string;
+      role?: "admin" | "receptionist" | "accountant";
+    } = {};
 
     if (name !== undefined) updateData.name = name;
     if (role !== undefined) {
@@ -53,6 +59,27 @@ export async function PUT(
       updateData.email = email;
     }
 
+    if (username !== undefined) {
+      const usernameClean =
+        typeof username === "string" && username.trim().length > 0
+          ? username.trim()
+          : null;
+      if (usernameClean !== existing.username) {
+        if (usernameClean) {
+          const taken = await prisma.user.findUnique({
+            where: { username: usernameClean },
+          });
+          if (taken && taken.id !== userId) {
+            return NextResponse.json(
+              { error: "A user with this username already exists" },
+              { status: 409 }
+            );
+          }
+        }
+        updateData.username = usernameClean;
+      }
+    }
+
     if (password) {
       updateData.passwordHash = await bcrypt.hash(password, 12);
     }
@@ -65,6 +92,7 @@ export async function PUT(
           id: true,
           name: true,
           email: true,
+          username: true,
           role: true,
           createdAt: true,
         },
