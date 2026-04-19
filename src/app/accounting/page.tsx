@@ -10,66 +10,98 @@ import {
   Wallet,
   CalendarRange,
   Calculator,
+  Banknote,
 } from "lucide-react";
 
-const SECTIONS = [
+type Accent = "primary" | "gold";
+
+const SECTIONS: Array<{
+  href: string;
+  title: string;
+  desc: string;
+  icon: typeof BookOpen;
+  accent: Accent;
+}> = [
+  {
+    href: "/accounting/cashbook",
+    title: "الدفتر النقدي",
+    desc: "الصندوق والبنك والمحفظة الإلكترونية مع أرصدة فورية",
+    icon: Banknote,
+    accent: "gold",
+  },
   {
     href: "/accounting/accounts",
     title: "دليل الحسابات",
     desc: "إدارة شجرة الحسابات الأصول، الخصوم، الإيرادات، المصروفات",
     icon: BookOpen,
-    color: "bg-blue-100 text-blue-700",
+    accent: "primary",
   },
   {
     href: "/accounting/parties",
     title: "الأطراف",
     desc: "الشركاء، الموردون، الموظفون، المُقرضون + كشف حساب",
     icon: Users,
-    color: "bg-purple-100 text-purple-700",
+    accent: "primary",
   },
   {
     href: "/accounting/journal",
     title: "القيود اليومية",
     desc: "عرض كافة القيود وإنشاء قيد يدوي متعدد السطور",
     icon: BookText,
-    color: "bg-green-100 text-green-700",
+    accent: "gold",
   },
   {
     href: "/accounting/ledger",
     title: "الأستاذ العام",
     desc: "حركات حساب محدد مع أرصدة جارية",
     icon: Calculator,
-    color: "bg-orange-100 text-orange-700",
+    accent: "primary",
   },
   {
     href: "/accounting/reports/trial-balance",
     title: "ميزان المراجعة",
     desc: "التحقق من توازن الحسابات بتاريخ معين",
     icon: Scale,
-    color: "bg-indigo-100 text-indigo-700",
+    accent: "gold",
   },
   {
     href: "/accounting/reports/income-statement",
     title: "قائمة الدخل",
     desc: "الإيرادات والمصروفات وصافي الربح/الخسارة",
     icon: TrendingUp,
-    color: "bg-emerald-100 text-emerald-700",
+    accent: "primary",
   },
   {
     href: "/accounting/reports/balance-sheet",
     title: "الميزانية العمومية",
     desc: "الأصول = الخصوم + حقوق الملكية",
     icon: Wallet,
-    color: "bg-pink-100 text-pink-700",
+    accent: "gold",
   },
   {
     href: "/accounting/periods",
     title: "الفترات المالية",
     desc: "فتح/إقفال الفترات وقيد إقفال سنوي",
     icon: CalendarRange,
-    color: "bg-red-100 text-red-700",
+    accent: "primary",
   },
 ];
+
+const ACCENT_STYLES: Record<
+  Accent,
+  { iconBox: string; iconColor: string; hoverRing: string }
+> = {
+  primary: {
+    iconBox: "bg-primary/10 border border-primary/20",
+    iconColor: "text-primary",
+    hoverRing: "group-hover:border-primary/40 group-hover:bg-primary/15",
+  },
+  gold: {
+    iconBox: "bg-gold-soft border border-gold/40",
+    iconColor: "text-gold-dark",
+    hoverRing: "group-hover:border-gold/70 group-hover:bg-gold/20",
+  },
+};
 
 export default function AccountingHomePage() {
   return (
@@ -89,21 +121,28 @@ export default function AccountingHomePage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {SECTIONS.map((s) => {
           const Icon = s.icon;
+          const style = ACCENT_STYLES[s.accent];
           return (
             <Link
               key={s.href}
               href={s.href}
-              className="bg-card-bg rounded-xl p-5 shadow-sm hover:shadow-md transition-all border border-transparent hover:border-primary/20 group"
+              className="relative bg-card-bg rounded-xl p-5 shadow-sm hover:shadow-lg transition-all border border-gold/15 hover:border-gold/50 hover:-translate-y-0.5 group overflow-hidden"
             >
+              <span
+                aria-hidden
+                className="absolute inset-y-0 right-0 w-1 bg-gold/0 group-hover:bg-gold transition-colors"
+              />
               <div
-                className={`w-12 h-12 rounded-xl flex items-center justify-center ${s.color} mb-3`}
+                className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${style.iconBox} ${style.hoverRing} mb-3`}
               >
-                <Icon size={24} />
+                <Icon size={22} className={style.iconColor} />
               </div>
-              <h3 className="text-lg font-bold text-gray-800 group-hover:text-primary">
+              <h3 className="text-lg font-bold text-primary group-hover:text-primary-dark">
                 {s.title}
               </h3>
-              <p className="text-sm text-gray-500 mt-1">{s.desc}</p>
+              <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+                {s.desc}
+              </p>
             </Link>
           );
         })}
