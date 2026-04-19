@@ -184,7 +184,7 @@ export default function MonthlyReportPage() {
             onChange={(e) => setYear(parseInt(e.target.value))}
             className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary flex-1 sm:flex-none"
           >
-            {Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i).map(
+            {Array.from({ length: 5 }, (_, i) => (year || new Date().getFullYear()) - 2 + i).map(
               (y) => (
                 <option key={y} value={y}>
                   {y}
