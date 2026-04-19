@@ -3,6 +3,7 @@ import { Tajawal, Amiri } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
 import { AuthProvider } from "@/components/AuthProvider";
+import { BFCacheBuster } from "@/components/BFCacheBuster";
 import { PermissionsProvider } from "@/lib/permissions/client";
 
 const tajawal = Tajawal({
@@ -68,6 +69,7 @@ export default function RootLayout({
       <body className="font-[family-name:var(--font-tajawal)] antialiased">
         <AuthProvider>
           <PermissionsProvider>
+            <BFCacheBuster />
             <AppShell>{children}</AppShell>
           </PermissionsProvider>
         </AuthProvider>
