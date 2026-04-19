@@ -109,7 +109,7 @@ export default function AccountingHomePage() {
       <div className="border-b-2 border-gold/30 pb-3">
         <div className="flex items-center gap-3">
           <span className="inline-block w-1 h-8 bg-gold rounded-full" />
-          <h1 className="text-2xl sm:text-3xl font-bold text-primary">
+          <h1 className="text-2xl sm:text-3xl font-bold text-primary font-[family-name:var(--font-amiri)] tracking-tight">
             النظام المحاسبي
           </h1>
         </div>
@@ -137,10 +137,19 @@ export default function AccountingHomePage() {
               >
                 <Icon size={22} className={style.iconColor} />
               </div>
-              <h3 className="text-lg font-bold text-primary group-hover:text-primary-dark">
+              <h3
+                className="text-xl font-bold text-primary group-hover:text-primary-dark leading-tight inline-flex items-baseline gap-2 font-[family-name:var(--font-amiri)]"
+              >
+                <span className="text-gold-dark text-lg leading-none select-none">
+                  ◆
+                </span>
                 {s.title}
               </h3>
-              <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+              <span
+                aria-hidden
+                className="block h-px w-10 bg-gradient-to-l from-gold/80 via-gold/40 to-transparent mt-2 mb-2 group-hover:w-16 transition-all"
+              />
+              <p className="text-sm text-gray-500 leading-relaxed">
                 {s.desc}
               </p>
             </Link>
