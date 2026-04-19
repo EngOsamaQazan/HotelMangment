@@ -67,12 +67,15 @@ function UnitCardSkeleton() {
   );
 }
 
+type StatusFilter = "available" | "occupied" | "maintenance" | null;
+
 export default function RoomsPage() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(null);
 
   const fetchUnits = useCallback(async () => {
     try {
@@ -110,8 +113,18 @@ export default function RoomsPage() {
     }
   }
 
-  const rooms = units.filter((u) => u.type === "room");
-  const apartments = units.filter((u) => u.type === "apartment");
+  const statusCounts = {
+    available: units.filter((u) => u.status === "available").length,
+    occupied: units.filter((u) => u.status === "occupied").length,
+    maintenance: units.filter((u) => u.status === "maintenance").length,
+  };
+
+  const filteredUnits = statusFilter
+    ? units.filter((u) => u.status === statusFilter)
+    : units;
+
+  const rooms = filteredUnits.filter((u) => u.type === "room");
+  const apartments = filteredUnits.filter((u) => u.type === "apartment");
 
   if (error) {
     return (
@@ -136,25 +149,57 @@ export default function RoomsPage() {
     <div className="space-y-6">
       <h1 className="text-xl sm:text-2xl font-bold text-gray-800">حالة الغرف والشقق</h1>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-2 sm:gap-4 bg-card-bg rounded-xl shadow-sm p-3 sm:p-4">
+      {/* Legend / Filter */}
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-card-bg rounded-xl shadow-sm p-3 sm:p-4">
         {Object.entries(statusConfig).map(([key, config]) => {
           const Icon = config.icon;
+          const isActive = statusFilter === key;
+          const count = statusCounts[key as keyof typeof statusCounts];
           return (
-            <div key={key} className="flex items-center gap-2">
+            <button
+              key={key}
+              type="button"
+              onClick={() =>
+                setStatusFilter((prev) =>
+                  prev === key ? null : (key as StatusFilter)
+                )
+              }
+              aria-pressed={isActive}
+              title={isActive ? "إلغاء الفلتر" : `تصفية: ${statusLabels[key] || key}`}
+              className={cn(
+                "inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium px-3 py-1.5 rounded-full border transition-all cursor-pointer",
+                config.badge,
+                config.badgeText,
+                isActive
+                  ? cn(config.border, "ring-2 ring-offset-1 shadow-sm scale-105")
+                  : "border-transparent hover:shadow-sm hover:scale-105",
+                statusFilter && !isActive && "opacity-60"
+              )}
+            >
+              <Icon size={14} />
+              <span>{statusLabels[key] || key}</span>
               <span
                 className={cn(
-                  "inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full",
-                  config.badge,
+                  "inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-white/70 text-[11px] font-bold",
                   config.badgeText
                 )}
               >
-                <Icon size={14} />
-                {statusLabels[key] || key}
+                {count}
               </span>
-            </div>
+            </button>
           );
         })}
+
+        {statusFilter && (
+          <button
+            type="button"
+            onClick={() => setStatusFilter(null)}
+            className="inline-flex items-center gap-1 text-xs sm:text-sm font-medium px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors cursor-pointer"
+          >
+            <X size={14} />
+            مسح الفلتر
+          </button>
+        )}
       </div>
 
       {/* Rooms Section */}
@@ -165,19 +210,25 @@ export default function RoomsPage() {
             الغرف الفندقية (101-109)
           </h2>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-          {loading
-            ? Array.from({ length: 4 }, (_, i) => (
-                <UnitCardSkeleton key={i} />
-              ))
-            : rooms.map((unit) => (
-                <UnitCard
-                  key={unit.id}
-                  unit={unit}
-                  onClick={() => setSelectedUnit(unit)}
-                />
-              ))}
-        </div>
+        {!loading && rooms.length === 0 ? (
+          <div className="bg-card-bg rounded-xl shadow-sm p-6 text-center text-sm text-gray-500">
+            لا توجد غرف مطابقة للفلتر الحالي
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+            {loading
+              ? Array.from({ length: 4 }, (_, i) => (
+                  <UnitCardSkeleton key={i} />
+                ))
+              : rooms.map((unit) => (
+                  <UnitCard
+                    key={unit.id}
+                    unit={unit}
+                    onClick={() => setSelectedUnit(unit)}
+                  />
+                ))}
+          </div>
+        )}
       </section>
 
       {/* Apartments Section */}
@@ -188,19 +239,25 @@ export default function RoomsPage() {
             الشقق المفروشة (01-06)
           </h2>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-          {loading
-            ? Array.from({ length: 3 }, (_, i) => (
-                <UnitCardSkeleton key={i} />
-              ))
-            : apartments.map((unit) => (
-                <UnitCard
-                  key={unit.id}
-                  unit={unit}
-                  onClick={() => setSelectedUnit(unit)}
-                />
-              ))}
-        </div>
+        {!loading && apartments.length === 0 ? (
+          <div className="bg-card-bg rounded-xl shadow-sm p-6 text-center text-sm text-gray-500">
+            لا توجد شقق مطابقة للفلتر الحالي
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+            {loading
+              ? Array.from({ length: 3 }, (_, i) => (
+                  <UnitCardSkeleton key={i} />
+                ))
+              : apartments.map((unit) => (
+                  <UnitCard
+                    key={unit.id}
+                    unit={unit}
+                    onClick={() => setSelectedUnit(unit)}
+                  />
+                ))}
+          </div>
+        )}
       </section>
 
       {/* Unit Detail Modal */}
