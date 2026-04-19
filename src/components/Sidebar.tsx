@@ -17,6 +17,7 @@ import {
   LogOut,
   Menu,
   X,
+  Calculator,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
@@ -26,6 +27,7 @@ const navItems = [
   { href: "/rooms", label: "حالة الغرف", icon: BedDouble },
   { href: "/guests", label: "النزلاء", icon: Users },
   { href: "/finance", label: "الصندوق والبنك", icon: Wallet },
+  { href: "/accounting", label: "المحاسبة", icon: Calculator },
   { href: "/maintenance", label: "الصيانة", icon: Wrench },
   { href: "/reports/monthly", label: "التقرير الشهري", icon: BarChart3 },
   { href: "/reports/debts", label: "تقرير الديون", icon: FileText },

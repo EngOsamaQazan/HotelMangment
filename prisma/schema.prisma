@@ -122,3 +122,130 @@ model Transaction {
 
   @@map("transactions")
 }
+
+// ============================================================================
+// Double-Entry Accounting Models
+// ============================================================================
+
+model Account {
+  id            Int      @id @default(autoincrement())
+  code          String   @unique
+  name          String
+  type          String   // asset | liability | equity | revenue | expense
+  subtype       String?  // cash | bank | ar | ap | capital | drawing | ...
+  normalBalance String   @map("normal_balance") // debit | credit
+  parentId      Int?     @map("parent_id")
+  isSystem      Boolean  @default(false) @map("is_system")
+  isActive      Boolean  @default(true)  @map("is_active")
+  description   String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  parent    Account?  @relation("AccountTree", fields: [parentId], references: [id])
+  children  Account[] @relation("AccountTree")
+  lines     JournalLine[]
+  partiesAR Party[]   @relation("ARAccount")
+  partiesAP Party[]   @relation("APAccount")
+  partiesEq Party[]   @relation("EquityAccount")
+  partiesDr Party[]   @relation("DrawAccount")
+
+  @@index([type])
+  @@index([parentId])
+  @@map("accounts")
+}
+
+model Party {
+  id              Int       @id @default(autoincrement())
+  code            String?   @unique
+  name            String
+  type            String    // guest | partner | supplier | employee | lender | other
+  phone           String?
+  email           String?
+  nationalId      String?   @map("national_id")
+  notes           String?
+  isActive        Boolean   @default(true) @map("is_active")
+  openingBalance  Float     @default(0) @map("opening_balance")
+  openingDate     DateTime? @map("opening_date")
+  arAccountId     Int?      @map("ar_account_id")
+  apAccountId     Int?      @map("ap_account_id")
+  equityAccountId Int?      @map("equity_account_id")
+  drawAccountId   Int?      @map("draw_account_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  arAccount     Account?      @relation("ARAccount",     fields: [arAccountId],     references: [id])
+  apAccount     Account?      @relation("APAccount",     fields: [apAccountId],     references: [id])
+  equityAccount Account?      @relation("EquityAccount", fields: [equityAccountId], references: [id])
+  drawAccount   Account?      @relation("DrawAccount",   fields: [drawAccountId],   references: [id])
+  lines         JournalLine[]
+
+  @@index([type])
+  @@index([isActive])
+  @@map("parties")
+}
+
+model JournalEntry {
+  id           Int       @id @default(autoincrement())
+  entryNumber  String    @unique @map("entry_number")
+  date         DateTime
+  description  String
+  reference    String?
+  source       String    // manual | reservation | payment | expense | salary | opening | reversal
+  sourceRefId  Int?      @map("source_ref_id")
+  status       String    @default("posted") // draft | posted | void
+  totalDebit   Float     @map("total_debit")
+  totalCredit  Float     @map("total_credit")
+  createdById  Int?      @map("created_by")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  voidedAt     DateTime? @map("voided_at")
+  voidedById   Int?      @map("voided_by")
+  voidReason   String?   @map("void_reason")
+  reversalOfId Int?      @map("reversal_of_id")
+
+  lines        JournalLine[]
+  reversalOf   JournalEntry?  @relation("Reversal", fields: [reversalOfId], references: [id])
+  reversedBy   JournalEntry[] @relation("Reversal")
+
+  @@index([date])
+  @@index([source, sourceRefId])
+  @@index([status])
+  @@map("journal_entries")
+}
+
+model JournalLine {
+  id          Int     @id @default(autoincrement())
+  entryId     Int     @map("entry_id")
+  accountId   Int     @map("account_id")
+  partyId     Int?    @map("party_id")
+  debit       Float   @default(0)
+  credit      Float   @default(0)
+  description String?
+  lineOrder   Int     @map("line_order")
+
+  entry   JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account Account      @relation(fields: [accountId], references: [id])
+  party   Party?       @relation(fields: [partyId], references: [id])
+
+  @@index([entryId])
+  @@index([accountId])
+  @@index([partyId])
+  @@map("journal_lines")
+}
+
+model FiscalPeriod {
+  id       Int       @id @default(autoincrement())
+  year     Int
+  month    Int
+  status   String    @default("open") // open | closed
+  closedAt DateTime? @map("closed_at")
+  closedBy Int?      @map("closed_by")
+
+  @@unique([year, month])
+  @@map("fiscal_periods")
+}
+
+model AccountingCounter {
+  id    Int    @id @default(autoincrement())
+  key   String @unique
+  value Int    @default(0)
+
+  @@map("accounting_counters")
+}

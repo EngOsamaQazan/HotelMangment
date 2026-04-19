@@ -53,7 +53,31 @@ interface FormData {
   type: "income" | "expense";
   reservationId: string;
   bankRef: string;
+  partyId: string;
+  counterAccountCode: string;
 }
+
+interface Party {
+  id: number;
+  name: string;
+  type: string;
+}
+
+interface Account {
+  id: number;
+  code: string;
+  name: string;
+  type: string;
+}
+
+const PARTY_TYPE_LABELS: Record<string, string> = {
+  guest: "نزيل",
+  partner: "شريك",
+  supplier: "مورّد",
+  employee: "موظف",
+  lender: "مُقرض",
+  other: "أخرى",
+};
 
 const emptyForm: FormData = {
   date: "",
@@ -62,6 +86,8 @@ const emptyForm: FormData = {
   type: "income",
   reservationId: "",
   bankRef: "",
+  partyId: "",
+  counterAccountCode: "",
 };
 
 function buildEmptyForm(): FormData {
@@ -78,6 +104,23 @@ export default function FinancePage() {
   const [form, setForm] = useState<FormData>(emptyForm);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [parties, setParties] = useState<Party[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+
+  useEffect(() => {
+    if (showForm && parties.length === 0) {
+      fetch("/api/accounting/parties")
+        .then((r) => r.json())
+        .then((j) => setParties(j.parties || []))
+        .catch(() => {});
+    }
+    if (showForm && accounts.length === 0) {
+      fetch("/api/accounting/accounts")
+        .then((r) => r.json())
+        .then((j) => setAccounts(j.accounts || []))
+        .catch(() => {});
+    }
+  }, [showForm, parties.length, accounts.length]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -118,6 +161,8 @@ export default function FinancePage() {
             ? parseInt(form.reservationId)
             : null,
           bankRef: form.bankRef || null,
+          partyId: form.partyId ? parseInt(form.partyId) : null,
+          counterAccountCode: form.counterAccountCode || null,
         }),
       });
       if (!res.ok) {
@@ -466,6 +511,60 @@ export default function FinancePage() {
                     placeholder="—"
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    الطرف (اختياري)
+                  </label>
+                  <select
+                    value={form.partyId}
+                    onChange={(e) =>
+                      setForm({ ...form, partyId: e.target.value })
+                    }
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="">— بدون طرف —</option>
+                    {parties
+                      .filter((p) =>
+                        form.type === "income"
+                          ? true
+                          : p.type !== "guest"
+                      )
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({PARTY_TYPE_LABELS[p.type] || p.type})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    حساب {form.type === "income" ? "الإيراد" : "المصروف"}{" "}
+                    (اختياري)
+                  </label>
+                  <select
+                    value={form.counterAccountCode}
+                    onChange={(e) =>
+                      setForm({ ...form, counterAccountCode: e.target.value })
+                    }
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="">— افتراضي —</option>
+                    {accounts
+                      .filter((a) =>
+                        form.type === "income"
+                          ? a.type === "revenue"
+                          : a.type === "expense"
+                      )
+                      .map((a) => (
+                        <option key={a.id} value={a.code}>
+                          {a.code} - {a.name}
+                        </option>
+                      ))}
+                  </select>
                 </div>
               </div>
 

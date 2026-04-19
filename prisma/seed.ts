@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { seedAccounting } from "./seed-accounting";
 
 const prisma = new PrismaClient();
 
@@ -288,6 +289,9 @@ async function main() {
       { date: new Date("2026-04-09"), description: "صيانة مكيف غرفة 103", amount: 500, type: "expense", account: "cash" },
     ],
   });
+
+  // ===== Accounting Chart of Accounts =====
+  await seedAccounting();
 
   console.log("\n✅ تمت تهيئة قاعدة البيانات بنجاح!");
   console.log("📊 الحسابات الافتراضية:");

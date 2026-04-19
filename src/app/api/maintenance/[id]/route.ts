@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { postEntry, ACCOUNT_CODES } from "@/lib/accounting";
 
 export async function PUT(
   request: Request,
@@ -65,6 +66,40 @@ export async function PUT(
             where: { id: existing.unitId },
             data: { status: hasActiveReservation > 0 ? "occupied" : "available" },
           });
+        }
+
+        const costNum = Number(updated.cost);
+        if (costNum > 0 && existing.status !== "completed") {
+          const alreadyPosted = await tx.journalEntry.findFirst({
+            where: { source: "maintenance", sourceRefId: updated.id, status: "posted" },
+          });
+          if (!alreadyPosted) {
+            await postEntry(tx, {
+              date: updated.completionDate ?? new Date(),
+              description: `صيانة ${updated.unit.unitNumber} - ${updated.description}`,
+              source: "maintenance",
+              sourceRefId: updated.id,
+              lines: [
+                {
+                  accountCode: ACCOUNT_CODES.EXPENSE_MAINTENANCE,
+                  debit: costNum,
+                  description: updated.contractor
+                    ? `مقاول: ${updated.contractor}`
+                    : undefined,
+                },
+                { accountCode: ACCOUNT_CODES.CASH, credit: costNum },
+              ],
+            });
+            await tx.transaction.create({
+              data: {
+                date: updated.completionDate ?? new Date(),
+                description: `صيانة ${updated.unit.unitNumber} - ${updated.description}`,
+                amount: costNum,
+                type: "expense",
+                account: "cash",
+              },
+            });
+          }
         }
       }
 

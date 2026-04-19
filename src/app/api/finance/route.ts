@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import {
+  postEntry,
+  getOrCreateGuestParty,
+  ensurePartyAccounts,
+  ACCOUNT_CODES,
+} from "@/lib/accounting";
 
 export async function GET(request: Request) {
   try {
@@ -76,7 +82,17 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { date, description, reservationId, amount, type, account, bankRef } = body;
+    const {
+      date,
+      description,
+      reservationId,
+      amount,
+      type,
+      account,
+      bankRef,
+      partyId,
+      counterAccountCode,
+    } = body;
 
     if (!date || !description || amount === undefined || !type || !account) {
       return NextResponse.json(
@@ -102,13 +118,17 @@ export async function POST(request: Request) {
       }
     }
 
+    const amountNum = Number(amount);
+    const cashCode =
+      account === "bank" ? ACCOUNT_CODES.BANK : ACCOUNT_CODES.CASH;
+
     const transaction = await prisma.$transaction(async (tx) => {
       const txn = await tx.transaction.create({
         data: {
           date: new Date(date),
           description,
           reservationId: reservationId || null,
-          amount: Number(amount),
+          amount: amountNum,
           type,
           account,
           bankRef: bankRef || null,
@@ -120,27 +140,119 @@ export async function POST(request: Request) {
         },
       });
 
-      if (reservationId && type === "income") {
+      let guestPartyId: number | null = null;
+      let reservation: {
+        id: number;
+        guestName: string;
+        phone: string | null;
+        guestIdNumber: string | null;
+        totalAmount: number;
+      } | null = null;
+
+      if (reservationId) {
+        const r = await tx.reservation.findUnique({
+          where: { id: reservationId },
+        });
+        if (r) {
+          reservation = {
+            id: r.id,
+            guestName: r.guestName,
+            phone: r.phone,
+            guestIdNumber: r.guestIdNumber,
+            totalAmount: Number(r.totalAmount),
+          };
+          guestPartyId = await getOrCreateGuestParty(tx, {
+            name: r.guestName,
+            phone: r.phone,
+            nationalId: r.guestIdNumber,
+            reservationId: r.id,
+          });
+        }
+      }
+
+      let counterPartyId: number | null = null;
+      if (partyId) {
+        const p = await tx.party.findUnique({ where: { id: Number(partyId) } });
+        if (p) {
+          counterPartyId = p.id;
+          await ensurePartyAccounts(tx, p.id);
+        }
+      }
+
+      let counterCode: string;
+      let counterParty: number | null = null;
+
+      if (type === "income") {
+        if (guestPartyId) {
+          counterCode = ACCOUNT_CODES.AR_GUESTS;
+          counterParty = guestPartyId;
+        } else if (counterAccountCode) {
+          counterCode = counterAccountCode;
+          counterParty = counterPartyId;
+        } else {
+          counterCode = ACCOUNT_CODES.REVENUE_OTHER;
+        }
+      } else {
+        if (counterPartyId) {
+          const p = await tx.party.findUnique({
+            where: { id: counterPartyId },
+            include: { apAccount: true, drawAccount: true },
+          });
+          if (p?.type === "partner" && counterAccountCode === ACCOUNT_CODES.OWNER_DRAWINGS) {
+            counterCode = p.drawAccount?.code ?? ACCOUNT_CODES.OWNER_DRAWINGS;
+          } else if (p?.apAccount) {
+            counterCode = p.apAccount.code;
+          } else {
+            counterCode = counterAccountCode || ACCOUNT_CODES.EXPENSE_MISC;
+          }
+          counterParty = counterPartyId;
+        } else if (counterAccountCode) {
+          counterCode = counterAccountCode;
+        } else {
+          counterCode = ACCOUNT_CODES.EXPENSE_MISC;
+        }
+      }
+
+      if (type === "income") {
+        await postEntry(tx, {
+          date: new Date(date),
+          description,
+          reference: bankRef || null,
+          source: "payment",
+          sourceRefId: txn.id,
+          lines: [
+            { accountCode: cashCode, debit: amountNum },
+            { accountCode: counterCode, partyId: counterParty, credit: amountNum },
+          ],
+        });
+      } else {
+        await postEntry(tx, {
+          date: new Date(date),
+          description,
+          reference: bankRef || null,
+          source: "expense",
+          sourceRefId: txn.id,
+          lines: [
+            { accountCode: counterCode, partyId: counterParty, debit: amountNum },
+            { accountCode: cashCode, credit: amountNum },
+          ],
+        });
+      }
+
+      if (reservationId && type === "income" && reservation) {
         const totalPaid = await tx.transaction.aggregate({
           where: { reservationId, type: "income" },
           _sum: { amount: true },
         });
-
-        const reservation = await tx.reservation.findUnique({
+        const paid = Number(totalPaid._sum.amount || 0);
+        const remaining = reservation.totalAmount - paid;
+        await tx.reservation.update({
           where: { id: reservationId },
+          data: {
+            paidAmount: paid,
+            remaining: Math.max(0, remaining),
+          },
         });
-
-        if (reservation) {
-          const paid = Number(totalPaid._sum.amount || 0);
-          const remaining = Number(reservation.totalAmount) - paid;
-          await tx.reservation.update({
-            where: { id: reservationId },
-            data: {
-              paidAmount: paid,
-              remaining: Math.max(0, remaining),
-            },
-          });
-        }
       }
 
       return txn;
@@ -149,9 +261,7 @@ export async function POST(request: Request) {
     return NextResponse.json(transaction, { status: 201 });
   } catch (error) {
     console.error("POST /api/finance error:", error);
-    return NextResponse.json(
-      { error: "Failed to create transaction" },
-      { status: 500 }
-    );
+    const msg = error instanceof Error ? error.message : "Failed to create transaction";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

@@ -1,0 +1,99 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getPartyBalance } from "@/lib/accounting";
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const partyId = parseInt(id);
+    if (isNaN(partyId)) {
+      return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+    }
+
+    const party = await prisma.party.findUnique({
+      where: { id: partyId },
+      include: {
+        arAccount: true,
+        apAccount: true,
+        equityAccount: true,
+        drawAccount: true,
+      },
+    });
+    if (!party) {
+      return NextResponse.json({ error: "الطرف غير موجود" }, { status: 404 });
+    }
+
+    const balance = await getPartyBalance(partyId);
+
+    return NextResponse.json({ ...party, balance: balance.balance });
+  } catch (error) {
+    console.error("GET /api/accounting/parties/[id] error:", error);
+    return NextResponse.json({ error: "Failed to fetch party" }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const partyId = parseInt(id);
+    if (isNaN(partyId)) {
+      return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const { name, phone, email, nationalId, notes, isActive, code } = body;
+
+    const data: Record<string, unknown> = {};
+    if (name !== undefined) data.name = name;
+    if (phone !== undefined) data.phone = phone;
+    if (email !== undefined) data.email = email;
+    if (nationalId !== undefined) data.nationalId = nationalId;
+    if (notes !== undefined) data.notes = notes;
+    if (isActive !== undefined) data.isActive = isActive;
+    if (code !== undefined) data.code = code;
+
+    const party = await prisma.party.update({
+      where: { id: partyId },
+      data,
+    });
+
+    return NextResponse.json(party);
+  } catch (error) {
+    console.error("PATCH /api/accounting/parties/[id] error:", error);
+    return NextResponse.json({ error: "Failed to update party" }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const partyId = parseInt(id);
+    if (isNaN(partyId)) {
+      return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+    }
+
+    const lineCount = await prisma.journalLine.count({ where: { partyId } });
+    if (lineCount > 0) {
+      await prisma.party.update({
+        where: { id: partyId },
+        data: { isActive: false },
+      });
+      return NextResponse.json({ message: "الطرف له حركات، تم تعطيله بدل حذفه" });
+    }
+
+    await prisma.party.delete({ where: { id: partyId } });
+    return NextResponse.json({ message: "تم الحذف" });
+  } catch (error) {
+    console.error("DELETE /api/accounting/parties/[id] error:", error);
+    return NextResponse.json({ error: "Failed to delete party" }, { status: 500 });
+  }
+}

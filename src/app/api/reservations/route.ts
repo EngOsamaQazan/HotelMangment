@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import {
+  postEntry,
+  getOrCreateGuestParty,
+  cashAccountCodeFromMethod,
+  ACCOUNT_CODES,
+} from "@/lib/accounting";
 
 export async function GET(request: Request) {
   try {
@@ -130,7 +136,38 @@ export async function POST(request: Request) {
         data: { status: "occupied" },
       });
 
+      const partyId = await getOrCreateGuestParty(tx, {
+        name: guestName,
+        phone: phone || null,
+        nationalId: guestIdNumber || null,
+        reservationId: res.id,
+      });
+
+      if (total > 0) {
+        await postEntry(tx, {
+          date: new Date(checkIn),
+          description: `حجز #${res.id} - ${guestName} - ${unit.unitNumber}`,
+          source: "reservation",
+          sourceRefId: res.id,
+          lines: [
+            {
+              accountCode: ACCOUNT_CODES.AR_GUESTS,
+              partyId,
+              debit: total,
+              description: `ذمة النزيل ${guestName}`,
+            },
+            {
+              accountCode: ACCOUNT_CODES.REVENUE_ROOMS,
+              credit: total,
+              description: `إيراد حجز ${unit.unitNumber}`,
+            },
+          ],
+        });
+      }
+
       if (paid > 0) {
+        const cashCode = cashAccountCodeFromMethod(paymentMethod);
+
         await tx.transaction.create({
           data: {
             date: new Date(),
@@ -138,9 +175,29 @@ export async function POST(request: Request) {
             reservationId: res.id,
             amount: paid,
             type: "income",
-            account: paymentMethod === "bank" ? "bank" : "cash",
+            account: cashCode === ACCOUNT_CODES.BANK ? "bank" : "cash",
             bankRef: null,
           },
+        });
+
+        await postEntry(tx, {
+          date: new Date(),
+          description: `دفعة حجز #${res.id} - ${guestName}`,
+          source: "payment",
+          sourceRefId: res.id,
+          lines: [
+            {
+              accountCode: cashCode,
+              debit: paid,
+              description: `استلام دفعة ${guestName}`,
+            },
+            {
+              accountCode: ACCOUNT_CODES.AR_GUESTS,
+              partyId,
+              credit: paid,
+              description: `سداد جزء من ذمة النزيل`,
+            },
+          ],
         });
       }
 

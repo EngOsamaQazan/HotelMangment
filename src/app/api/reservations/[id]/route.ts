@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { voidEntry } from "@/lib/accounting";
 
 export async function GET(
   request: Request,
@@ -163,6 +164,19 @@ export async function DELETE(
     }
 
     await prisma.$transaction(async (tx) => {
+      const entries = await tx.journalEntry.findMany({
+        where: {
+          OR: [
+            { source: "reservation", sourceRefId: reservationId },
+            { source: "payment", sourceRefId: reservationId },
+          ],
+          status: "posted",
+        },
+      });
+      for (const e of entries) {
+        await voidEntry(tx, e.id, `حذف الحجز #${reservationId}`);
+      }
+
       await tx.guest.deleteMany({ where: { reservationId } });
       await tx.transaction.deleteMany({ where: { reservationId } });
       await tx.reservation.delete({ where: { id: reservationId } });
