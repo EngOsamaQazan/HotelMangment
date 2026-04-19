@@ -31,7 +31,7 @@ export async function middleware(req: NextRequest) {
   if (!token) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json(
-        { error: "Unauthorized" },
+        { error: "غير مصرّح — يجب تسجيل الدخول أولاً" },
         { status: 401 },
       );
     }

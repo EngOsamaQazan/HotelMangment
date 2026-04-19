@@ -14,6 +14,7 @@ import "server-only";
 import { getServerSession, type Session } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { RESOURCES, ACTION_LABELS } from "@/lib/permissions/registry";
 
 /** HTTP error that Route Handlers can throw/return to the client. */
 export class HttpError extends Error {
@@ -26,15 +27,34 @@ export class HttpError extends Error {
 }
 
 export class UnauthorizedError extends HttpError {
-  constructor(message = "Unauthorized") {
+  constructor(message = "غير مصرّح — يجب تسجيل الدخول أولاً") {
     super(401, message);
   }
 }
 
 export class ForbiddenError extends HttpError {
-  constructor(message = "Forbidden — missing permission") {
+  constructor(message = "ممنوع — ليس لديك الصلاحية المطلوبة") {
     super(403, message);
   }
+}
+
+/**
+ * Convert a permission key like `dashboard:view` into a human-readable
+ * Arabic label such as "لوحة التحكم — عرض" using the permissions registry.
+ * Falls back to the raw key if we can't resolve it.
+ */
+function formatPermissionKeyAr(key: string): string {
+  const [resourceKey, action] = key.split(":");
+  const resource = RESOURCES.find((r) => r.key === resourceKey);
+  const resourceLabel = resource?.label ?? resourceKey;
+
+  let actionLabel: string | undefined = ACTION_LABELS[action];
+  if (!actionLabel && resource?.extraActions) {
+    actionLabel = resource.extraActions.find((x) => x.key === action)?.label;
+  }
+
+  if (!actionLabel) return `${resourceLabel} (${action})`;
+  return `${resourceLabel} — ${actionLabel}`;
 }
 
 // ───────────── In-memory permission cache ─────────────
@@ -176,9 +196,12 @@ export async function requirePermission(
 
   const ok = await hasPermission(userId, ...keys);
   if (!ok) {
-    throw new ForbiddenError(
-      `Forbidden — requires one of: ${keys.join(", ")}`,
-    );
+    const labels = keys.map(formatPermissionKeyAr).join("، ");
+    const msg =
+      keys.length === 1
+        ? `ممنوع — تتطلب هذه الصفحة صلاحية: ${labels}`
+        : `ممنوع — تتطلب هذه الصفحة إحدى الصلاحيات التالية: ${labels}`;
+    throw new ForbiddenError(msg);
   }
   return session;
 }
