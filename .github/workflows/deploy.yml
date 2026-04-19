@@ -28,6 +28,7 @@ jobs:
             npm ci
             npx prisma db push --accept-data-loss
             npm run build
+            rm -rf .next/standalone/public .next/standalone/.next/static
             cp -r public .next/standalone/public
             cp -r .next/static .next/standalone/.next/static
             cp .env .next/standalone/.env
