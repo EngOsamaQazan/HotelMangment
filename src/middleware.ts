@@ -10,13 +10,32 @@ import { getToken } from "next-auth/jwt";
 const PUBLIC_PREFIXES = [
   "/login",
   "/api/auth",
+  "/api/build-id",
   "/_next",
   "/favicon",
   "/public",
 ];
 
+const PUBLIC_FILES = new Set([
+  "/icon.png",
+  "/apple-icon.png",
+  "/opengraph-image.png",
+  "/twitter-image.png",
+  "/manifest.json",
+  "/manifest.webmanifest",
+  "/robots.txt",
+  "/sitemap.xml",
+]);
+
 function isPublic(pathname: string): boolean {
-  return PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
+  if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) return true;
+  if (PUBLIC_FILES.has(pathname)) return true;
+  // Any brand-identity or public file served from /public with a file extension.
+  // We only allow GETs of .png/.jpg/.jpeg/.svg/.webp/.ico/.txt/.xml/.json at the root.
+  if (/^\/[^/]+\.(png|jpe?g|svg|webp|ico|txt|xml|json)$/.test(pathname)) {
+    return true;
+  }
+  return false;
 }
 
 export async function middleware(req: NextRequest) {

@@ -30,6 +30,7 @@ const ALLOWLIST: string[] = [
   "/unauthorized",
   "/api/auth",
   "/api/me/permissions",
+  "/api/build-id",
 ];
 
 interface Finding {
