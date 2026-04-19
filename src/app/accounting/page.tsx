@@ -13,95 +13,67 @@ import {
   Banknote,
 } from "lucide-react";
 
-type Accent = "primary" | "gold";
-
 const SECTIONS: Array<{
   href: string;
   title: string;
   desc: string;
   icon: typeof BookOpen;
-  accent: Accent;
 }> = [
   {
     href: "/accounting/cashbook",
     title: "الدفتر النقدي",
     desc: "الصندوق والبنك والمحفظة الإلكترونية مع أرصدة فورية",
     icon: Banknote,
-    accent: "gold",
   },
   {
     href: "/accounting/accounts",
     title: "دليل الحسابات",
     desc: "إدارة شجرة الحسابات الأصول، الخصوم، الإيرادات، المصروفات",
     icon: BookOpen,
-    accent: "primary",
   },
   {
     href: "/accounting/parties",
     title: "الأطراف",
     desc: "الشركاء، الموردون، الموظفون، المُقرضون + كشف حساب",
     icon: Users,
-    accent: "primary",
   },
   {
     href: "/accounting/journal",
     title: "القيود اليومية",
     desc: "عرض كافة القيود وإنشاء قيد يدوي متعدد السطور",
     icon: BookText,
-    accent: "gold",
   },
   {
     href: "/accounting/ledger",
     title: "الأستاذ العام",
     desc: "حركات حساب محدد مع أرصدة جارية",
     icon: Calculator,
-    accent: "primary",
   },
   {
     href: "/accounting/reports/trial-balance",
     title: "ميزان المراجعة",
     desc: "التحقق من توازن الحسابات بتاريخ معين",
     icon: Scale,
-    accent: "gold",
   },
   {
     href: "/accounting/reports/income-statement",
     title: "قائمة الدخل",
     desc: "الإيرادات والمصروفات وصافي الربح/الخسارة",
     icon: TrendingUp,
-    accent: "primary",
   },
   {
     href: "/accounting/reports/balance-sheet",
     title: "الميزانية العمومية",
     desc: "الأصول = الخصوم + حقوق الملكية",
     icon: Wallet,
-    accent: "gold",
   },
   {
     href: "/accounting/periods",
     title: "الفترات المالية",
     desc: "فتح/إقفال الفترات وقيد إقفال سنوي",
     icon: CalendarRange,
-    accent: "primary",
   },
 ];
-
-const ACCENT_STYLES: Record<
-  Accent,
-  { iconBox: string; iconColor: string; hoverRing: string }
-> = {
-  primary: {
-    iconBox: "bg-primary/10 border border-primary/20",
-    iconColor: "text-primary",
-    hoverRing: "group-hover:border-primary/40 group-hover:bg-primary/15",
-  },
-  gold: {
-    iconBox: "bg-gold-soft border border-gold/40",
-    iconColor: "text-gold-dark",
-    hoverRing: "group-hover:border-gold/70 group-hover:bg-gold/20",
-  },
-};
 
 export default function AccountingHomePage() {
   return (
@@ -121,35 +93,32 @@ export default function AccountingHomePage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {SECTIONS.map((s) => {
           const Icon = s.icon;
-          const style = ACCENT_STYLES[s.accent];
           return (
             <Link
               key={s.href}
               href={s.href}
-              className="relative bg-card-bg rounded-xl p-5 shadow-sm hover:shadow-lg transition-all border border-gold/15 hover:border-gold/50 hover:-translate-y-0.5 group overflow-hidden"
+              className="relative bg-primary rounded-xl p-5 shadow-md hover:shadow-xl transition-all border border-gold/25 hover:border-gold/70 hover:-translate-y-0.5 group overflow-hidden"
             >
               <span
                 aria-hidden
-                className="absolute inset-y-0 right-0 w-1 bg-gold/0 group-hover:bg-gold transition-colors"
+                className="pointer-events-none absolute -top-10 -left-10 w-32 h-32 rounded-full bg-gold/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity"
               />
-              <div
-                className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${style.iconBox} ${style.hoverRing} mb-3`}
-              >
-                <Icon size={22} className={style.iconColor} />
+              <div className="relative flex items-start justify-between gap-3">
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-gold/20 border border-gold/40 group-hover:bg-gold/30 transition-colors">
+                  <Icon size={22} className="text-gold" />
+                </div>
               </div>
-              <h3
-                className="text-xl font-bold text-primary group-hover:text-primary-dark leading-tight inline-flex items-baseline gap-2 font-[family-name:var(--font-amiri)]"
-              >
-                <span className="text-gold-dark text-lg leading-none select-none">
+              <h3 className="relative text-xl font-bold text-gold leading-tight inline-flex items-baseline gap-2 font-[family-name:var(--font-amiri)] mt-4">
+                <span className="text-gold-light text-lg leading-none select-none">
                   ◆
                 </span>
                 {s.title}
               </h3>
               <span
                 aria-hidden
-                className="block h-px w-10 bg-gradient-to-l from-gold/80 via-gold/40 to-transparent mt-2 mb-2 group-hover:w-16 transition-all"
+                className="relative block h-px w-10 bg-gradient-to-l from-gold via-gold/50 to-transparent mt-2 mb-2 group-hover:w-16 transition-all"
               />
-              <p className="text-sm text-gray-500 leading-relaxed">
+              <p className="relative text-sm text-gold-light/75 leading-relaxed">
                 {s.desc}
               </p>
             </Link>
