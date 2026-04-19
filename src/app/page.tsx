@@ -118,8 +118,14 @@ export default function DashboardPage() {
     async function fetchDashboard() {
       try {
         const res = await fetch("/api/dashboard");
-        if (!res.ok) throw new Error("فشل تحميل البيانات");
         const json = await res.json();
+        if (!res.ok) {
+          const apiErr =
+            json && typeof json === "object" && "error" in json
+              ? String((json as { error: string }).error)
+              : "فشل تحميل البيانات";
+          throw new Error(apiErr);
+        }
         setData(json);
       } catch (err) {
         setError(err instanceof Error ? err.message : "خطأ غير متوقع");

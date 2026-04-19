@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
+import { databaseConfigurationError } from "@/lib/db-env";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
+  const configErr = databaseConfigurationError();
+  if (configErr) return configErr;
+
   try {
     const today = new Date();
     const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -77,9 +81,13 @@ export async function GET() {
     });
   } catch (error) {
     console.error("GET /api/dashboard error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch dashboard stats" },
-      { status: 500 }
-    );
+    const msg =
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code?: string }).code === "P1001"
+        ? "تعذر الاتصال بقاعدة البيانات. تأكد من صحة DATABASE_URL في ملف .env (مثلاً نسخ الرابط من Supabase → Database → Connection string)."
+        : "فشل تحميل بيانات لوحة التحكم";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
