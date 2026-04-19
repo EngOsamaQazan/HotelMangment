@@ -52,3 +52,7 @@ google-vision-key.json
 next-env.d.ts
 
 /src/generated/prisma
+
+tmp-import/
+excel-import-preview.json
+import-guests-preview.json
