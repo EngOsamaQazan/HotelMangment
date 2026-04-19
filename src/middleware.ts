@@ -47,8 +47,11 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match everything except Next.js internals and static files.
+     * Match everything except:
+     *  - Next.js internals (_next/*)
+     *  - Anything ending in a file extension (e.g. /logo.png, /brand-1.jpeg,
+     *    /robots.txt) — these are served from /public and must be public.
      */
-    "/((?!_next/static|_next/image|favicon.ico|icons|images|public).*)",
+    "/((?!_next/|.*\\..*).*)",
   ],
 };
