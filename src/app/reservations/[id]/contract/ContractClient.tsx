@@ -190,7 +190,7 @@ export default function ContractClient({ id }: { id: string }) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="فندق المفرق" className="brand-logo" />
           <div className="brand-caption">Hotel</div>
-          <div className="hotel-sub" style={{ marginTop: 6 }}>فندق المفرق — Al-Mafraq Hotel — المملكة الأردنية الهاشمية</div>
+          <div className="hotel-sub" style={{ marginTop: 6 }}>فندق المفرق — Al-Mafraq Hotel</div>
           <div className="hotel-sub">للإقامة الفندقية والشقق المفروشة &bull; الغرف الفندقية (101–109) &bull; الشقق المفروشة (01–06)</div>
         </div>
 
@@ -364,7 +364,7 @@ export default function ContractClient({ id }: { id: string }) {
         {/* ═══ FOOTER ═══ */}
         <div className="footer-note">
           حُرر هذا العقد من نسختين أصليتين، بيد كل طرف نسخة للعمل بموجبها — تاريخ التحرير: {todayStr}
-          <br/>فندق المفرق — المملكة الأردنية الهاشمية — جميع الحقوق محفوظة © 2026
+          <br/>فندق المفرق — جميع الحقوق محفوظة © 2026
         </div>
 
       </div>

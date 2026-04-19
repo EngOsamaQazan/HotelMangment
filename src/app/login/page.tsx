@@ -52,16 +52,13 @@ export default function LoginPage() {
         <div className="text-center mb-6">
           <BrandLogo size="xl" />
           <p className="text-gold-light/80 text-xs sm:text-sm mt-3 tracking-widest">
-            المملكة الأردنية الهاشمية
+            نظام الإدارة المتكامل
           </p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 border-t-4 border-gold">
           <div className="text-center mb-6">
             <h2 className="text-lg font-bold text-primary">تسجيل الدخول</h2>
-            <p className="text-gray-500 text-xs mt-1">
-              نظام الإدارة المتكامل
-            </p>
           </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

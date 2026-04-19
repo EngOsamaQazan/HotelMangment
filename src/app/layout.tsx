@@ -20,8 +20,24 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-  title: "فندق المفرق — نظام الإدارة",
-  description: "نظام إدارة فندق المفرق — المملكة الأردنية الهاشمية",
+  title: {
+    default: "فندق المفرق — نظام الإدارة",
+    template: "%s · فندق المفرق",
+  },
+  description: "نظام إدارة فندق المفرق",
+  applicationName: "فندق المفرق",
+  openGraph: {
+    title: "فندق المفرق — نظام الإدارة",
+    description: "نظام إدارة فندق المفرق",
+    siteName: "فندق المفرق",
+    locale: "ar_JO",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "فندق المفرق — نظام الإدارة",
+    description: "نظام إدارة فندق المفرق",
+  },
 };
 
 export const viewport: Viewport = {

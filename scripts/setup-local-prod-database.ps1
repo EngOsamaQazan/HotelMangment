@@ -1,6 +1,6 @@
 # Links local dev to production Postgres via SSH tunnel (local port 15432).
 # Run: powershell -ExecutionPolicy Bypass -File .\scripts\setup-local-prod-database.ps1
-# Or double-click setup-prod-db.cmd
+# Or double-click tools\setup-prod-db.cmd
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
