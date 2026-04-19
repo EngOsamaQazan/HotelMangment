@@ -1,5 +1,16 @@
 import type { NextConfig } from "next";
 
+const NO_STORE_HEADERS = [
+  {
+    key: "Cache-Control",
+    value: "no-store, no-cache, must-revalidate, max-age=0, s-maxage=0",
+  },
+  { key: "Pragma", value: "no-cache" },
+  { key: "Expires", value: "0" },
+  { key: "Surrogate-Control", value: "no-store" },
+  { key: "CDN-Cache-Control", value: "no-store" },
+];
+
 const nextConfig: NextConfig = {
   output: "standalone",
   devIndicators: false,
@@ -7,22 +18,11 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/:path*",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "no-store, no-cache, must-revalidate, max-age=0",
-          },
-          { key: "Pragma", value: "no-cache" },
-          { key: "Expires", value: "0" },
-          { key: "Surrogate-Control", value: "no-store" },
-        ],
+        headers: NO_STORE_HEADERS,
       },
       {
-        source: "/:path*",
-        has: [{ type: "header", key: "next-router-prefetch" }],
-        headers: [
-          { key: "Cache-Control", value: "no-store, must-revalidate" },
-        ],
+        source: "/((?!_next/static|_next/image|favicon.ico).*)",
+        headers: NO_STORE_HEADERS,
       },
     ];
   },
