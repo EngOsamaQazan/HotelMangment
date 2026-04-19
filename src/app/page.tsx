@@ -113,6 +113,11 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [todayLabel, setTodayLabel] = useState("");
+
+  useEffect(() => {
+    setTodayLabel(formatDate(new Date()));
+  }, []);
 
   useEffect(() => {
     async function fetchDashboard() {
@@ -155,7 +160,9 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-800">لوحة التحكم</h1>
-        <p className="text-xs sm:text-sm text-muted">{formatDate(new Date())}</p>
+        <p className="text-xs sm:text-sm text-muted" suppressHydrationWarning>
+          {todayLabel}
+        </p>
       </div>
 
       {/* Stat Cards */}

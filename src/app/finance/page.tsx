@@ -56,13 +56,17 @@ interface FormData {
 }
 
 const emptyForm: FormData = {
-  date: new Date().toISOString().split("T")[0],
+  date: "",
   description: "",
   amount: "",
   type: "income",
   reservationId: "",
   bankRef: "",
 };
+
+function buildEmptyForm(): FormData {
+  return { ...emptyForm, date: new Date().toISOString().split("T")[0] };
+}
 
 export default function FinancePage() {
   const [activeTab, setActiveTab] = useState<AccountTab>("cash");
@@ -121,7 +125,7 @@ export default function FinancePage() {
         throw new Error(err.error || "فشل إضافة الحركة");
       }
       setShowForm(false);
-      setForm(emptyForm);
+      setForm(buildEmptyForm());
       fetchData();
     } catch (err) {
       alert(err instanceof Error ? err.message : "فشل إضافة الحركة");
@@ -159,7 +163,10 @@ export default function FinancePage() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-800">الصندوق والبنك</h1>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => {
+            setForm(buildEmptyForm());
+            setShowForm(true);
+          }}
           className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium w-full sm:w-auto justify-center"
         >
           <Plus size={18} />

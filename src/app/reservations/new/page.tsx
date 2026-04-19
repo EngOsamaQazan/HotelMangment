@@ -58,7 +58,7 @@ export default function NewReservationPage() {
   const [guestNationality, setGuestNationality] = useState("");
   const [phone, setPhone] = useState("");
   const [numGuests, setNumGuests] = useState(1);
-  const [checkIn, setCheckIn] = useState(new Date().toISOString().split("T")[0]);
+  const [checkIn, setCheckIn] = useState("");
   const [numNights, setNumNights] = useState(1);
   const [unitPrice, setUnitPrice] = useState<string>("");
   const [paidAmount, setPaidAmount] = useState<string>("0");
@@ -91,6 +91,7 @@ export default function NewReservationPage() {
   const remaining = (parseFloat(totalAmount) - parseFloat(paidAmount || "0")).toFixed(2);
 
   useEffect(() => {
+    setCheckIn(new Date().toISOString().split("T")[0]);
     fetch("/api/units")
       .then((r) => r.json())
       .then((data) => setUnits(Array.isArray(data) ? data : []))

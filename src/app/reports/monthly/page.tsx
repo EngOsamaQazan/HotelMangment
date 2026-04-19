@@ -75,14 +75,20 @@ const MONTHS = [
 ];
 
 export default function MonthlyReportPage() {
-  const now = new Date();
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(0);
+  const [year, setYear] = useState(0);
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const now = new Date();
+    setMonth(now.getMonth() + 1);
+    setYear(now.getFullYear());
+  }, []);
+
   const fetchReport = useCallback(async () => {
+    if (!month || !year) return;
     setLoading(true);
     setError(null);
     try {
