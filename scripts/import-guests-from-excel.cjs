@@ -170,14 +170,25 @@ function readRegister(file) {
 
 // ----- معالجة رقم الوحدة -----
 
+/** يوحّد شكل رقم الوحدة ليطابق التخزين في النظام (مثلاً "2" → "02"). */
+function normalizeUnitNumber(u) {
+  const s = String(u || "").trim();
+  if (!s) return s;
+  if (/^\d+$/.test(s)) {
+    const n = parseInt(s, 10);
+    if (n >= 1 && n <= 9) return "0" + n;
+  }
+  return s;
+}
+
 function splitUnit(unitRaw) {
   if (!unitRaw) return [];
-  // "102/103" أو "102,103" أو "102 / 103"
   const parts = unitRaw
     .split(/[\/,+\\]/)
     .map((p) => p.trim())
-    .filter(Boolean);
-  return parts.length ? parts : [unitRaw];
+    .filter(Boolean)
+    .map(normalizeUnitNumber);
+  return parts.length ? parts : [normalizeUnitNumber(unitRaw)];
 }
 
 function classifyUnitType(unitNumber) {
