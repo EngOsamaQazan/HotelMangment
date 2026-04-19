@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { voidEntry } from "@/lib/accounting";
+import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requirePermission("reservations:view");
     const { id } = await params;
     const reservationId = parseInt(id);
 
@@ -29,6 +31,8 @@ export async function GET(
 
     return NextResponse.json(reservation);
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("GET /api/reservations/[id] error:", error);
     return NextResponse.json(
       { error: "Failed to fetch reservation" },
@@ -42,6 +46,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requirePermission("reservations:edit");
     const { id } = await params;
     const reservationId = parseInt(id);
 
@@ -135,6 +140,8 @@ export async function PUT(
 
     return NextResponse.json(reservation);
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("PUT /api/reservations/[id] error:", error);
     return NextResponse.json(
       { error: "Failed to update reservation" },
@@ -148,6 +155,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requirePermission("reservations:delete");
     const { id } = await params;
     const reservationId = parseInt(id);
 
@@ -196,6 +204,8 @@ export async function DELETE(
 
     return NextResponse.json({ message: "Reservation deleted successfully" });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("DELETE /api/reservations/[id] error:", error);
     return NextResponse.json(
       { error: "Failed to delete reservation" },

@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { voidEntry } from "@/lib/accounting";
+import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requirePermission("accounting.journal:view");
     const { id } = await params;
     const entryId = parseInt(id);
     if (isNaN(entryId)) {
@@ -30,6 +32,8 @@ export async function GET(
 
     return NextResponse.json(entry);
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("GET /api/accounting/journal/[id] error:", error);
     return NextResponse.json({ error: "Failed to fetch entry" }, { status: 500 });
   }
@@ -40,6 +44,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requirePermission("accounting.journal:edit", "accounting.journal:void");
     const { id } = await params;
     const entryId = parseInt(id);
     if (isNaN(entryId)) {
@@ -65,6 +70,8 @@ export async function PATCH(
 
     return NextResponse.json(result);
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("PATCH /api/accounting/journal/[id] error:", error);
     const msg = error instanceof Error ? error.message : "Failed";
     return NextResponse.json({ error: msg }, { status: 400 });

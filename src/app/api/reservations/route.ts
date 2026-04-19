@@ -6,9 +6,11 @@ import {
   cashAccountCodeFromMethod,
   ACCOUNT_CODES,
 } from "@/lib/accounting";
+import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 export async function GET(request: Request) {
   try {
+    await requirePermission("reservations:view");
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const search = searchParams.get("search");
@@ -47,6 +49,8 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ reservations, total, page, limit });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("GET /api/reservations error:", error);
     return NextResponse.json(
       { error: "Failed to fetch reservations" },
@@ -57,6 +61,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    await requirePermission("reservations:create");
     const body = await request.json();
     const {
       unitId,
@@ -209,6 +214,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json(reservation, { status: 201 });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("POST /api/reservations error:", error);
     return NextResponse.json(
       { error: "Failed to create reservation" },

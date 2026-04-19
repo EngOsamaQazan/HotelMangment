@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAccountBalance } from "@/lib/accounting";
+import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 export async function GET(request: Request) {
   try {
+    await requirePermission("accounting.accounts:view");
     const { searchParams } = new URL(request.url);
     const withBalances = searchParams.get("balances") === "1";
     const type = searchParams.get("type");
@@ -30,6 +32,8 @@ export async function GET(request: Request) {
     );
     return NextResponse.json({ accounts: withBal });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("GET /api/accounting/accounts error:", error);
     return NextResponse.json(
       { error: "Failed to fetch accounts" },
@@ -40,6 +44,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    await requirePermission("accounting.accounts:create");
     const body = await request.json();
     const { code, name, type, subtype, normalBalance, parentId, description } = body;
 
@@ -78,6 +83,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json(account, { status: 201 });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("POST /api/accounting/accounts error:", error);
     return NextResponse.json(
       { error: "Failed to create account" },

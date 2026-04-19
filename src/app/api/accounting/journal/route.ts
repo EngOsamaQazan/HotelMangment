@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { postEntry } from "@/lib/accounting";
+import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 export async function GET(request: Request) {
   try {
+    await requirePermission("accounting.journal:view");
     const { searchParams } = new URL(request.url);
     const from = searchParams.get("from");
     const to = searchParams.get("to");
@@ -54,6 +56,8 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ entries, total, page, limit });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("GET /api/accounting/journal error:", error);
     return NextResponse.json({ error: "Failed to fetch journal" }, { status: 500 });
   }
@@ -61,6 +65,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    await requirePermission("accounting.journal:create");
     const body = await request.json();
     const { date, description, reference, lines } = body;
 
@@ -103,6 +108,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json(entry, { status: 201 });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("POST /api/accounting/journal error:", error);
     const msg = error instanceof Error ? error.message : "Failed to create entry";
     return NextResponse.json({ error: msg }, { status: 400 });

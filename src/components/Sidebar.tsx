@@ -9,7 +9,6 @@ import {
   CalendarCheck,
   BedDouble,
   Users,
-  Wallet,
   Wrench,
   BarChart3,
   FileText,
@@ -21,23 +20,34 @@ import {
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { BrandLogo, BrandLogoInline } from "@/components/BrandLogo";
+import { usePermissions } from "@/lib/permissions/client";
 
-const navItems = [
-  { href: "/", label: "لوحة التحكم", icon: LayoutDashboard },
-  { href: "/reservations", label: "الحجوزات", icon: CalendarCheck },
-  { href: "/rooms", label: "حالة الغرف", icon: BedDouble },
-  { href: "/guests", label: "النزلاء", icon: Users },
-  { href: "/finance", label: "الصندوق والبنك", icon: Wallet },
-  { href: "/accounting", label: "المحاسبة", icon: Calculator },
-  { href: "/maintenance", label: "الصيانة", icon: Wrench },
-  { href: "/reports/monthly", label: "التقرير الشهري", icon: BarChart3 },
-  { href: "/reports/debts", label: "تقرير الديون", icon: FileText },
-  { href: "/settings", label: "الإعدادات", icon: Settings },
+interface NavItem {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  /** Required permission key — user needs at least one to see the item. */
+  permission: string | string[];
+}
+
+const navItems: NavItem[] = [
+  { href: "/", label: "لوحة التحكم", icon: LayoutDashboard, permission: "dashboard:view" },
+  { href: "/reservations", label: "الحجوزات", icon: CalendarCheck, permission: "reservations:view" },
+  { href: "/rooms", label: "حالة الغرف", icon: BedDouble, permission: "rooms:view" },
+  { href: "/guests", label: "النزلاء", icon: Users, permission: "guests:view" },
+  { href: "/accounting", label: "المحاسبة", icon: Calculator, permission: "accounting:view" },
+  { href: "/maintenance", label: "الصيانة", icon: Wrench, permission: "maintenance:view" },
+  { href: "/reports/monthly", label: "التقرير الشهري", icon: BarChart3, permission: "reports.monthly:view" },
+  { href: "/reports/debts", label: "تقرير الديون", icon: FileText, permission: "reports.debts:view" },
+  { href: "/settings", label: "الإعدادات", icon: Settings, permission: "settings:view" },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { can, isLoading } = usePermissions();
+
+  const visibleItems = navItems.filter((i) => can(i.permission));
 
   const closeMobile = useCallback(() => setMobileOpen(false), []);
 
@@ -107,7 +117,10 @@ export function Sidebar() {
         </p>
 
         <nav className="flex-1 py-3 overflow-y-auto scrollbar-thin">
-          {navItems.map((item) => {
+          {isLoading && visibleItems.length === 0 && (
+            <div className="px-5 py-3 text-sm text-white/50">جاري التحميل...</div>
+          )}
+          {visibleItems.map((item) => {
             const isActive =
               pathname === item.href ||
               (item.href !== "/" && pathname.startsWith(item.href));

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as vision from "@google-cloud/vision";
 import path from "path";
+import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 const keyPath = path.resolve(process.cwd(), "google-vision-key.json");
 
@@ -408,6 +409,7 @@ function mergeResults(
 
 export async function POST(request: NextRequest) {
   try {
+    await requirePermission("guests:create", "guests:edit");
     const body = await request.json();
     const { image } = body;
 
@@ -444,6 +446,8 @@ export async function POST(request: NextRequest) {
       rawText: fullText,
     });
   } catch (error: unknown) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("OCR API Error:", message);
     return NextResponse.json({ error: message }, { status: 500 });

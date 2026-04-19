@@ -17,6 +17,7 @@ const ACCOUNTS: AccountSeed[] = [
   { code: "1000", name: "الأصول", type: "asset", normalBalance: "debit", isSystem: true },
   { code: "1010", name: "الصندوق النقدي", type: "asset", subtype: "cash", normalBalance: "debit", parent: "1000", isSystem: true, description: "الصندوق النقدي الرئيسي للفندق" },
   { code: "1020", name: "الحساب البنكي", type: "asset", subtype: "bank", normalBalance: "debit", parent: "1000", isSystem: true, description: "حساب الفندق في البنك" },
+  { code: "1030", name: "المحفظة الإلكترونية", type: "asset", subtype: "wallet", normalBalance: "debit", parent: "1000", isSystem: true, description: "المحفظة الإلكترونية/الرقمية (CliQ, eFAWATEERcom, ...)" },
   { code: "1100", name: "ذمم النزلاء", type: "asset", subtype: "ar", normalBalance: "debit", parent: "1000", isSystem: true, description: "المبالغ المستحقة على النزلاء" },
   { code: "1110", name: "ذمم مدينة أخرى", type: "asset", subtype: "ar", normalBalance: "debit", parent: "1000", isSystem: true },
 

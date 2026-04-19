@@ -15,7 +15,10 @@ import {
   Calendar,
   Shield,
 } from "lucide-react";
+import Link from "next/link";
 import { cn, formatDate, roleLabels } from "@/lib/utils";
+import { usePermissions } from "@/lib/permissions/client";
+import { Can } from "@/components/Can";
 
 interface UserRecord {
   id: number;
@@ -65,6 +68,8 @@ export default function SettingsPage() {
   const [deletingUserId, setDeletingUserId] = useState<number | null>(null);
   const [editedPrices, setEditedPrices] = useState<Record<number, Partial<SeasonalPrice>>>({});
   const [savingPriceId, setSavingPriceId] = useState<number | null>(null);
+  const [overridesUser, setOverridesUser] = useState<UserRecord | null>(null);
+  const { can } = usePermissions();
 
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
@@ -243,17 +248,30 @@ export default function SettingsPage() {
             <Users size={20} className="text-primary" />
             إدارة المستخدمين
           </h2>
-          <button
-            onClick={() => {
-              setShowUserForm(true);
-              setEditUser(null);
-              setUserForm(emptyUserForm);
-            }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium w-full sm:w-auto justify-center"
-          >
-            <Plus size={18} />
-            إضافة مستخدم
-          </button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Can permission="settings.roles:view">
+              <Link
+                href="/settings/roles"
+                className="flex items-center gap-2 px-4 py-2.5 border border-primary text-primary rounded-lg hover:bg-gold-soft transition-colors text-sm font-medium flex-1 sm:flex-none justify-center"
+              >
+                <Shield size={18} />
+                الأدوار والصلاحيات
+              </Link>
+            </Can>
+            <Can permission="settings.users:create">
+              <button
+                onClick={() => {
+                  setShowUserForm(true);
+                  setEditUser(null);
+                  setUserForm(emptyUserForm);
+                }}
+                className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium flex-1 sm:flex-none justify-center"
+              >
+                <Plus size={18} />
+                إضافة مستخدم
+              </button>
+            </Can>
+          </div>
         </div>
 
         <div className="bg-card-bg rounded-xl shadow-sm overflow-hidden">
@@ -308,34 +326,47 @@ export default function SettingsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setEditUser(user);
-                              setUserForm({
-                                name: user.name,
-                                email: user.email,
-                                password: "",
-                                role: user.role,
-                              });
-                              setShowUserForm(false);
-                            }}
-                            className="p-1.5 text-primary-light hover:text-primary hover:bg-gold-soft rounded-lg transition-colors"
-                            title="تعديل"
-                          >
-                            <Pencil size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteUser(user.id)}
-                            disabled={deletingUserId === user.id}
-                            className="p-1.5 text-red-400 hover:text-danger hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                            title="حذف"
-                          >
-                            {deletingUserId === user.id ? (
-                              <Loader2 size={16} className="animate-spin" />
-                            ) : (
-                              <Trash2 size={16} />
-                            )}
-                          </button>
+                          {can("settings.users:edit") && (
+                            <button
+                              onClick={() => {
+                                setEditUser(user);
+                                setUserForm({
+                                  name: user.name,
+                                  email: user.email,
+                                  password: "",
+                                  role: user.role,
+                                });
+                                setShowUserForm(false);
+                              }}
+                              className="p-1.5 text-primary-light hover:text-primary hover:bg-gold-soft rounded-lg transition-colors"
+                              title="تعديل"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                          )}
+                          {can("settings.users:edit") && (
+                            <button
+                              onClick={() => setOverridesUser(user)}
+                              className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+                              title="استثناءات الصلاحيات"
+                            >
+                              <Shield size={16} />
+                            </button>
+                          )}
+                          {can("settings.users:delete") && (
+                            <button
+                              onClick={() => handleDeleteUser(user.id)}
+                              disabled={deletingUserId === user.id}
+                              className="p-1.5 text-red-400 hover:text-danger hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                              title="حذف"
+                            >
+                              {deletingUserId === user.id ? (
+                                <Loader2 size={16} className="animate-spin" />
+                              ) : (
+                                <Trash2 size={16} />
+                              )}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -356,32 +387,45 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">{formatDate(user.createdAt)}</span>
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setEditUser(user);
-                          setUserForm({
-                            name: user.name,
-                            email: user.email,
-                            password: "",
-                            role: user.role,
-                          });
-                          setShowUserForm(false);
-                        }}
-                        className="p-2 text-primary-light hover:text-primary hover:bg-gold-soft rounded-lg transition-colors"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteUser(user.id)}
-                        disabled={deletingUserId === user.id}
-                        className="p-2 text-red-400 hover:text-danger hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                      >
-                        {deletingUserId === user.id ? (
-                          <Loader2 size={16} className="animate-spin" />
-                        ) : (
-                          <Trash2 size={16} />
-                        )}
-                      </button>
+                      {can("settings.users:edit") && (
+                        <button
+                          onClick={() => {
+                            setEditUser(user);
+                            setUserForm({
+                              name: user.name,
+                              email: user.email,
+                              password: "",
+                              role: user.role,
+                            });
+                            setShowUserForm(false);
+                          }}
+                          className="p-2 text-primary-light hover:text-primary hover:bg-gold-soft rounded-lg transition-colors"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      )}
+                      {can("settings.users:edit") && (
+                        <button
+                          onClick={() => setOverridesUser(user)}
+                          className="p-2 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+                          title="استثناءات الصلاحيات"
+                        >
+                          <Shield size={16} />
+                        </button>
+                      )}
+                      {can("settings.users:delete") && (
+                        <button
+                          onClick={() => handleDeleteUser(user.id)}
+                          disabled={deletingUserId === user.id}
+                          className="p-2 text-red-400 hover:text-danger hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          {deletingUserId === user.id ? (
+                            <Loader2 size={16} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={16} />
+                          )}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -593,6 +637,14 @@ export default function SettingsPage() {
           requirePassword={false}
         />
       )}
+
+      {/* Permission Overrides Modal */}
+      {overridesUser && (
+        <OverridesModal
+          user={overridesUser}
+          onClose={() => setOverridesUser(null)}
+        />
+      )}
     </div>
   );
 }
@@ -756,6 +808,220 @@ function UserFormModal({
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+interface ResourceDTO {
+  id: number;
+  key: string;
+  label: string;
+  category: string;
+  permissions: { id: number; action: string; label: string; key: string }[];
+}
+
+interface OverrideDTO {
+  permissionId: number;
+  effect: "allow" | "deny";
+  permission: { key: string; label: string };
+}
+
+function OverridesModal({
+  user,
+  onClose,
+}: {
+  user: UserRecord;
+  onClose: () => void;
+}) {
+  const [resources, setResources] = useState<ResourceDTO[]>([]);
+  const [overrides, setOverrides] = useState<Record<number, "allow" | "deny">>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    function esc(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [onClose]);
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      setErr(null);
+      try {
+        const [resRes, ovRes] = await Promise.all([
+          fetch("/api/permissions"),
+          fetch(`/api/users/${user.id}/overrides`),
+        ]);
+        if (!resRes.ok) throw new Error("فشل تحميل الصلاحيات");
+        if (!ovRes.ok) throw new Error("فشل تحميل الاستثناءات");
+        const resJson = await resRes.json();
+        const ovJson = await ovRes.json();
+        setResources(resJson.resources || resJson);
+        const map: Record<number, "allow" | "deny"> = {};
+        (ovJson.overrides || ovJson).forEach((o: OverrideDTO) => {
+          map[o.permissionId] = o.effect;
+        });
+        setOverrides(map);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "خطأ");
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [user.id]);
+
+  function cycle(permissionId: number) {
+    setOverrides((prev) => {
+      const cur = prev[permissionId];
+      const next = { ...prev };
+      if (!cur) next[permissionId] = "allow";
+      else if (cur === "allow") next[permissionId] = "deny";
+      else delete next[permissionId];
+      return next;
+    });
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      const body = {
+        overrides: Object.entries(overrides).map(([permissionId, effect]) => ({
+          permissionId: Number(permissionId),
+          effect,
+        })),
+      };
+      const res = await fetch(`/api/users/${user.id}/overrides`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || "فشل الحفظ");
+      }
+      onClose();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "فشل الحفظ");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const grouped = resources.reduce<Record<string, ResourceDTO[]>>((acc, r) => {
+    (acc[r.category] = acc[r.category] || []).push(r);
+    return acc;
+  }, {});
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="px-6 py-4 bg-gray-50 flex items-center justify-between border-b border-gray-100">
+          <div>
+            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+              <Shield size={18} className="text-amber-600" />
+              استثناءات الصلاحيات لـ {user.name}
+            </h3>
+            <p className="text-xs text-gray-500 mt-1">
+              الاستثناءات تتجاوز صلاحيات الأدوار. اضغط على الصلاحية للتبديل بين:
+              افتراضي → سماح → رفض.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            <X size={20} className="text-gray-500" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 size={32} className="animate-spin text-primary" />
+            </div>
+          ) : err ? (
+            <div className="text-danger text-sm">{err}</div>
+          ) : (
+            Object.entries(grouped).map(([category, items]) => (
+              <div key={category} className="space-y-2">
+                <h4 className="text-sm font-bold text-gray-700 border-b border-gray-100 pb-1">
+                  {category}
+                </h4>
+                <div className="space-y-2">
+                  {items.map((r) => (
+                    <div
+                      key={r.id}
+                      className="bg-gray-50/60 rounded-lg p-3 space-y-2"
+                    >
+                      <div className="text-sm font-medium text-gray-800">
+                        {r.label}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {r.permissions.map((p) => {
+                          const effect = overrides[p.id];
+                          const style =
+                            effect === "allow"
+                              ? "bg-green-100 text-green-700 border-green-300"
+                              : effect === "deny"
+                                ? "bg-red-100 text-red-700 border-red-300"
+                                : "bg-white text-gray-500 border-gray-200 hover:border-gray-400";
+                          return (
+                            <button
+                              type="button"
+                              key={p.id}
+                              onClick={() => cycle(p.id)}
+                              className={cn(
+                                "text-xs px-2.5 py-1 rounded-full border transition-colors",
+                                style,
+                              )}
+                              title={p.key}
+                            >
+                              {p.label}
+                              {effect === "allow" && " ✓"}
+                              {effect === "deny" && " ✕"}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-2 bg-gray-50">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-white text-sm"
+          >
+            إلغاء
+          </button>
+          <button
+            onClick={save}
+            disabled={saving || loading}
+            className="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 text-sm font-medium"
+          >
+            {saving ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Save size={16} />
+            )}
+            حفظ الاستثناءات
+          </button>
+        </div>
       </div>
     </div>
   );

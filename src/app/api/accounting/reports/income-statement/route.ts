@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 export async function GET(request: Request) {
   try {
+    await requirePermission("accounting.reports:view");
     const { searchParams } = new URL(request.url);
     const from = searchParams.get("from");
     const to = searchParams.get("to");
@@ -59,6 +61,8 @@ export async function GET(request: Request) {
       netProfit: Math.round(netProfit * 100) / 100,
     });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("GET /api/accounting/reports/income-statement error:", error);
     return NextResponse.json({ error: "Failed" }, { status: 500 });
   }

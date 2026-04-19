@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Users,
   Plus,
@@ -11,6 +12,8 @@ import {
   Phone,
   X,
   Eye,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { cn, formatAmount } from "@/lib/utils";
 
@@ -46,13 +49,17 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export default function PartiesPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [parties, setParties] = useState<Party[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("employee");
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [form, setForm] = useState({
     name: "",
     type: "supplier" as Party["type"],
@@ -60,7 +67,71 @@ export default function PartiesPage() {
     email: "",
     nationalId: "",
     notes: "",
+    isActive: true,
   });
+
+  const resetForm = () => {
+    setEditingId(null);
+    setForm({
+      name: "",
+      type: "supplier",
+      phone: "",
+      email: "",
+      nationalId: "",
+      notes: "",
+      isActive: true,
+    });
+  };
+
+  const openCreate = () => {
+    resetForm();
+    setShowForm(true);
+  };
+
+  const openEdit = (p: Party) => {
+    setEditingId(p.id);
+    setForm({
+      name: p.name,
+      type: p.type as Party["type"],
+      phone: p.phone ?? "",
+      email: p.email ?? "",
+      nationalId: p.nationalId ?? "",
+      notes: p.notes ?? "",
+      isActive: p.isActive,
+    });
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    resetForm();
+  };
+
+  async function handleDelete(p: Party) {
+    if (
+      !confirm(
+        `هل أنت متأكد من حذف "${p.name}"؟ في حال وجود حركات سيتم تعطيله بدل حذفه.`
+      )
+    ) {
+      return;
+    }
+    setDeletingId(p.id);
+    try {
+      const res = await fetch(`/api/accounting/parties/${p.id}`, {
+        method: "DELETE",
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error || "فشل الحذف");
+      if (j.message) {
+        alert(j.message);
+      }
+      fetchParties();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "خطأ");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   const fetchParties = useCallback(async () => {
     setLoading(true);
@@ -84,12 +155,28 @@ export default function PartiesPage() {
     fetchParties();
   }, [fetchParties]);
 
+  useEffect(() => {
+    const editIdParam = searchParams.get("edit");
+    if (!editIdParam || parties.length === 0) return;
+    const idNum = Number(editIdParam);
+    const party = parties.find((p) => p.id === idNum);
+    if (party) {
+      openEdit(party);
+      router.replace("/accounting/parties");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, parties]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const res = await fetch("/api/accounting/parties", {
-        method: "POST",
+      const url = editingId
+        ? `/api/accounting/parties/${editingId}`
+        : "/api/accounting/parties";
+      const method = editingId ? "PATCH" : "POST";
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
@@ -97,15 +184,7 @@ export default function PartiesPage() {
         const j = await res.json();
         throw new Error(j.error || "فشل");
       }
-      setShowForm(false);
-      setForm({
-        name: "",
-        type: "supplier",
-        phone: "",
-        email: "",
-        nationalId: "",
-        notes: "",
-      });
+      closeForm();
       fetchParties();
     } catch (err) {
       alert(err instanceof Error ? err.message : "خطأ");
@@ -124,7 +203,7 @@ export default function PartiesPage() {
           </h1>
         </div>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={openCreate}
           className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm font-medium w-full sm:w-auto justify-center"
         >
           <Plus size={18} />
@@ -135,12 +214,12 @@ export default function PartiesPage() {
       <div className="bg-card-bg rounded-xl p-3 sm:p-4 shadow-sm space-y-3">
         <div className="flex flex-wrap gap-2">
           {[
-            { key: "all", label: "الكل" },
+            { key: "employee", label: "الموظفين" },
             { key: "partner", label: "الشركاء" },
             { key: "supplier", label: "الموردين" },
-            { key: "employee", label: "الموظفين" },
             { key: "lender", label: "المُقرضين" },
             { key: "guest", label: "النزلاء" },
+            { key: "all", label: "الكل" },
             { key: "other", label: "أخرى" },
           ].map((t) => (
             <button
@@ -245,12 +324,12 @@ export default function PartiesPage() {
                             : "text-gray-400"
                         )}
                       >
-                        {formatAmount(balance)}
+                        {formatAmount(Math.abs(balance))}
                         <span className="text-xs font-normal text-gray-500 mr-1">
                           {balance > 0
-                            ? "(له علينا)"
-                            : balance < 0
                             ? "(لنا عليه)"
+                            : balance < 0
+                            ? "(له علينا)"
                             : ""}
                         </span>
                       </td>
@@ -262,12 +341,35 @@ export default function PartiesPage() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <Link
-                          href={`/accounting/parties/${p.id}`}
-                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                        >
-                          <Eye size={14} /> كشف الحساب
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/accounting/parties/${p.id}`}
+                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                            title="كشف الحساب"
+                          >
+                            <Eye size={14} /> كشف
+                          </Link>
+                          <button
+                            onClick={() => openEdit(p)}
+                            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                            title="تعديل"
+                          >
+                            <Pencil size={14} /> تعديل
+                          </button>
+                          <button
+                            onClick={() => handleDelete(p)}
+                            disabled={deletingId === p.id}
+                            className="inline-flex items-center gap-1 text-xs text-red-600 hover:underline disabled:opacity-50"
+                            title="حذف"
+                          >
+                            {deletingId === p.id ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                              <Trash2 size={14} />
+                            )}
+                            حذف
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -281,13 +383,15 @@ export default function PartiesPage() {
       {showForm && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={(e) => e.target === e.currentTarget && setShowForm(false)}
+          onClick={(e) => e.target === e.currentTarget && closeForm()}
         >
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 overflow-hidden">
             <div className="px-6 py-4 bg-gray-50 flex items-center justify-between border-b">
-              <h3 className="text-lg font-bold text-gray-800">إضافة طرف جديد</h3>
+              <h3 className="text-lg font-bold text-gray-800">
+                {editingId ? "تعديل الطرف" : "إضافة طرف جديد"}
+              </h3>
               <button
-                onClick={() => setShowForm(false)}
+                onClick={closeForm}
                 className="p-1.5 rounded-lg hover:bg-gray-200"
               >
                 <X size={20} className="text-gray-500" />
@@ -307,7 +411,8 @@ export default function PartiesPage() {
                         type: e.target.value as Party["type"],
                       })
                     }
-                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                    disabled={!!editingId}
+                    className="w-full border rounded-lg px-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-500"
                   >
                     <option value="partner">شريك</option>
                     <option value="supplier">مورّد</option>
@@ -378,10 +483,23 @@ export default function PartiesPage() {
                   className="w-full border rounded-lg px-3 py-2 text-sm"
                 />
               </div>
+              {editingId && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.isActive}
+                    onChange={(e) =>
+                      setForm({ ...form, isActive: e.target.checked })
+                    }
+                    className="w-4 h-4 accent-primary"
+                  />
+                  <span className="text-sm text-gray-700">الطرف نشط</span>
+                </label>
+              )}
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowForm(false)}
+                  onClick={closeForm}
                   className="px-6 py-2.5 border rounded-lg text-gray-600 hover:bg-gray-50 text-sm"
                 >
                   إلغاء
@@ -393,10 +511,12 @@ export default function PartiesPage() {
                 >
                   {submitting ? (
                     <Loader2 size={18} className="animate-spin" />
+                  ) : editingId ? (
+                    <Pencil size={18} />
                   ) : (
                     <Plus size={18} />
                   )}
-                  حفظ
+                  {editingId ? "حفظ التعديلات" : "حفظ"}
                 </button>
               </div>
             </form>

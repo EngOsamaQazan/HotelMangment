@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ensurePartyAccounts, getPartyBalance } from "@/lib/accounting";
+import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 export async function GET(request: Request) {
   try {
+    await requirePermission("accounting.parties:view");
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type");
     const search = searchParams.get("search");
@@ -44,6 +46,8 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ parties: withBal });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("GET /api/accounting/parties error:", error);
     return NextResponse.json({ error: "Failed to fetch parties" }, { status: 500 });
   }
@@ -51,6 +55,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    await requirePermission("accounting.parties:create");
     const body = await request.json();
     const {
       name,
@@ -97,6 +102,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("POST /api/accounting/parties error:", error);
     const msg = error instanceof Error ? error.message : "Failed to create party";
     return NextResponse.json({ error: msg }, { status: 500 });

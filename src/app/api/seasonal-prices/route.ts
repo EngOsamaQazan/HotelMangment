@@ -1,14 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 export async function GET() {
   try {
+    await requirePermission("settings.prices:view");
     const prices = await prisma.seasonalPrice.findMany({
       orderBy: { startDate: "asc" },
     });
 
     return NextResponse.json(prices);
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("GET /api/seasonal-prices error:", error);
     return NextResponse.json(
       { error: "Failed to fetch seasonal prices" },
@@ -19,6 +23,7 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
+    await requirePermission("settings.prices:edit");
     const body = await request.json();
     const {
       id,
@@ -62,6 +67,8 @@ export async function PUT(request: Request) {
 
     return NextResponse.json(updated);
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("PUT /api/seasonal-prices error:", error);
     return NextResponse.json(
       { error: "Failed to update seasonal price" },

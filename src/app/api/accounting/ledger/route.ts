@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 export async function GET(request: Request) {
   try {
+    await requirePermission("accounting.ledger:view");
     const { searchParams } = new URL(request.url);
     const accountId = searchParams.get("accountId");
     const from = searchParams.get("from");
@@ -46,7 +48,11 @@ export async function GET(request: Request) {
         },
       },
       include: {
-        entry: true,
+        entry: {
+          include: {
+            lines: { include: { account: true, party: true } },
+          },
+        },
         party: true,
       },
       orderBy: [{ entry: { date: "asc" } }, { id: "asc" }],
@@ -58,11 +64,31 @@ export async function GET(request: Request) {
       const credit = Number(l.credit);
       running +=
         account.normalBalance === "debit" ? debit - credit : credit - debit;
+
+      const others = l.entry.lines.filter((x) => x.id !== l.id);
+      const counterparts = others.map((o) => ({
+        accountCode: o.account.code,
+        accountName: o.account.name,
+        partyName: o.party?.name ?? null,
+        debit: Number(o.debit),
+        credit: Number(o.credit),
+      }));
+      const counterSummary =
+        counterparts.length === 0
+          ? null
+          : counterparts.length === 1
+            ? `${counterparts[0].accountCode} ${counterparts[0].accountName}${
+                counterparts[0].partyName ? ` (${counterparts[0].partyName})` : ""
+              }`
+            : `عدة حسابات (${counterparts.length})`;
+
       return {
         id: l.id,
         date: l.entry.date,
         entryId: l.entry.id,
         entryNumber: l.entry.entryNumber,
+        entrySource: l.entry.source,
+        entryReference: l.entry.reference,
         description: l.entry.description,
         lineDescription: l.description,
         partyId: l.partyId,
@@ -70,6 +96,8 @@ export async function GET(request: Request) {
         debit,
         credit,
         balance: Math.round(running * 100) / 100,
+        counterSummary,
+        counterparts,
       };
     });
 
@@ -90,6 +118,8 @@ export async function GET(request: Request) {
       rows,
     });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("GET /api/accounting/ledger error:", error);
     return NextResponse.json({ error: "Failed to fetch ledger" }, { status: 500 });
   }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 export async function GET(request: Request) {
   try {
@@ -11,15 +12,19 @@ export async function GET(request: Request) {
     }
 
     if (type === "monthly") {
+      await requirePermission("reports.monthly:view");
       return getMonthlyReport(searchParams);
     }
 
     if (type === "debts") {
+      await requirePermission("reports.debts:view");
       return getDebtsReport();
     }
 
     return NextResponse.json({ error: "Invalid report type. Use 'monthly' or 'debts'" }, { status: 400 });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("GET /api/reports error:", error);
     return NextResponse.json(
       { error: "Failed to generate report" },

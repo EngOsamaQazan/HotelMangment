@@ -1,14 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { postEntry, ACCOUNT_CODES } from "@/lib/accounting";
+import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 export async function GET() {
   try {
+    await requirePermission("accounting.periods:view");
     const periods = await prisma.fiscalPeriod.findMany({
       orderBy: [{ year: "desc" }, { month: "desc" }],
     });
     return NextResponse.json({ periods });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("GET /api/accounting/periods error:", error);
     return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
@@ -16,6 +20,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    await requirePermission(
+      "accounting.periods:create",
+      "accounting.periods:edit",
+      "accounting.periods:close",
+    );
     const body = await request.json();
     const { year, month, action } = body;
 
@@ -163,6 +172,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: "إجراء غير مدعوم" }, { status: 400 });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("POST /api/accounting/periods error:", error);
     const msg = error instanceof Error ? error.message : "Failed";
     return NextResponse.json({ error: msg }, { status: 400 });

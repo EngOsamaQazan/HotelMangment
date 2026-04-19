@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import {
+  requirePermission,
+  handleAuthError,
+  invalidatePermissionsCache,
+} from "@/lib/permissions/guard";
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requirePermission("settings.users:edit");
     const { id } = await params;
     const userId = parseInt(id);
 
@@ -51,20 +57,39 @@ export async function PUT(
       updateData.passwordHash = await bcrypt.hash(password, 12);
     }
 
-    const user = await prisma.user.update({
-      where: { id: userId },
-      data: updateData,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
-      },
+    const user = await prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id: userId },
+        data: updateData,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          createdAt: true,
+        },
+      });
+
+      // Keep UserRole in sync with the legacy `role` column.
+      if (updateData.role) {
+        const role = await tx.role.findUnique({
+          where: { key: updateData.role },
+        });
+        if (role) {
+          await tx.userRole.deleteMany({ where: { userId } });
+          await tx.userRole.create({
+            data: { userId, roleId: role.id },
+          });
+        }
+      }
+      return updated;
     });
 
+    invalidatePermissionsCache(userId);
     return NextResponse.json(user);
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("PUT /api/users/[id] error:", error);
     return NextResponse.json(
       { error: "Failed to update user" },
@@ -78,6 +103,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requirePermission("settings.users:delete");
     const { id } = await params;
     const userId = parseInt(id);
 
@@ -94,6 +120,8 @@ export async function DELETE(
 
     return NextResponse.json({ message: "User deleted successfully" });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("DELETE /api/users/[id] error:", error);
     return NextResponse.json(
       { error: "Failed to delete user" },

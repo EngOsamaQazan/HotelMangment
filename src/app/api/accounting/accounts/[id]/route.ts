@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requirePermission("accounting.accounts:edit");
     const { id } = await params;
     const accountId = parseInt(id);
     if (isNaN(accountId)) {
@@ -42,6 +44,8 @@ export async function PATCH(
 
     return NextResponse.json(account);
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("PATCH /api/accounting/accounts/[id] error:", error);
     return NextResponse.json(
       { error: "Failed to update account" },
@@ -55,6 +59,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requirePermission("accounting.accounts:delete");
     const { id } = await params;
     const accountId = parseInt(id);
     if (isNaN(accountId)) {
@@ -84,6 +89,8 @@ export async function DELETE(
     await prisma.account.delete({ where: { id: accountId } });
     return NextResponse.json({ message: "تم الحذف" });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("DELETE /api/accounting/accounts/[id] error:", error);
     return NextResponse.json(
       { error: "Failed to delete account" },

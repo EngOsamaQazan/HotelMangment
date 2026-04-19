@@ -6,9 +6,11 @@ import {
   ensurePartyAccounts,
   ACCOUNT_CODES,
 } from "@/lib/accounting";
+import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 export async function GET(request: Request) {
   try {
+    await requirePermission("finance:view");
     const { searchParams } = new URL(request.url);
     const account = searchParams.get("account");
     const type = searchParams.get("type");
@@ -71,6 +73,8 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("GET /api/finance error:", error);
     return NextResponse.json(
       { error: "Failed to fetch transactions" },
@@ -81,6 +85,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    await requirePermission("finance:create");
     const body = await request.json();
     const {
       date,
@@ -105,8 +110,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Type must be 'income' or 'expense'" }, { status: 400 });
     }
 
-    if (!["cash", "bank"].includes(account)) {
-      return NextResponse.json({ error: "Account must be 'cash' or 'bank'" }, { status: 400 });
+    if (!["cash", "bank", "wallet"].includes(account)) {
+      return NextResponse.json(
+        { error: "Account must be 'cash', 'bank', or 'wallet'" },
+        { status: 400 }
+      );
     }
 
     if (reservationId) {
@@ -120,7 +128,11 @@ export async function POST(request: Request) {
 
     const amountNum = Number(amount);
     const cashCode =
-      account === "bank" ? ACCOUNT_CODES.BANK : ACCOUNT_CODES.CASH;
+      account === "bank"
+        ? ACCOUNT_CODES.BANK
+        : account === "wallet"
+          ? "1030"
+          : ACCOUNT_CODES.CASH;
 
     const transaction = await prisma.$transaction(async (tx) => {
       const txn = await tx.transaction.create({
@@ -260,6 +272,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json(transaction, { status: 201 });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("POST /api/finance error:", error);
     const msg = error instanceof Error ? error.message : "Failed to create transaction";
     return NextResponse.json({ error: msg }, { status: 500 });

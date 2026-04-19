@@ -11,9 +11,13 @@ model User {
   id           Int      @id @default(autoincrement())
   name         String
   email        String   @unique
+  username     String?  @unique
   passwordHash String   @map("password_hash")
   role         String   @default("receptionist")
   createdAt    DateTime @default(now()) @map("created_at")
+
+  userRoles          UserRole[]
+  permissionOverrides UserPermissionOverride[]
 
   @@map("users")
 }
@@ -248,4 +252,99 @@ model AccountingCounter {
   value Int    @default(0)
 
   @@map("accounting_counters")
+}
+
+// ============================================================================
+// Permissions / RBAC
+// ============================================================================
+
+model Resource {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  label       String
+  category    String   @default("general")
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  permissions Permission[]
+
+  @@index([category])
+  @@map("resources")
+}
+
+model Permission {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  resourceId  Int      @map("resource_id")
+  action      String
+  label       String
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  resource        Resource                 @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  rolePermissions RolePermission[]
+  userOverrides   UserPermissionOverride[]
+
+  @@unique([resourceId, action])
+  @@index([action])
+  @@map("permissions")
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  name        String
+  description String?
+  isSystem    Boolean  @default(false) @map("is_system")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  permissions RolePermission[]
+  users       UserRole[]
+
+  @@map("roles")
+}
+
+model RolePermission {
+  id           Int @id @default(autoincrement())
+  roleId       Int @map("role_id")
+  permissionId Int @map("permission_id")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  roleId    Int      @map("role_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model UserPermissionOverride {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  permissionId Int      @map("permission_id")
+  effect       String   // allow | deny
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permissionId])
+  @@index([permissionId])
+  @@map("user_permission_overrides")
 }

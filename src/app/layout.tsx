@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Tajawal, Amiri } from "next/font/google";
 import "./globals.css";
-import { Sidebar } from "@/components/Sidebar";
+import { AppShell } from "@/components/AppShell";
 import { AuthProvider } from "@/components/AuthProvider";
+import { PermissionsProvider } from "@/lib/permissions/client";
 
 const tajawal = Tajawal({
   subsets: ["arabic", "latin"],
@@ -66,12 +67,9 @@ export default function RootLayout({
     >
       <body className="font-[family-name:var(--font-tajawal)] antialiased">
         <AuthProvider>
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <main className="flex-1 md:mr-64 pt-16 md:pt-0 p-4 md:p-6 bg-page-bg min-h-screen">
-              {children}
-            </main>
-          </div>
+          <PermissionsProvider>
+            <AppShell>{children}</AppShell>
+          </PermissionsProvider>
         </AuthProvider>
       </body>
     </html>

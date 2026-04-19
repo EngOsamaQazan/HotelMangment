@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { postEntry, ACCOUNT_CODES } from "@/lib/accounting";
+import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requirePermission("maintenance:edit");
     const { id } = await params;
     const maintenanceId = parseInt(id);
 
@@ -108,6 +110,8 @@ export async function PUT(
 
     return NextResponse.json(maintenance);
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("PUT /api/maintenance/[id] error:", error);
     return NextResponse.json(
       { error: "Failed to update maintenance record" },

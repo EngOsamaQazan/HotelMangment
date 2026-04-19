@@ -13,6 +13,7 @@ import {
   Mail,
   Scale,
   Printer,
+  Pencil,
 } from "lucide-react";
 import { cn, formatAmount, formatDate } from "@/lib/utils";
 
@@ -121,12 +122,20 @@ export default function PartyStatementPage() {
         >
           <ArrowLeft size={16} /> العودة للقائمة
         </Link>
-        <button
-          onClick={() => window.print()}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark"
-        >
-          <Printer size={16} /> طباعة
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/accounting/parties?edit=${id}`}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+          >
+            <Pencil size={16} /> تعديل
+          </Link>
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark"
+          >
+            <Printer size={16} /> طباعة
+          </button>
+        </div>
       </div>
 
       <div className="bg-card-bg rounded-xl shadow-sm p-5 space-y-3">
@@ -195,9 +204,9 @@ export default function PartyStatementPage() {
             </p>
             <p className="text-xs text-gray-500 mt-1">
               {balance > 0
-                ? "رصيد مدين (له على الفندق)"
+                ? "رصيد مدين (عليه للفندق)"
                 : balance < 0
-                ? "رصيد دائن (عليه للفندق)"
+                ? "رصيد دائن (له على الفندق)"
                 : "لا يوجد رصيد"}
             </p>
           </div>

@@ -1,0 +1,29 @@
+name: Permissions Guard
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  check-permissions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Generate Prisma client (needed for type imports)
+        run: npx prisma generate
+
+      - name: Run permissions registry guard
+        run: npm run check:permissions
+
+      - name: Lint
+        run: npm run lint

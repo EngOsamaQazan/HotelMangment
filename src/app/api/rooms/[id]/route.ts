@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requirePermission("rooms:edit");
     const { id } = await params;
     const unitId = parseInt(id);
 
@@ -57,6 +59,8 @@ export async function PATCH(
       notes: activeRes?.notes || updated.description || undefined,
     });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("PATCH /api/rooms/[id] error:", error);
     return NextResponse.json(
       { error: "Failed to update room status" },

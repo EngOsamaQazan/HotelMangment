@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 export async function GET() {
   try {
+    await requirePermission("rooms:view");
     const units = await prisma.unit.findMany({
       include: {
         reservations: {
@@ -38,6 +40,8 @@ export async function GET() {
 
     return NextResponse.json(result);
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("GET /api/rooms error:", error);
     return NextResponse.json(
       { error: "Failed to fetch rooms" },
@@ -48,6 +52,7 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
+    await requirePermission("rooms:edit");
     const body = await request.json();
     const { id, status, description } = body;
 
@@ -79,6 +84,8 @@ export async function PUT(request: Request) {
 
     return NextResponse.json(updated);
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("PUT /api/rooms error:", error);
     return NextResponse.json(
       { error: "Failed to update room" },

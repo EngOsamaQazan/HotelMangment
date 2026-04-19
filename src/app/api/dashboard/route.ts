@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { databaseConfigurationError } from "@/lib/db-env";
 import { prisma } from "@/lib/prisma";
+import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 export async function GET() {
   const configErr = databaseConfigurationError();
   if (configErr) return configErr;
 
   try {
+    await requirePermission("dashboard:view");
     const today = new Date();
     const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
@@ -80,6 +82,8 @@ export async function GET() {
       },
     });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("GET /api/dashboard error:", error);
     const msg =
       error &&

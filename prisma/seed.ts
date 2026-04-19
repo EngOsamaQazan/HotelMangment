@@ -12,6 +12,7 @@ async function main() {
   const adminHash = await bcrypt.hash("admin123", 10);
   const receptionHash = await bcrypt.hash("reception123", 10);
   const accountantHash = await bcrypt.hash("accountant123", 10);
+  const osamaHash = await bcrypt.hash("osama123", 10);
 
   await prisma.user.upsert({
     where: { email: "admin@fakher.jo" },
@@ -19,7 +20,24 @@ async function main() {
     create: {
       name: "المدير العام",
       email: "admin@fakher.jo",
+      username: "admin",
       passwordHash: adminHash,
+      role: "admin",
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { email: "osamaqazan89@gmail.com" },
+    update: {
+      username: "osama",
+      passwordHash: osamaHash,
+      role: "admin",
+    },
+    create: {
+      name: "أسامة",
+      email: "osamaqazan89@gmail.com",
+      username: "osama",
+      passwordHash: osamaHash,
       role: "admin",
     },
   });

@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requirePermission("accounting.parties:view");
     const { id } = await params;
     const partyId = parseInt(id);
     if (isNaN(partyId)) {
@@ -90,6 +92,8 @@ export async function GET(
       rows,
     });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("GET /api/accounting/parties/[id]/statement error:", error);
     return NextResponse.json({ error: "Failed to fetch statement" }, { status: 500 });
   }

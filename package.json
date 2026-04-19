@@ -9,7 +9,11 @@
     "lint": "eslint",
     "db:push": "prisma db push",
     "db:seed": "npx ts-node --compiler-options {\"module\":\"commonjs\"} prisma/seed.ts",
+    "db:seed-permissions": "npx ts-node --project tsconfig.scripts.json prisma/seed-permissions.ts",
+    "db:migrate-user-roles": "npx ts-node --project tsconfig.scripts.json scripts/migrate-user-roles.ts",
     "db:reset": "prisma db push --force-reset && npm run db:seed",
+    "check:permissions": "npx ts-node --project tsconfig.scripts.json scripts/check-permissions.ts",
+    "prebuild": "npm run check:permissions",
     "import:guests": "node scripts/import-guests-from-images.cjs",
     "postinstall": "prisma generate"
   },

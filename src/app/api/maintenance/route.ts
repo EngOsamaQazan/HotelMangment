@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 export async function GET(request: Request) {
   try {
+    await requirePermission("maintenance:view");
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const unitId = searchParams.get("unitId");
@@ -26,6 +28,8 @@ export async function GET(request: Request) {
 
     return NextResponse.json(maintenanceList);
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("GET /api/maintenance error:", error);
     return NextResponse.json(
       { error: "Failed to fetch maintenance records" },
@@ -36,6 +40,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    await requirePermission("maintenance:create");
     const body = await request.json();
     const { unitId, description, contractor, cost, notes } = body;
 
@@ -75,6 +80,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json(maintenance, { status: 201 });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("POST /api/maintenance error:", error);
     return NextResponse.json(
       { error: "Failed to create maintenance record" },

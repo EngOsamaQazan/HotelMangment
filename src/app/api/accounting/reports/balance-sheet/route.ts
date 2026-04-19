@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 export async function GET(request: Request) {
   try {
+    await requirePermission("accounting.reports:view");
     const { searchParams } = new URL(request.url);
     const asOf = searchParams.get("asOf");
     const asOfDate = asOf ? new Date(asOf) : undefined;
@@ -92,6 +94,8 @@ export async function GET(request: Request) {
       balanced: Math.abs(totalAssets - totalLiabilitiesEquity) < 0.01,
     });
   } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
     console.error("GET /api/accounting/reports/balance-sheet error:", error);
     return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
