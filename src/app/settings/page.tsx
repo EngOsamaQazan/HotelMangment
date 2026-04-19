@@ -24,6 +24,7 @@ interface UserRecord {
   id: number;
   name: string;
   email: string;
+  username: string | null;
   role: "admin" | "receptionist" | "accountant";
   createdAt: string;
 }
@@ -44,6 +45,7 @@ interface SeasonalPrice {
 interface UserFormData {
   name: string;
   email: string;
+  username: string;
   password: string;
   role: "admin" | "receptionist" | "accountant";
 }
@@ -51,6 +53,7 @@ interface UserFormData {
 const emptyUserForm: UserFormData = {
   name: "",
   email: "",
+  username: "",
   password: "",
   role: "receptionist",
 };
@@ -135,6 +138,7 @@ export default function SettingsPage() {
       const body: Record<string, string> = {
         name: userForm.name,
         email: userForm.email,
+        username: userForm.username,
         role: userForm.role,
       };
       if (userForm.password) body.password = userForm.password;
@@ -236,10 +240,23 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-xl sm:text-2xl font-bold text-primary flex items-center gap-2 border-b-2 border-gold/30 pb-3">
-        <Settings size={24} className="text-gold-dark" />
-        الإعدادات
-      </h1>
+      <div className="pt-2 sm:pt-4 border-b-2 border-gold/30 pb-4">
+        <div className="flex items-center gap-3">
+          <span
+            aria-hidden
+            className="inline-block w-1 h-8 bg-gold rounded-full"
+          />
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-primary/5 border border-gold/30">
+            <Settings size={22} className="text-gold-dark" />
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-primary font-[family-name:var(--font-amiri)] tracking-tight">
+            الإعدادات
+          </h1>
+        </div>
+        <p className="text-sm text-gray-500 mt-2 ms-4">
+          إدارة المستخدمين، الصلاحيات، والأسعار الموسمية
+        </p>
+      </div>
 
       {/* Section 1: User Management */}
       <section className="space-y-4">
@@ -333,6 +350,7 @@ export default function SettingsPage() {
                                 setUserForm({
                                   name: user.name,
                                   email: user.email,
+                                  username: user.username ?? "",
                                   password: "",
                                   role: user.role,
                                 });
@@ -394,6 +412,7 @@ export default function SettingsPage() {
                             setUserForm({
                               name: user.name,
                               email: user.email,
+                              username: user.username ?? "",
                               password: "",
                               role: user.role,
                             });
@@ -740,6 +759,26 @@ function UserFormModal({
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               placeholder="email@example.com"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary direction-ltr text-right"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              اسم المستخدم
+              <span className="text-gray-400 font-normal">
+                {" "}
+                (اختياري — يُستخدم لتسجيل الدخول بدل الإيميل)
+              </span>
+            </label>
+            <input
+              type="text"
+              value={form.username}
+              onChange={(e) =>
+                setForm({ ...form, username: e.target.value })
+              }
+              placeholder="admin"
+              autoComplete="off"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary direction-ltr text-right"
             />
           </div>
