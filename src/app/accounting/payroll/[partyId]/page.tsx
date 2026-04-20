@@ -168,7 +168,7 @@ export default function PayrollPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg text-sm hover:bg-gray-800"
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark border border-gold/40 shadow-md transition-colors"
           >
             <Printer size={16} /> طباعة السليب
           </button>
@@ -176,12 +176,12 @@ export default function PayrollPage() {
       </div>
 
       {/* Period Selector */}
-      <div className="bg-card-bg rounded-xl p-4 shadow-sm flex flex-wrap items-center gap-3 no-print">
-        <span className="text-sm text-gray-500">الشهر:</span>
+      <div className="bg-card-bg rounded-xl p-4 shadow-sm border border-gold/20 flex flex-wrap items-center gap-3 no-print">
+        <span className="text-sm text-primary font-medium">الشهر:</span>
         <select
           value={month}
           onChange={(e) => setMonth(Number(e.target.value))}
-          className="border rounded-lg px-3 py-1.5 text-sm"
+          className="border border-gold/30 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none"
         >
           {ARABIC_MONTHS.map((m, i) => (
             <option key={i} value={i + 1}>
@@ -195,26 +195,49 @@ export default function PayrollPage() {
           max="2030"
           value={year}
           onChange={(e) => setYear(Number(e.target.value))}
-          className="border rounded-lg px-3 py-1.5 text-sm w-24"
+          className="border border-gold/30 rounded-lg px-3 py-1.5 text-sm w-24 focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none"
         />
       </div>
 
       {/* Payslip Card (printable) */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-200 print:shadow-none print:border-0">
-        <div className="bg-gradient-to-r from-green-700 to-green-600 text-white p-6 rounded-t-2xl print:rounded-none">
-          <div className="flex items-center justify-between">
+      <div className="bg-white rounded-2xl shadow-lg border border-gold/30 overflow-hidden print:shadow-none print:border-0">
+        <div
+          className="relative text-white p-6 print:rounded-none"
+          style={{
+            background:
+              "radial-gradient(ellipse at top right, #155A4C 0%, #0E3B33 50%, #092923 100%)",
+          }}
+        >
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -top-8 -right-8 w-40 h-40 rounded-full bg-gold/15 blur-3xl"
+          />
+          <span
+            aria-hidden
+            className="absolute inset-x-6 bottom-0 h-px bg-gradient-to-r from-transparent via-gold/70 to-transparent"
+          />
+          <div className="relative flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <Receipt size={32} />
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-gold/15 border border-gold/40">
+                <Receipt size={28} className="text-gold" />
+              </div>
               <div>
-                <h1 className="text-2xl font-bold">سليب راتب</h1>
-                <p className="text-green-100 text-sm">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gold font-[family-name:var(--font-amiri)] inline-flex items-baseline gap-2 leading-tight">
+                  <span className="text-gold-light text-lg leading-none select-none">
+                    ◆
+                  </span>
+                  سليب راتب
+                </h1>
+                <p className="text-gold-light/90 text-sm mt-1">
                   عن شهر {ARABIC_MONTHS[month - 1]} {year}
                 </p>
               </div>
             </div>
-            <div className="text-right text-sm">
-              <p className="text-green-100">فندق المفرق</p>
-              <p className="text-green-100">
+            <div className="text-left text-xs sm:text-sm space-y-0.5">
+              <p className="text-gold font-bold font-[family-name:var(--font-amiri)] text-base">
+                فندق المفرق
+              </p>
+              <p className="text-gold-light/75">
                 تاريخ الإصدار: {formatDate(new Date().toISOString())}
               </p>
             </div>
@@ -277,10 +300,10 @@ export default function PayrollPage() {
 
         <div className="p-6 space-y-6">
           {/* Employee info */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-4 border-b">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-4 border-b border-gold/20">
             <div>
               <div className="text-xs text-gray-500">الاسم</div>
-              <div className="font-bold text-gray-800">{data.party.name}</div>
+              <div className="font-bold text-primary">{data.party.name}</div>
             </div>
             <div>
               <div className="text-xs text-gray-500">المسمّى الوظيفي</div>
@@ -300,9 +323,9 @@ export default function PayrollPage() {
               <div className="text-xs text-gray-500">الحالة</div>
               <div className="font-medium">
                 {data.party.isActive ? (
-                  <span className="text-green-700">نشط</span>
+                  <span className="text-success">نشط</span>
                 ) : (
-                  <span className="text-red-700">غير نشط</span>
+                  <span className="text-danger">غير نشط</span>
                 )}
               </div>
             </div>
@@ -310,10 +333,14 @@ export default function PayrollPage() {
 
           {/* Earnings breakdown */}
           <div>
-            <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-              <Calculator size={16} /> تفصيل الاستحقاقات
+            <h3 className="text-base font-bold text-primary mb-3 flex items-center gap-2 font-[family-name:var(--font-amiri)]">
+              <span className="text-gold-dark text-base leading-none select-none">
+                ◆
+              </span>
+              <Calculator size={18} className="text-gold-dark" /> تفصيل
+              الاستحقاقات
             </h3>
-            <div className="space-y-2">
+            <div className="space-y-2 border-r-2 border-gold/30 pr-3">
               <Row
                 label="الراتب الأساسي"
                 value={data.baseSalary}
@@ -324,7 +351,7 @@ export default function PayrollPage() {
                 value={data.commission}
                 positive
               />
-              <div className="border-t-2 border-gray-200 pt-2">
+              <div className="border-t border-gold/40 pt-2">
                 <Row label="إجمالي المستحق" value={data.gross} bold />
               </div>
             </div>
@@ -332,8 +359,13 @@ export default function PayrollPage() {
 
           {/* Deductions */}
           <div>
-            <h3 className="text-sm font-bold text-gray-700 mb-3">الاستقطاعات</h3>
-            <div className="space-y-2">
+            <h3 className="text-base font-bold text-primary mb-3 flex items-center gap-2 font-[family-name:var(--font-amiri)]">
+              <span className="text-gold-dark text-base leading-none select-none">
+                ◆
+              </span>
+              الاستقطاعات
+            </h3>
+            <div className="space-y-2 border-r-2 border-gold/30 pr-3">
               <Row
                 label="سلف قائمة على الموظف"
                 value={data.outstandingAdvance}
@@ -342,31 +374,45 @@ export default function PayrollPage() {
             </div>
           </div>
 
-          {/* Net */}
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-5">
-            <div className="flex items-center justify-between">
+          {/* Net — luxury emerald + gold card */}
+          <div
+            className="relative rounded-xl p-5 border border-gold/40 shadow-md overflow-hidden"
+            style={{
+              background:
+                "radial-gradient(ellipse at top right, #155A4C 0%, #0E3B33 60%, #092923 100%)",
+            }}
+          >
+            <span
+              aria-hidden
+              className="pointer-events-none absolute -top-10 -left-10 w-40 h-40 rounded-full bg-gold/15 blur-3xl"
+            />
+            <div className="relative flex items-center justify-between gap-4">
               <div>
-                <div className="text-sm text-green-700 font-medium">
+                <div className="text-sm text-gold-light/90 font-medium tracking-wide">
                   الصافي المستحق
                 </div>
-                <div className="text-3xl font-bold text-green-800 mt-1">
+                <div className="text-3xl sm:text-4xl font-bold text-gold mt-1 font-[family-name:var(--font-amiri)]">
                   {formatAmount(data.net)}
-                  <span className="text-lg font-normal mr-2">د.أ</span>
+                  <span className="text-lg font-normal mr-2 text-gold-light">
+                    د.أ
+                  </span>
                 </div>
               </div>
-              <Receipt size={48} className="text-green-300" />
+              <div className="w-16 h-16 rounded-xl flex items-center justify-center bg-gold/15 border border-gold/40">
+                <Receipt size={32} className="text-gold" />
+              </div>
             </div>
           </div>
 
           {/* Signatures */}
-          <div className="grid grid-cols-2 gap-6 pt-8 border-t">
+          <div className="grid grid-cols-2 gap-6 pt-8 border-t border-gold/20">
             <div className="text-center">
-              <div className="border-t-2 border-gray-300 pt-2 mt-12">
+              <div className="border-t-2 border-gold/40 pt-2 mt-12">
                 <p className="text-sm text-gray-500">توقيع المحاسب</p>
               </div>
             </div>
             <div className="text-center">
-              <div className="border-t-2 border-gray-300 pt-2 mt-12">
+              <div className="border-t-2 border-gold/40 pt-2 mt-12">
                 <p className="text-sm text-gray-500">توقيع الموظف</p>
               </div>
             </div>
@@ -375,14 +421,17 @@ export default function PayrollPage() {
       </div>
 
       {/* Post action */}
-      <div className="bg-card-bg rounded-xl shadow-sm p-5 space-y-4 no-print">
-        <h3 className="text-sm font-bold text-gray-700">
+      <div className="bg-card-bg rounded-xl shadow-sm border border-gold/20 p-5 space-y-4 no-print">
+        <h3 className="text-base font-bold text-primary flex items-center gap-2 font-[family-name:var(--font-amiri)]">
+          <span className="text-gold-dark text-base leading-none select-none">
+            ◆
+          </span>
           تسجيل صرف الراتب في الدفاتر
         </h3>
 
         <div className="flex flex-wrap items-center gap-3">
-          <label className="text-sm text-gray-600">حساب الدفع:</label>
-          <div className="flex gap-2">
+          <label className="text-sm text-primary font-medium">حساب الدفع:</label>
+          <div className="flex flex-wrap gap-2">
             {(
               [
                 { code: "1010", label: "الصندوق النقدي", icon: Banknote },
@@ -396,8 +445,8 @@ export default function PayrollPage() {
                 className={cn(
                   "flex items-center gap-2 px-4 py-2 rounded-lg text-sm border transition-colors",
                   paymentAccount === a.code
-                    ? "bg-primary text-white border-primary"
-                    : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                    ? "bg-primary text-gold border-gold/50 shadow-sm"
+                    : "bg-white text-gray-600 border-gold/25 hover:bg-gold-soft hover:border-gold/50"
                 )}
               >
                 <a.icon size={16} />
@@ -410,7 +459,7 @@ export default function PayrollPage() {
         <button
           onClick={handlePost}
           disabled={posting || data.net <= 0}
-          className="w-full flex items-center justify-center gap-2 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center gap-2 py-3 bg-primary text-gold rounded-lg hover:bg-primary-dark font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed border border-gold/40 shadow-md transition-colors"
         >
           {posting ? (
             <Loader2 size={18} className="animate-spin" />
@@ -421,8 +470,8 @@ export default function PayrollPage() {
         </button>
 
         {postResult && (
-          <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800 flex items-center gap-2">
-            <CheckCircle size={16} />
+          <div className="p-3 bg-gold-soft border border-gold/40 rounded-lg text-sm text-primary flex items-center gap-2">
+            <CheckCircle size={16} className="text-success" />
             {postResult}
           </div>
         )}
@@ -470,14 +519,14 @@ function Row({
         bold && "font-bold text-base"
       )}
     >
-      <span className={cn("text-gray-700", bold && "text-gray-900")}>
+      <span className={cn("text-gray-700", bold && "text-primary")}>
         {label}
       </span>
       <span
         className={cn(
-          positive && "text-green-700",
-          negative && "text-red-700",
-          bold && !positive && !negative && "text-primary"
+          positive && "text-success",
+          negative && "text-danger",
+          bold && !positive && !negative && "text-gold-dark"
         )}
       >
         {negative ? "-" : ""}
