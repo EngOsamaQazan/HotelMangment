@@ -301,7 +301,7 @@ export default function JournalPage() {
         </div>
       ) : (
         <div className="bg-card-bg rounded-xl shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto hidden md:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 text-gray-600">
@@ -364,6 +364,64 @@ export default function JournalPage() {
               </tbody>
             </table>
           </div>
+          {/* Mobile card list */}
+          <div className="md:hidden divide-y divide-gray-100">
+            {pagedEntries.map((e) => (
+              <div
+                key={e.id}
+                className={cn(
+                  "p-3 space-y-2",
+                  e.status === "void" && "opacity-60",
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-primary text-sm font-semibold">
+                        {e.entryNumber}
+                      </span>
+                      <span
+                        className={cn(
+                          "inline-block px-2 py-0.5 text-[10px] font-medium rounded-full",
+                          e.status === "posted"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700",
+                        )}
+                      >
+                        {e.status === "posted" ? "مرحّل" : "ملغي"}
+                      </span>
+                    </div>
+                    <p
+                      className={cn(
+                        "text-sm text-gray-800 mt-1 break-words",
+                        e.status === "void" && "line-through",
+                      )}
+                    >
+                      {e.description}
+                    </p>
+                  </div>
+                  <span className="font-bold text-primary text-sm tabular-nums shrink-0">
+                    {formatAmount(e.totalDebit)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2 text-xs text-gray-500">
+                  <span className="flex items-center gap-1">
+                    <Calendar size={12} />
+                    {formatDate(e.date)}
+                  </span>
+                  <span className="inline-block px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                    {SOURCE_LABELS[e.source] || e.source}
+                  </span>
+                  <Link
+                    href={`/accounting/journal/${e.id}`}
+                    className="inline-flex items-center gap-1 text-primary hover:underline"
+                  >
+                    <Eye size={14} /> عرض
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
           <div className="px-4 py-3 border-t border-gold/20">
             <Pagination
               page={page}
@@ -377,12 +435,12 @@ export default function JournalPage() {
 
       {showForm && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto"
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4 overflow-y-auto"
           onClick={(e) => e.target === e.currentTarget && setShowForm(false)}
         >
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl overflow-hidden my-8">
-            <div className="px-6 py-4 bg-gray-50 flex items-center justify-between border-b">
-              <h3 className="text-lg font-bold text-gray-800">قيد يدوي جديد</h3>
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-4xl overflow-hidden sm:my-8 max-h-[95vh] flex flex-col">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 flex items-center justify-between border-b shrink-0">
+              <h3 className="text-base sm:text-lg font-bold text-gray-800">قيد يدوي جديد</h3>
               <button
                 onClick={() => setShowForm(false)}
                 className="p-1.5 rounded-lg hover:bg-gray-200"
@@ -390,7 +448,7 @@ export default function JournalPage() {
                 <X size={20} className="text-gray-500" />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -576,11 +634,11 @@ export default function JournalPage() {
                 />
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowForm(false)}
-                  className="px-6 py-2.5 border rounded-lg text-gray-600 hover:bg-gray-50 text-sm"
+                  className="px-4 sm:px-6 py-2.5 border rounded-lg text-gray-600 hover:bg-gray-50 text-sm"
                 >
                   إلغاء
                 </button>

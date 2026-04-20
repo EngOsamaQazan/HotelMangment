@@ -415,7 +415,8 @@ export default function PartyStatementPage() {
             <p>لا توجد حركات في هذه الفترة</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="overflow-x-auto hidden md:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 text-gray-600">
@@ -494,6 +495,74 @@ export default function PartyStatementPage() {
                 </tfoot>
               )}
             </table>
+          </div>
+          {/* Mobile cards */}
+          <div className="md:hidden">
+            <div className="divide-y divide-gray-100">
+              {from && isFirstPage && (
+                <div className="p-3 bg-blue-50/40 flex items-center justify-between gap-2 text-sm">
+                  <span className="font-medium text-gray-700">رصيد أول المدة</span>
+                  <span className="font-bold tabular-nums">
+                    {formatAmount(data.openingBalance)}
+                  </span>
+                </div>
+              )}
+              {pagedRows.map((r) => (
+                <div key={r.id} className="p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap text-xs text-gray-500">
+                        <span>{formatDate(r.date)}</span>
+                        <Link
+                          href={`/accounting/journal/${r.entryId}`}
+                          className="font-mono text-primary hover:underline"
+                        >
+                          {r.entryNumber}
+                        </Link>
+                      </div>
+                      <p className="text-sm text-gray-800 mt-1 break-words">
+                        {r.description}
+                      </p>
+                      {r.lineDescription && (
+                        <p className="text-xs text-gray-400 mt-0.5 break-words">
+                          {r.lineDescription}
+                        </p>
+                      )}
+                      <p className="text-[11px] text-gray-500 font-mono mt-0.5">
+                        {r.accountCode} — {r.accountName}
+                      </p>
+                    </div>
+                    <span className="font-bold text-primary text-sm tabular-nums shrink-0">
+                      {formatAmount(r.balance)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs tabular-nums">
+                    <span className="text-green-700">
+                      مدين: {r.debit > 0 ? formatAmount(r.debit) : "—"}
+                    </span>
+                    <span className="text-red-700">
+                      دائن: {r.credit > 0 ? formatAmount(r.credit) : "—"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {isLastPage && (
+                <div className="p-3 bg-gray-100 grid grid-cols-3 gap-2 text-xs font-bold tabular-nums">
+                  <span className="text-green-700">
+                    {formatAmount(data.totalDebit)}
+                  </span>
+                  <span className="text-red-700">
+                    {formatAmount(data.totalCredit)}
+                  </span>
+                  <span className="text-primary text-left">
+                    {formatAmount(data.closingBalance)}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+          {/* Pagination wrapper */}
+          <div>
             {data.rows.length > 0 && (
               <div className="px-4 py-3 border-t border-gold/20">
                 <Pagination
@@ -505,6 +574,7 @@ export default function PartyStatementPage() {
               </div>
             )}
           </div>
+          </>
         )}
       </div>
     </div>

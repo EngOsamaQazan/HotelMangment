@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8" />
+<title>Al-Mafraq Hotel Group — Connectivity API Request</title>
+<style>
+  @page { size: A4; margin: 22mm 18mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: #14261f;
+    line-height: 1.55;
+    font-size: 11pt;
+  }
+  h1, h2, h3 { color: #0E3B33; font-weight: 700; margin: 0 0 8pt; }
+  h1 { font-size: 22pt; letter-spacing: .2pt; }
+  h2 { font-size: 14pt; margin-top: 18pt; border-bottom: 1px solid #D4B273; padding-bottom: 4pt; }
+  h3 { font-size: 12pt; margin-top: 12pt; color: #155A4C; }
+  p  { margin: 6pt 0; }
+  code { background: #f4f1ea; padding: 1pt 4pt; border-radius: 3pt; font-size: 10pt; color: #5a3b0a; }
+  table { border-collapse: collapse; width: 100%; margin: 8pt 0; font-size: 10.5pt; }
+  th, td { border: 1px solid #d8d2c4; padding: 5pt 8pt; text-align: left; vertical-align: top; }
+  th { background: #0E3B33; color: #fff; font-weight: 600; }
+  tr:nth-child(even) td { background: #faf7f1; }
+  ul, ol { margin: 4pt 0 8pt 20pt; padding: 0; }
+  li { margin: 3pt 0; }
+  .brand {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14pt 18pt; background: linear-gradient(135deg,#0E3B33 0%,#155A4C 100%);
+    color: #E8D0A0; border-radius: 8pt; margin-bottom: 18pt;
+  }
+  .brand .name { font-size: 20pt; font-weight: 800; letter-spacing: 1pt; color: #E8D0A0; }
+  .brand .sub  { font-size: 9.5pt; opacity: .85; margin-top: 2pt; }
+  .meta { font-size: 9.5pt; color: #5b6b65; margin-bottom: 14pt; }
+  .kv { margin: 4pt 0; font-size: 10.5pt; }
+  .kv b { display: inline-block; min-width: 160pt; color: #0E3B33; }
+  .pill {
+    display: inline-block; background: #fff; color: #0E3B33; border: 1px solid #D4B273;
+    border-radius: 999px; padding: 2pt 10pt; font-size: 9pt; margin-right: 4pt;
+  }
+  .page-break { page-break-before: always; }
+  .shot { page-break-inside: avoid; margin: 14pt 0 18pt; }
+  .shot-title { font-weight: 700; color: #0E3B33; font-size: 11.5pt; margin-bottom: 2pt; }
+  .shot-desc  { font-size: 10pt; color: #3a4843; margin-bottom: 6pt; }
+  .shot img   { max-width: 100%; border: 1px solid #D4B273; border-radius: 6pt; display: block; }
+</style>
+</head>
+<body>
+
+<div class="brand">
+  <div>
+    <div class="name">AL-MAFRAQ HOTEL GROUP</div>
+    <div class="sub">Connectivity API access request · Booking.com partner portal</div>
+  </div>
+  <div style="text-align:right; font-size:9pt;">
+    <div>April 2026</div>
+    <div>Property ID · 14364167</div>
+  </div>
+</div>
+
+<div class="meta">
+  <span class="pill">Owner: Osama Qazan</span>
+  <span class="pill">osamaqazan89@gmail.com</span>
+  <span class="pill">3 properties · 1 listed · 2 onboarding</span>
+  <span class="pill">Jordan — Mafraq</span>
+</div>
+
+<h2>1. Executive summary</h2>
+<p>
+  We operate an <b>in-house Property Management System (PMS)</b> built specifically
+  for our hotel group: 3 properties, with property <code>14364167</code>
+  (Al-Mafraq Hotel — hotel rooms and serviced apartments) currently listed on
+  Booking.com and two more being onboarded.
+</p>
+<p>
+  We are requesting direct access to Booking.com's Connectivity APIs so we can:
+</p>
+<ul>
+  <li>Maintain a single source of truth in our PMS for rooms, rates, availability, and reservations — without operating a third-party Channel Manager.</li>
+  <li>Provide our reception, housekeeping, and accounting teams with real-time two-way sync between our system and Booking.com.</li>
+  <li>Scale to 3+ properties under one provider account.</li>
+</ul>
+<p>The system is already in production at <code>https://hotel.aqssat.co</code> and is used daily by our staff.</p>
+
+<h2>2. System overview</h2>
+<table>
+  <tr><th style="width:32%;">Layer</th><th>Technology</th></tr>
+  <tr><td>Runtime</td><td>Next.js 16 (App Router) on Node.js</td></tr>
+  <tr><td>Language</td><td>TypeScript (strict mode)</td></tr>
+  <tr><td>Database</td><td>PostgreSQL via Prisma ORM 6</td></tr>
+  <tr><td>Auth</td><td>NextAuth.js (JWT, bcrypt, 2FA-ready)</td></tr>
+  <tr><td>Realtime</td><td>Socket.IO + Postgres LISTEN/NOTIFY triggers</td></tr>
+  <tr><td>Permissions</td><td>Fine-grained RBAC registry with <code>requirePermission()</code></td></tr>
+  <tr><td>Deployment</td><td>Single-region VPS, Nginx reverse proxy, PM2 processes</td></tr>
+  <tr><td>Credential storage</td><td>AES-256-GCM at rest (HKDF-derived key)</td></tr>
+</table>
+<p>
+  All external-integration credentials — including the Booking.com partner credentials
+  used by our internal automation helpers — are encrypted with AES-256-GCM via a
+  keyed HKDF derived from <code>BOOKING_ENC_KEY</code>
+  (see <code>src/lib/booking/encryption.ts</code>).
+</p>
+
+<h2>3. Data model · direct mapping to Booking Content API</h2>
+<p>The PMS schema was designed to map 1-to-1 onto Booking.com's object model:</p>
+<table>
+  <tr><th style="width:30%;">Our Prisma model</th><th>Booking.com object</th></tr>
+  <tr><td><code>UnitType</code> (maxOccupancy, sizeSqm, bedroomCount, livingRoomCount, bathroomCount)</td><td>Room / Unit definition</td></tr>
+  <tr><td><code>UnitTypeBed</code> (BED_TYPE, count, location: BEDROOM | LIVING_ROOM | MAJLIS)</td><td>Bed configuration</td></tr>
+  <tr><td><code>Unit</code></td><td>Physical room/apartment instance</td></tr>
+  <tr><td><code>Rate</code> (nightly / weekly / monthly)</td><td>Rate plan</td></tr>
+  <tr><td><code>Reservation</code></td><td>Reservation</td></tr>
+  <tr><td><code>Guest</code></td><td>Customer</td></tr>
+</table>
+<p>
+  A migration script (<code>prisma/scripts/backfill-unit-types.ts</code>) is already in
+  place to normalize legacy data into this model. The schema supports Arabic-market
+  specifics that matter for our listings (e.g. a <code>MAJLIS</code> bed location for
+  the Arabic floor-seating areas used as sleeping surfaces in some of our apartments).
+</p>
+
+<h2>4. APIs we plan to integrate (priority order)</h2>
+<ol>
+  <li><b>Content API (Properties + Rooms)</b> — push our unit types, beds, amenities, photos, descriptions; read back Booking.com validation feedback.</li>
+  <li><b>Availability &amp; Rates API (ARI)</b> — push nightly availability, rates and restrictions (MinLOS, CTA, CTD).</li>
+  <li><b>Reservations API</b> — pull new and modified reservations, acknowledge and handle cancellations.</li>
+  <li><b>Messaging API</b> (optional) — consolidate guest messaging into our internal chat module.</li>
+  <li><b>Opportunities API</b> — ingest opportunities as tasks in our Kanban board.</li>
+</ol>
+<p>
+  For each stream we will implement idempotent consumers, exponential-backoff retries,
+  and end-to-end structured logging with correlation IDs.
+</p>
+
+<h2>5. Internal modules already in production</h2>
+<table>
+  <tr><th>Module</th><th>Status</th><th>Notes</th></tr>
+  <tr><td>Reservations</td><td>Live</td><td>CRUD, check-in/out, deposits, contract PDF</td></tr>
+  <tr><td>Unit types &amp; beds</td><td>Live</td><td>Schema described in §3 + seed data</td></tr>
+  <tr><td>Monthly reports</td><td>Live</td><td>Revenue, occupancy, ADR, RevPAR, channel mix</td></tr>
+  <tr><td>Accounting &amp; payroll</td><td>Live</td><td>Ledger per party, payroll cycles</td></tr>
+  <tr><td>Tasks (Kanban)</td><td>Live</td><td>Boards, columns, cards, realtime updates</td></tr>
+  <tr><td>Internal chat</td><td>Live</td><td>Conversations, messages, reactions, attachments</td></tr>
+  <tr><td>Notifications</td><td>Live</td><td>Socket.IO + Postgres NOTIFY triggers</td></tr>
+  <tr><td>Permissions</td><td>Live</td><td>40+ capabilities enforced per API route</td></tr>
+</table>
+
+<h2>6. Security &amp; compliance</h2>
+<ul>
+  <li>TLS end-to-end (Let's Encrypt, auto-renewed).</li>
+  <li>AES-256-GCM at rest for all third-party credentials; no plaintext storage.</li>
+  <li>Full audit log for sensitive operations (reservation edits, rate changes, permission changes).</li>
+  <li>GDPR-aware: guest data can be anonymized/exported on request.</li>
+  <li>Edge rate limiting (<code>src/lib/rateLimit.ts</code>).</li>
+  <li>Ready to sign and honour a Data Processing Agreement (DPA) with Booking.com.</li>
+</ul>
+
+<h2>7. Rollout plan</h2>
+<table>
+  <tr><th>Phase</th><th>Scope</th><th>ETA</th></tr>
+  <tr><td>1</td><td>Provider account + sandbox credentials; Content API read-only</td><td>2 weeks</td></tr>
+  <tr><td>2</td><td>Content API push for property 14364167</td><td>3 weeks</td></tr>
+  <tr><td>3</td><td>ARI push + Reservations pull + certification</td><td>4 weeks</td></tr>
+  <tr><td>4</td><td>Onboard remaining 2 properties under the same provider</td><td>2 weeks</td></tr>
+  <tr><td>5</td><td>Go-live + monitoring + on-call rotation</td><td>1 week</td></tr>
+</table>
+<p><b>Total: ~12 weeks to full production.</b></p>
+
+<h2>8. What we need from Booking.com</h2>
+<ol>
+  <li>A <b>Provider Account</b> on <code>https://developers.booking.com</code> tied to the owner's account (<code>osamaqazan89@gmail.com</code>).</li>
+  <li>Sandbox and production credentials.</li>
+  <li>Certification checklist and mapping of our 3 properties to provider IDs.</li>
+  <li>A named point of contact on the Connectivity Partner Support team during onboarding.</li>
+</ol>
+
+<h2>9. Contact</h2>
+<div class="kv"><b>Owner &amp; technical sponsor:</b> Osama Qazan</div>
+<div class="kv"><b>Email:</b> osamaqazan89@gmail.com</div>
+<div class="kv"><b>Existing Booking property ID:</b> 14364167</div>
+<div class="kv"><b>System URL:</b> https://hotel.aqssat.co</div>
+<div class="kv"><b>Country / city:</b> Jordan — Mafraq, Al-Zuhour district</div>
+<p>Happy to jump on a call or share a read-only demo account on request.</p>
+
+<div class="page-break"></div>
+
+<h2>Appendix · Screenshots from the production system</h2>
+<p style="color:#5b6b65; font-size:10pt;">
+  The following screenshots are captured live from <code>https://hotel.aqssat.co</code>
+  (Arabic RTL UI). They illustrate the modules that will consume the Booking.com
+  Connectivity APIs.
+</p>
+
+<div class="shot">
+  <div class="shot-title">1. Operations dashboard — live KPIs</div>
+  <div class="shot-desc">Total units, occupied, vacant, active reservations, today's check-ins / check-outs. Drives the data that will be pushed as availability to the ARI API.</div>
+  <img src="screenshots/01-dashboard.png" alt="Dashboard"/>
+</div>
+
+<div class="shot">
+  <div class="shot-title">2. Reservations module</div>
+  <div class="shot-desc">Full reservations log with status, dates, amount paid and balance. This is the sink for reservations pulled from the Booking Reservations API.</div>
+  <img src="screenshots/02-reservations.png" alt="Reservations"/>
+</div>
+
+<div class="shot">
+  <div class="shot-title">3. Rooms &amp; apartments status</div>
+  <div class="shot-desc">Per-unit status across hotel rooms (101–109) and serviced apartments (01–06). This inventory is the source of truth the Content and ARI APIs will sync.</div>
+  <img src="screenshots/03-rooms-status.png" alt="Rooms status"/>
+</div>
+
+<div class="shot">
+  <div class="shot-title">4. Operational Kanban (Tasks)</div>
+  <div class="shot-desc">Cross-team boards: guest experience &amp; complaints, housekeeping, reception &amp; reservations, daily maintenance. Opportunities from Booking will be ingested here.</div>
+  <img src="screenshots/04-tasks-boards.png" alt="Task boards"/>
+</div>
+
+<div class="shot">
+  <div class="shot-title">5. Monthly financial &amp; occupancy report</div>
+  <div class="shot-desc">Revenue, ADR, occupancy % per unit. Will enrich with Booking-channel share once APIs are connected.</div>
+  <img src="screenshots/05-monthly-report.png" alt="Monthly report"/>
+</div>
+
+<div class="shot">
+  <div class="shot-title">6. Guest registry</div>
+  <div class="shot-desc">De-duplicated guest profiles with document IDs and stay history. Ready to merge Booking-originated customers on <code>customerId</code>.</div>
+  <img src="screenshots/06-guests.png" alt="Guests"/>
+</div>
+
+</body>
+</html>

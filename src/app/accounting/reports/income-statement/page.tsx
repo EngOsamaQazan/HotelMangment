@@ -153,7 +153,7 @@ export default function IncomeStatementPage() {
             </div>
           </div>
 
-          <div className="bg-card-bg rounded-xl shadow-sm p-6 space-y-6">
+          <div className="bg-card-bg rounded-xl shadow-sm p-3 sm:p-6 space-y-6 overflow-x-auto">
             <section>
               <h3 className="text-lg font-bold text-green-700 mb-3 flex items-center gap-2">
                 <ArrowUp size={18} /> الإيرادات

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   X,
   Loader2,
@@ -16,9 +17,11 @@ import {
   Plus,
   History,
   UserCheck,
+  Wrench,
+  ArrowUpRight,
 } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, formatAmount } from "@/lib/utils";
 import type {
   TaskActivity,
   TaskAttachment,
@@ -31,6 +34,16 @@ import type {
 } from "@/lib/collab/types";
 import { PRIORITY_META, UserAvatar, formatShortDate } from "./shared";
 
+interface LinkedMaintenance {
+  id: number;
+  status: "pending" | "in_progress" | "completed" | string;
+  cost: number | string;
+  contractor: string | null;
+  requestDate: string;
+  completionDate: string | null;
+  unit: { id: number; unitNumber: string };
+}
+
 interface DetailCard extends TaskCard {
   board: { id: number; name: string; ownerId: number };
   column: { id: number; name: string };
@@ -38,6 +51,7 @@ interface DetailCard extends TaskCard {
   comments: (TaskComment & { author: UserLite })[];
   attachments: TaskAttachment[];
   activities: (TaskActivity & { actor: UserLite })[];
+  maintenance: LinkedMaintenance | null;
 }
 
 interface Props {
@@ -168,7 +182,7 @@ export function CardDrawer({
       }}
     >
       <div className="bg-white w-full max-w-2xl h-full shadow-xl flex flex-col animate-in slide-in-from-left duration-200">
-        <div className="px-5 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between gap-3">
+        <div className="px-3 sm:px-5 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between gap-2 sm:gap-3">
           <div className="flex-1 min-w-0">
             <p className="text-xs text-gray-500 truncate">
               {card ? `${card.board.name} • ${card.column.name}` : "..."}
@@ -210,7 +224,10 @@ export function CardDrawer({
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto">
-            <div className="px-6 pt-5 pb-3 space-y-3">
+            {card.maintenance && (
+              <MaintenanceBanner maintenance={card.maintenance} />
+            )}
+            <div className="px-3 sm:px-6 pt-4 sm:pt-5 pb-3 space-y-3">
               <input
                 type="text"
                 value={title}
@@ -219,7 +236,7 @@ export function CardDrawer({
                   if (title.trim() && title !== card.title)
                     patch({ title: title.trim() });
                 }}
-                className="w-full text-xl font-bold text-gray-800 bg-transparent border-0 focus:outline-none focus:ring-2 focus:ring-primary/20 rounded-lg px-2 py-1 -mx-2"
+                className="w-full text-base sm:text-xl font-bold text-gray-800 bg-transparent border-0 focus:outline-none focus:ring-2 focus:ring-primary/20 rounded-lg px-2 py-1 -mx-2"
               />
 
               {/* Quick actions row */}
@@ -265,7 +282,7 @@ export function CardDrawer({
             </div>
 
             {/* Tabs */}
-            <div className="border-b border-gray-100 px-6 flex gap-1 sticky top-0 bg-white z-10">
+            <div className="border-b border-gray-100 px-3 sm:px-6 flex gap-1 sticky top-0 bg-white z-10 overflow-x-auto">
               {[
                 { k: "details", label: "التفاصيل", icon: Paperclip },
                 { k: "checklist", label: `قائمة مهام (${card.checklist.length})`, icon: CheckSquare },
@@ -276,7 +293,7 @@ export function CardDrawer({
                   key={t.k}
                   onClick={() => setTab(t.k as Tab)}
                   className={cn(
-                    "px-3 py-2.5 text-sm border-b-2 transition-colors flex items-center gap-1.5",
+                    "px-2.5 sm:px-3 py-2.5 text-xs sm:text-sm border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0",
                     tab === t.k
                       ? "border-primary text-primary font-semibold"
                       : "border-transparent text-gray-500 hover:text-gray-700",
@@ -289,7 +306,7 @@ export function CardDrawer({
             </div>
 
             {tab === "details" && (
-              <div className="p-6 space-y-6">
+              <div className="p-3 sm:p-6 space-y-5 sm:space-y-6">
                 <section>
                   <label className="text-xs font-medium text-gray-500 mb-1.5 flex items-center gap-1">
                     الوصف
@@ -323,17 +340,17 @@ export function CardDrawer({
               </div>
             )}
             {tab === "checklist" && (
-              <div className="p-6">
+              <div className="p-3 sm:p-6">
                 <ChecklistSection card={card} onChanged={load} />
               </div>
             )}
             {tab === "comments" && (
-              <div className="p-6">
+              <div className="p-3 sm:p-6">
                 <CommentsSection card={card} onChanged={load} />
               </div>
             )}
             {tab === "activity" && (
-              <div className="p-6">
+              <div className="p-3 sm:p-6">
                 <ActivitySection card={card} />
               </div>
             )}
@@ -347,6 +364,69 @@ export function CardDrawer({
 // ─────────────────────────────────────────────────────────────
 // Sub-sections
 // ─────────────────────────────────────────────────────────────
+
+function MaintenanceBanner({
+  maintenance,
+}: {
+  maintenance: LinkedMaintenance;
+}) {
+  const costNum = Number(maintenance.cost);
+  const isDone = maintenance.status === "completed";
+  return (
+    <div
+      className={cn(
+        "mx-3 sm:mx-6 mt-4 rounded-xl border p-3 flex items-start gap-3 flex-wrap sm:flex-nowrap",
+        isDone
+          ? "bg-emerald-50/60 border-emerald-200"
+          : "bg-amber-50/60 border-amber-200",
+      )}
+    >
+      <Wrench
+        size={18}
+        className={cn(
+          "mt-0.5 shrink-0",
+          isDone ? "text-emerald-700" : "text-amber-700",
+        )}
+      />
+      <div className="flex-1 min-w-0 space-y-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span
+            className={cn(
+              "text-xs font-bold",
+              isDone ? "text-emerald-800" : "text-amber-900",
+            )}
+          >
+            مرتبطة بسجل صيانة #{maintenance.id}
+          </span>
+          <span className="text-xs text-gray-600">
+            • الوحدة {maintenance.unit.unitNumber}
+          </span>
+          {costNum > 0 && (
+            <span className="text-xs text-gray-600">
+              • {formatAmount(costNum)} د.أ
+            </span>
+          )}
+          {maintenance.contractor && (
+            <span className="text-xs text-gray-600">
+              • {maintenance.contractor}
+            </span>
+          )}
+        </div>
+        <p className="text-[11px] text-gray-500">
+          عند إتمام هذه البطاقة سيُغلَق سجل الصيانة تلقائياً ويُرحَّل القيد
+          المحاسبي.
+        </p>
+      </div>
+      <Link
+        href="/maintenance"
+        className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1 shrink-0"
+      >
+        السجل
+        <ArrowUpRight size={12} />
+      </Link>
+    </div>
+  );
+}
 
 function DueDateButton({
   value,
@@ -659,7 +739,8 @@ function ChecklistSection({
             </span>
             <button
               onClick={() => remove(item)}
-              className="opacity-0 group-hover:opacity-100 text-red-500 text-xs"
+              className="opacity-60 sm:opacity-0 sm:group-hover:opacity-100 text-red-500 text-xs p-1"
+              aria-label="حذف"
             >
               <X size={14} />
             </button>
@@ -856,7 +937,8 @@ function AttachmentsSection({
             </a>
             <button
               onClick={() => remove(a.id)}
-              className="opacity-0 group-hover:opacity-100 text-red-500"
+              className="opacity-60 sm:opacity-0 sm:group-hover:opacity-100 text-red-500 p-1"
+              aria-label="حذف"
             >
               <X size={14} />
             </button>

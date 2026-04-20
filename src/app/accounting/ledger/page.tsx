@@ -130,9 +130,9 @@ export default function LedgerPage() {
         )}
       </div>
 
-      <div className="bg-card-bg rounded-xl p-4 shadow-sm space-y-3 no-print">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex-1 min-w-[250px]">
+      <div className="bg-card-bg rounded-xl p-3 sm:p-4 shadow-sm space-y-3 no-print">
+        <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3">
+          <div className="min-w-0">
             <label className="block text-xs text-gray-500 mb-1">الحساب</label>
             <select
               value={accountId}
@@ -147,22 +147,22 @@ export default function LedgerPage() {
               ))}
             </select>
           </div>
-          <div>
+          <div className="min-w-0">
             <label className="block text-xs text-gray-500 mb-1">من</label>
             <input
               type="date"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              className="border rounded-lg px-3 py-2 text-sm"
+              className="w-full border rounded-lg px-3 py-2 text-sm"
             />
           </div>
-          <div>
+          <div className="min-w-0">
             <label className="block text-xs text-gray-500 mb-1">إلى</label>
             <input
               type="date"
               value={to}
               onChange={(e) => setTo(e.target.value)}
-              className="border rounded-lg px-3 py-2 text-sm"
+              className="w-full border rounded-lg px-3 py-2 text-sm"
             />
           </div>
         </div>
@@ -184,17 +184,17 @@ export default function LedgerPage() {
         </div>
       ) : (
         <>
-          <div className="bg-card-bg rounded-xl shadow-sm p-5 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="text-sm text-gray-500">الحساب</div>
-              <div className="text-lg font-bold text-gray-800 flex items-center gap-2">
+          <div className="bg-card-bg rounded-xl shadow-sm p-3 sm:p-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-xs sm:text-sm text-gray-500">الحساب</div>
+              <div className="text-base sm:text-lg font-bold text-gray-800 flex items-center gap-2 flex-wrap">
                 <span className="font-mono text-primary">{data.account.code}</span>
-                <span>{data.account.name}</span>
+                <span className="break-words">{data.account.name}</span>
               </div>
             </div>
             <div className="text-left">
-              <div className="text-sm text-gray-500">الرصيد الختامي</div>
-              <div className="text-2xl font-bold text-primary">
+              <div className="text-xs sm:text-sm text-gray-500">الرصيد الختامي</div>
+              <div className="text-lg sm:text-2xl font-bold text-primary tabular-nums">
                 {formatAmount(data.closingBalance)}
               </div>
             </div>
@@ -207,7 +207,7 @@ export default function LedgerPage() {
                 <p>لا توجد حركات في هذه الفترة</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto hidden md:block">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50 text-gray-600">
@@ -295,6 +295,77 @@ export default function LedgerPage() {
                     </tfoot>
                   )}
                 </table>
+              </div>
+            )}
+            {data.rows.length > 0 && (
+              <div className="md:hidden divide-y divide-gray-100">
+                {from && isFirstPage && (
+                  <div className="p-3 bg-blue-50/40 flex items-center justify-between gap-2 text-sm">
+                    <span className="font-medium text-gray-700">
+                      رصيد أول المدة
+                    </span>
+                    <span className="font-bold tabular-nums">
+                      {formatAmount(data.openingBalance)}
+                    </span>
+                  </div>
+                )}
+                {pagedRows.map((r) => (
+                  <div key={r.id} className="p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap text-xs text-gray-500">
+                          <span>{formatDate(r.date)}</span>
+                          <Link
+                            href={`/accounting/journal/${r.entryId}`}
+                            className="font-mono text-primary hover:underline"
+                          >
+                            {r.entryNumber}
+                          </Link>
+                          {r.partyName && (
+                            <Link
+                              href={`/accounting/parties/${r.partyId}`}
+                              className="text-primary hover:underline"
+                            >
+                              {r.partyName}
+                            </Link>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-800 mt-1 break-words">
+                          {r.description}
+                        </p>
+                        {r.lineDescription && (
+                          <p className="text-xs text-gray-400 mt-0.5 break-words">
+                            {r.lineDescription}
+                          </p>
+                        )}
+                      </div>
+                      <span className="font-bold text-primary text-sm tabular-nums shrink-0">
+                        {formatAmount(r.balance)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs tabular-nums">
+                      <span className="text-green-700">
+                        مدين: {r.debit > 0 ? formatAmount(r.debit) : "—"}
+                      </span>
+                      <span className="text-red-700">
+                        دائن: {r.credit > 0 ? formatAmount(r.credit) : "—"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {isLastPage && (
+                  <div className="p-3 bg-gray-100 grid grid-cols-3 gap-2 text-xs font-bold tabular-nums">
+                    <span className="text-green-700">
+                      مدين: {formatAmount(data.totalDebit)}
+                    </span>
+                    <span className="text-red-700">
+                      دائن: {formatAmount(data.totalCredit)}
+                    </span>
+                    <span className="text-primary text-left">
+                      {formatAmount(data.closingBalance)}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
             {data.rows.length > 0 && (

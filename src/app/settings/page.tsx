@@ -14,6 +14,8 @@ import {
   Save,
   Calendar,
   Shield,
+  BedDouble,
+  Network,
 } from "lucide-react";
 import Link from "next/link";
 import { cn, formatDate, roleLabels } from "@/lib/utils";
@@ -266,6 +268,33 @@ export default function SettingsPage() {
             إدارة المستخدمين
           </h2>
           <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Can permission="settings.unit_types:view">
+              <Link
+                href="/settings/unit-types"
+                className="flex items-center gap-2 px-4 py-2.5 border border-primary text-primary rounded-lg hover:bg-gold-soft transition-colors text-sm font-medium flex-1 sm:flex-none justify-center"
+              >
+                <BedDouble size={18} />
+                أنواع الوحدات
+              </Link>
+            </Can>
+            <Can permission="settings.prices:view">
+              <Link
+                href="/settings/prices"
+                className="flex items-center gap-2 px-4 py-2.5 border border-primary text-primary rounded-lg hover:bg-gold-soft transition-colors text-sm font-medium flex-1 sm:flex-none justify-center"
+              >
+                <Tag size={18} />
+                الأسعار حسب النوع
+              </Link>
+            </Can>
+            <Can permission="settings.booking:view">
+              <Link
+                href="/settings/booking"
+                className="flex items-center gap-2 px-4 py-2.5 border border-primary text-primary rounded-lg hover:bg-gold-soft transition-colors text-sm font-medium flex-1 sm:flex-none justify-center"
+              >
+                <Network size={18} />
+                Booking.com
+              </Link>
+            </Can>
             <Can permission="settings.roles:view">
               <Link
                 href="/settings/roles"
@@ -718,14 +747,14 @@ function UserFormModal({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 overflow-hidden">
-        <div className="px-6 py-4 bg-gray-50 flex items-center justify-between border-b border-gray-100">
-          <h3 className="text-lg font-bold text-gray-800">{title}</h3>
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg overflow-hidden max-h-[95vh] flex flex-col">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 flex items-center justify-between border-b border-gray-100 shrink-0">
+          <h3 className="text-base sm:text-lg font-bold text-gray-800">{title}</h3>
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors"
@@ -734,7 +763,7 @@ function UserFormModal({
           </button>
         </div>
 
-        <form onSubmit={onSubmit} className="p-6 space-y-4">
+        <form onSubmit={onSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               الاسم
@@ -959,26 +988,26 @@ function OverridesModal({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="px-6 py-4 bg-gray-50 flex items-center justify-between border-b border-gray-100">
-          <div>
-            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-              <Shield size={18} className="text-amber-600" />
-              استثناءات الصلاحيات لـ {user.name}
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 flex items-start justify-between border-b border-gray-100 gap-2 shrink-0">
+          <div className="min-w-0">
+            <h3 className="text-base sm:text-lg font-bold text-gray-800 flex items-center gap-2 flex-wrap">
+              <Shield size={18} className="text-amber-600 shrink-0" />
+              <span className="break-words">استثناءات الصلاحيات لـ {user.name}</span>
             </h3>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-[11px] sm:text-xs text-gray-500 mt-1">
               الاستثناءات تتجاوز صلاحيات الأدوار. اضغط على الصلاحية للتبديل بين:
               افتراضي → سماح → رفض.
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors shrink-0"
           >
             <X size={20} className="text-gray-500" />
           </button>

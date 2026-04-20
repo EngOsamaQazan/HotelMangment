@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import {
   Wrench,
   Plus,
@@ -13,9 +14,13 @@ import {
   Calendar,
   User,
   Hash,
+  KanbanSquare,
+  ArrowUpRight,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn, formatDate, formatAmount, statusLabels } from "@/lib/utils";
 import { Pagination, usePaginatedSlice } from "@/components/Pagination";
+import { Can } from "@/components/Can";
 
 const PAGE_SIZE = 20;
 
@@ -36,6 +41,13 @@ interface MaintenanceRecord {
     unitNumber: string;
     unitType: string;
   };
+  task: {
+    id: number;
+    boardId: number;
+    title: string;
+    completedAt: string | null;
+    board: { id: number; name: string };
+  } | null;
 }
 
 interface UnitOption {
@@ -88,6 +100,9 @@ export default function MaintenancePage() {
   const [units, setUnits] = useState<UnitOption[]>([]);
   const [editRecord, setEditRecord] = useState<MaintenanceRecord | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [convertRecord, setConvertRecord] = useState<MaintenanceRecord | null>(
+    null,
+  );
   const [page, setPage] = useState(1);
 
   const fetchRecords = useCallback(async () => {
@@ -260,6 +275,9 @@ export default function MaintenancePage() {
                   <th className="text-right px-4 py-3 font-medium">
                     تاريخ الإنجاز
                   </th>
+                  <th className="text-right px-4 py-3 font-medium">
+                    متابعة الفريق
+                  </th>
                   <th className="text-right px-4 py-3 font-medium">إجراءات</th>
                 </tr>
               </thead>
@@ -323,6 +341,12 @@ export default function MaintenancePage() {
                           : "—"}
                       </td>
                       <td className="px-4 py-3">
+                        <TaskLinkCell
+                          record={record}
+                          onConvert={() => setConvertRecord(record)}
+                        />
+                      </td>
+                      <td className="px-4 py-3">
                         <button
                           onClick={() => setEditRecord(record)}
                           className="text-primary-light hover:text-primary text-xs font-medium hover:underline"
@@ -368,6 +392,10 @@ export default function MaintenancePage() {
                     {record.contractor && <span>👷 {record.contractor}</span>}
                     <span>📅 {formatDate(record.requestDate)}</span>
                   </div>
+                  <TaskLinkCell
+                    record={record}
+                    onConvert={() => setConvertRecord(record)}
+                  />
                   <button
                     onClick={() => setEditRecord(record)}
                     className="text-primary text-xs font-medium hover:underline"
@@ -533,6 +561,389 @@ export default function MaintenancePage() {
           saving={updatingId === editRecord.id}
         />
       )}
+
+      {/* Convert-to-Task Modal */}
+      {convertRecord && (
+        <ConvertToTaskModal
+          record={convertRecord}
+          onClose={() => setConvertRecord(null)}
+          onConverted={() => {
+            setConvertRecord(null);
+            fetchRecords();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Task Link Cell — shows either the "Convert" button or a link to the card
+// ────────────────────────────────────────────────────────────────────────
+
+function TaskLinkCell({
+  record,
+  onConvert,
+}: {
+  record: MaintenanceRecord;
+  onConvert: () => void;
+}) {
+  if (record.task) {
+    const isDone = !!record.task.completedAt;
+    return (
+      <Link
+        href={`/tasks/${record.task.boardId}?task=${record.task.id}`}
+        className={cn(
+          "inline-flex items-center gap-1.5 text-xs font-medium hover:underline",
+          isDone ? "text-emerald-700" : "text-primary",
+        )}
+        title={`اللوحة: ${record.task.board.name}`}
+      >
+        <KanbanSquare size={14} />
+        <span className="truncate max-w-[140px]">
+          {isDone ? "مهمة مكتملة" : `مهمة #${record.task.id}`}
+        </span>
+        <ArrowUpRight size={12} />
+      </Link>
+    );
+  }
+
+  if (record.status === "completed") {
+    return <span className="text-xs text-gray-300">—</span>;
+  }
+
+  return (
+    <Can permission="tasks.cards:create">
+      <button
+        onClick={onConvert}
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+      >
+        <KanbanSquare size={14} />
+        تنفيذ كمهمة
+      </button>
+    </Can>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Convert-to-Task Modal
+// ────────────────────────────────────────────────────────────────────────
+
+interface BoardLite {
+  id: number;
+  name: string;
+  color: string | null;
+  members?: { user: { id: number; name: string } }[];
+}
+
+interface ColumnLite {
+  id: number;
+  name: string;
+  position: number;
+}
+
+function ConvertToTaskModal({
+  record,
+  onClose,
+  onConverted,
+}: {
+  record: MaintenanceRecord;
+  onClose: () => void;
+  onConverted: () => void;
+}) {
+  const [boards, setBoards] = useState<BoardLite[]>([]);
+  const [boardId, setBoardId] = useState<number | null>(null);
+  const [columns, setColumns] = useState<ColumnLite[]>([]);
+  const [columnId, setColumnId] = useState<number | null>(null);
+  const [members, setMembers] = useState<
+    { id: number; name: string }[]
+  >([]);
+  const [assigneeIds, setAssigneeIds] = useState<number[]>([]);
+  const [priority, setPriority] = useState<
+    "low" | "med" | "high" | "urgent"
+  >("high");
+  const [loadingBoards, setLoadingBoards] = useState(true);
+  const [loadingBoard, setLoadingBoard] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    function handleEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleEsc);
+    return () => document.removeEventListener("keydown", handleEsc);
+  }, [onClose]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoadingBoards(true);
+      try {
+        const res = await fetch("/api/tasks/boards");
+        if (!res.ok) throw new Error("فشل تحميل اللوحات");
+        const data = (await res.json()) as BoardLite[];
+        if (cancelled) return;
+        setBoards(data);
+        if (data.length > 0) {
+          setBoardId(data[0].id);
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "فشل التحميل");
+      } finally {
+        if (!cancelled) setLoadingBoards(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!boardId) {
+      setColumns([]);
+      setMembers([]);
+      setColumnId(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoadingBoard(true);
+      try {
+        const res = await fetch(`/api/tasks/boards/${boardId}`);
+        if (!res.ok) throw new Error("فشل تحميل اللوحة");
+        const data = await res.json();
+        if (cancelled) return;
+        const cols: ColumnLite[] = (data.columns || []).map(
+          (c: ColumnLite) => ({
+            id: c.id,
+            name: c.name,
+            position: c.position,
+          }),
+        );
+        setColumns(cols);
+        setColumnId(cols[0]?.id ?? null);
+        setMembers(
+          (data.members || []).map(
+            (m: { user: { id: number; name: string } }) => ({
+              id: m.user.id,
+              name: m.user.name,
+            }),
+          ),
+        );
+        setAssigneeIds([]);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "فشل التحميل");
+      } finally {
+        if (!cancelled) setLoadingBoard(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [boardId]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!boardId || !columnId) {
+      toast.error("اختر لوحة وعموداً");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch(
+        `/api/maintenance/${record.id}/convert-to-task`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            boardId,
+            columnId,
+            assigneeIds,
+            priority,
+          }),
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "فشل إنشاء البطاقة");
+      }
+      toast.success("تم إنشاء بطاقة المهمة وربطها بسجل الصيانة");
+      onConverted();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "فشل الإنشاء");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
+        <div className="px-6 py-4 bg-gray-50 flex items-center justify-between border-b border-gray-100">
+          <div>
+            <h3 className="text-lg font-bold text-gray-800">
+              تنفيذ كمهمة على لوحة كانبان
+            </h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              صيانة #{record.id} — الوحدة {record.unit.unitNumber}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            <X size={20} className="text-gray-500" />
+          </button>
+        </div>
+
+        <form
+          onSubmit={handleSubmit}
+          className="p-6 space-y-4 overflow-y-auto"
+        >
+          {loadingBoards ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 size={24} className="animate-spin text-primary" />
+            </div>
+          ) : boards.length === 0 ? (
+            <div className="text-sm text-gray-500 bg-gray-50 rounded-lg p-4 text-center">
+              لا تملك أي لوحة مهام بعد. أنشئ لوحة من قسم «المهام» أولاً.
+            </div>
+          ) : (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  اللوحة
+                </label>
+                <select
+                  value={boardId ?? ""}
+                  onChange={(e) => setBoardId(Number(e.target.value))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                >
+                  {boards.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  العمود
+                </label>
+                <select
+                  value={columnId ?? ""}
+                  onChange={(e) => setColumnId(Number(e.target.value))}
+                  disabled={loadingBoard || columns.length === 0}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:bg-gray-50"
+                >
+                  {columns.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  الأولوية
+                </label>
+                <select
+                  value={priority}
+                  onChange={(e) =>
+                    setPriority(
+                      e.target.value as "low" | "med" | "high" | "urgent",
+                    )
+                  }
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                >
+                  <option value="low">منخفضة</option>
+                  <option value="med">متوسطة</option>
+                  <option value="high">مرتفعة</option>
+                  <option value="urgent">عاجلة</option>
+                </select>
+              </div>
+
+              {members.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    إسناد إلى (اختياري)
+                  </label>
+                  <div className="max-h-40 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-100">
+                    {members.map((m) => {
+                      const selected = assigneeIds.includes(m.id);
+                      return (
+                        <label
+                          key={m.id}
+                          className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-gray-50"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={(e) =>
+                              setAssigneeIds((prev) =>
+                                e.target.checked
+                                  ? [...prev, m.id]
+                                  : prev.filter((x) => x !== m.id),
+                              )
+                            }
+                          />
+                          <span className="text-gray-800">{m.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-3 text-xs space-y-1">
+                <div className="font-medium">
+                  عند إنجاز البطاقة على الكانبان:
+                </div>
+                <ul className="list-disc ps-4 space-y-0.5">
+                  <li>يُغلَق سجل الصيانة تلقائياً</li>
+                  <li>يُرحَّل قيد المصروف في الدفاتر المحاسبية</li>
+                  <li>تُحرَّر الوحدة إن لم يكن عليها أعمال صيانة أخرى</li>
+                </ul>
+              </div>
+            </>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={
+                submitting ||
+                loadingBoards ||
+                boards.length === 0 ||
+                !boardId ||
+                !columnId
+              }
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors font-medium text-sm disabled:opacity-50"
+            >
+              {submitting ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <KanbanSquare size={18} />
+              )}
+              {submitting ? "جاري الإنشاء..." : "إنشاء البطاقة"}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 py-2.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors text-sm"
+            >
+              إلغاء
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

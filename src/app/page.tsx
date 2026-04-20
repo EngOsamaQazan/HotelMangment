@@ -75,45 +75,37 @@ const statCards = [
     key: "totalUnits" as const,
     label: "إجمالي الوحدات",
     icon: Building2,
-    bg: "bg-primary",
-    iconBg: "bg-gold/20",
-    iconColor: "text-gold",
-    valueColor: "text-gold",
-    labelColor: "text-gold-light",
-    isBrand: true,
+    accent: "bg-gold",
+    iconBg: "bg-gold/15",
+    iconColor: "text-gold-dark",
+    valueColor: "text-primary",
   },
   {
     key: "occupied" as const,
     label: "مشغولة",
     icon: BedDouble,
-    bg: "bg-red-50",
-    iconBg: "bg-red-100",
+    accent: "bg-red-500",
+    iconBg: "bg-red-50",
     iconColor: "text-red-600",
-    valueColor: "text-red-700",
-    labelColor: "text-gray-500",
-    isBrand: false,
+    valueColor: "text-red-600",
   },
   {
     key: "available" as const,
     label: "شاغرة",
     icon: DoorOpen,
-    bg: "bg-green-50",
-    iconBg: "bg-green-100",
+    accent: "bg-green-500",
+    iconBg: "bg-green-50",
     iconColor: "text-green-600",
-    valueColor: "text-green-700",
-    labelColor: "text-gray-500",
-    isBrand: false,
+    valueColor: "text-green-600",
   },
   {
     key: "activeReservations" as const,
     label: "حجوزات نشطة",
     icon: CalendarCheck,
-    bg: "bg-gold-soft",
-    iconBg: "bg-gold/20",
-    iconColor: "text-gold-dark",
-    valueColor: "text-gold-dark",
-    labelColor: "text-gray-600",
-    isBrand: false,
+    accent: "bg-blue-500",
+    iconBg: "bg-blue-50",
+    iconColor: "text-blue-600",
+    valueColor: "text-blue-600",
   },
 ];
 
@@ -185,23 +177,35 @@ export default function DashboardPage() {
           : statCards.map((card) => (
               <div
                 key={card.key}
-                className={cn(
-                  "rounded-xl shadow-sm p-5 transition-transform hover:scale-[1.02]",
-                  card.bg,
-                  card.isBrand && "border border-gold/40 shadow-md"
-                )}
+                className="relative bg-card-bg rounded-xl shadow-sm border border-gray-100 p-3 sm:p-5 overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5"
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className={cn("text-sm mb-1", card.labelColor)}>
+                <span
+                  className={cn(
+                    "absolute top-0 inset-x-0 h-[2px]",
+                    card.accent
+                  )}
+                />
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm text-gray-500 mb-1 truncate">
                       {card.label}
                     </p>
-                    <p className={cn("text-2xl sm:text-3xl font-bold", card.valueColor)}>
+                    <p
+                      className={cn(
+                        "text-xl sm:text-3xl font-bold tabular-nums",
+                        card.valueColor
+                      )}
+                    >
                       {data?.stats[card.key] ?? 0}
                     </p>
                   </div>
-                  <div className={cn("p-3 rounded-xl", card.iconBg)}>
-                    <card.icon size={24} className={card.iconColor} />
+                  <div
+                    className={cn(
+                      "p-2 sm:p-3 rounded-xl shrink-0",
+                      card.iconBg
+                    )}
+                  >
+                    <card.icon size={22} className={card.iconColor} />
                   </div>
                 </div>
               </div>
@@ -233,12 +237,12 @@ export default function DashboardPage() {
           <TableSkeleton />
         ) : (
           <div className="bg-card-bg rounded-xl shadow-sm overflow-hidden border-t-2 border-gold/50">
-            <div className="px-5 py-4 border-b border-gold/20 bg-gold-soft/40">
-              <h2 className="text-lg font-bold text-primary">
+            <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-gold/20 bg-gold-soft/40">
+              <h2 className="text-base sm:text-lg font-bold text-primary">
                 عمليات الدخول والخروج اليوم
               </h2>
             </div>
-            <div className="p-5">
+            <div className="p-3 sm:p-5">
               {!data?.todayActivity || data.todayActivity.length === 0 ? (
                 <p className="text-center text-muted py-8">
                   لا توجد عمليات اليوم
@@ -303,12 +307,12 @@ export default function DashboardPage() {
           <TableSkeleton />
         ) : (
           <div className="bg-card-bg rounded-xl shadow-sm overflow-hidden border-t-2 border-gold/50">
-            <div className="px-5 py-4 border-b border-gold/20 bg-gold-soft/40">
-              <h2 className="text-lg font-bold text-primary">
+            <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-gold/20 bg-gold-soft/40">
+              <h2 className="text-base sm:text-lg font-bold text-primary">
                 ملخص الديون المستحقة
               </h2>
             </div>
-            <div className="p-5">
+            <div className="p-3 sm:p-5">
               <div className="mb-5 p-4 bg-red-50 rounded-lg text-center">
                 <p className="text-sm text-gray-500 mb-1">إجمالي الديون</p>
                 <p className="text-2xl font-bold text-red-600">

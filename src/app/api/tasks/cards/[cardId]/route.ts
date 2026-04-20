@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 import { requireBoardAccess } from "@/lib/tasks/access";
+import { completeMaintenanceInTx } from "@/lib/maintenance/complete";
 
 function errStatus(e: unknown): number {
   return typeof e === "object" && e && "status" in e
@@ -68,6 +69,17 @@ export async function GET(
         createdBy: { select: { id: true, name: true, email: true } },
         column: { select: { id: true, name: true } },
         board: { select: { id: true, name: true } },
+        maintenance: {
+          select: {
+            id: true,
+            status: true,
+            cost: true,
+            contractor: true,
+            requestDate: true,
+            completionDate: true,
+            unit: { select: { id: true, unitNumber: true } },
+          },
+        },
       },
     });
     return NextResponse.json(full);
@@ -136,34 +148,53 @@ export async function PATCH(
     if (completed === true && !task.completedAt) data.completedAt = new Date();
     if (completed === false && task.completedAt) data.completedAt = null;
 
-    const updated = await prisma.task.update({
-      where: { id: taskId },
-      data,
-      include: {
-        assignees: {
-          include: {
-            user: { select: { id: true, name: true, email: true } },
+    const updated = await prisma.$transaction(async (tx) => {
+      const t = await tx.task.update({
+        where: { id: taskId },
+        data,
+        include: {
+          assignees: {
+            include: {
+              user: { select: { id: true, name: true, email: true } },
+            },
+          },
+          labels: { include: { label: true } },
+          _count: {
+            select: { checklist: true, comments: true, attachments: true },
           },
         },
-        labels: { include: { label: true } },
-        _count: {
-          select: { checklist: true, comments: true, attachments: true },
+      });
+
+      // Cascade: completing a task that is linked to a maintenance record
+      // marks the maintenance as completed (idempotent; the helper skips
+      // re-posting the journal entry if already posted).
+      if (completed === true && t.maintenanceId) {
+        const m = await tx.maintenance.findUnique({
+          where: { id: t.maintenanceId },
+          select: { status: true },
+        });
+        if (m && m.status !== "completed") {
+          await completeMaintenanceInTx(tx, t.maintenanceId);
+        }
+      }
+
+      await tx.taskActivity.create({
+        data: {
+          taskId,
+          actorId: userId,
+          type:
+            completed === true
+              ? "completed"
+              : completed === false
+                ? "reopened"
+                : "updated",
+          payloadJson: Object.keys(data),
         },
-      },
+      });
+
+      return t;
     });
-    await prisma.taskActivity.create({
-      data: {
-        taskId,
-        actorId: userId,
-        type:
-          completed === true
-            ? "completed"
-            : completed === false
-              ? "reopened"
-              : "updated",
-        payloadJson: Object.keys(data),
-      },
-    });
+
     return NextResponse.json(updated);
   } catch (error) {
     const authErr = handleAuthError(error);

@@ -1,0 +1,27 @@
+{
+  "name": "fakher-booking-bot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Playwright worker that syncs hotel-app ⇄ Booking.com Extranet. Reads/writes BookingSyncJob rows.",
+  "main": "dist/runner.js",
+  "scripts": {
+    "dev": "ts-node --transpile-only src/runner.ts",
+    "dev:watch": "ts-node-dev --transpile-only --respawn src/runner.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/runner.js",
+    "install-browsers": "playwright install chromium",
+    "test:login": "ts-node --transpile-only src/operations/login.ts --probe",
+    "once": "ts-node --transpile-only src/runner.ts --once"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "dotenv": "^17.4.2",
+    "playwright": "^1.50.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.4.0"
+  }
+}

@@ -267,13 +267,13 @@ function NewBoardModal({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
-        <div className="px-6 py-4 bg-gray-50 flex items-center justify-between border-b border-gray-100">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg overflow-hidden max-h-[95vh] sm:max-h-[90vh] flex flex-col">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 flex items-center justify-between border-b border-gray-100">
           <h3 className="text-lg font-bold text-gray-800">لوحة جديدة</h3>
           <button
             onClick={onClose}
@@ -284,7 +284,7 @@ function NewBoardModal({
         </div>
         <form
           onSubmit={handleSubmit}
-          className="p-6 space-y-4 overflow-y-auto"
+          className="p-4 sm:p-6 space-y-4 overflow-y-auto"
         >
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">
@@ -383,7 +383,14 @@ function NewBoardModal({
             </div>
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 sm:px-6 py-2.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors text-sm"
+            >
+              إلغاء
+            </button>
             <button
               type="submit"
               disabled={submitting}
@@ -395,13 +402,6 @@ function NewBoardModal({
                 <Plus size={18} />
               )}
               {submitting ? "جاري الحفظ..." : "إنشاء اللوحة"}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-6 py-2.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors text-sm"
-            >
-              إلغاء
             </button>
           </div>
         </form>

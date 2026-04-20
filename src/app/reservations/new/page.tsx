@@ -10,6 +10,8 @@ import {
   Loader2,
   Trash2,
   UserPlus,
+  AlertTriangle,
+  Users as UsersIcon,
 } from "lucide-react";
 import {
   cn,
@@ -17,12 +19,45 @@ import {
   unitTypeLabels,
 } from "@/lib/utils";
 import IdScanner from "@/components/IdScanner";
+import { BedIcon } from "@/components/unit-types/shared";
+
+interface UnitTypeBed {
+  id: number;
+  bedType: string;
+  count: number;
+  combinable: boolean;
+  combinesToType: string | null;
+  sleepsExtra: boolean;
+}
+
+interface UnitTypeRoom {
+  id: number;
+  nameAr: string;
+  kind: string;
+  position: number;
+  beds: UnitTypeBed[];
+}
+
+interface UnitTypeRef {
+  id: number;
+  code: string;
+  nameAr: string;
+  nameEn: string;
+  category: string;
+  maxAdults: number;
+  maxChildren: number;
+  maxOccupancy: number;
+  hasKitchen: boolean;
+  hasBalcony: boolean;
+  rooms: UnitTypeRoom[];
+}
 
 interface Unit {
   id: number;
   unitNumber: string;
   unitType: string;
   status: string;
+  unitTypeRef?: UnitTypeRef | null;
 }
 
 interface SeasonalPrice {
@@ -64,9 +99,18 @@ export default function NewReservationPage() {
   const [paidAmount, setPaidAmount] = useState<string>("0");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [notes, setNotes] = useState("");
+  const [bedSetupRequested, setBedSetupRequested] = useState<string>("");
   const [guests, setGuests] = useState<GuestEntry[]>([
     { fullName: "", idNumber: "", nationality: "" },
   ]);
+
+  const selectedUnit = units.find((u) => String(u.id) === unitId) ?? null;
+  const selectedType = selectedUnit?.unitTypeRef ?? null;
+  const overCapacity = selectedType ? numGuests > selectedType.maxOccupancy : false;
+  const hasCombinableBeds =
+    selectedType?.rooms.some((r) =>
+      r.beds.some((b) => b.combinable && b.count > 1),
+    ) ?? false;
 
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
@@ -190,6 +234,7 @@ export default function NewReservationPage() {
         paymentMethod,
         numGuests,
         notes: notes.trim() || null,
+        bedSetupRequested: bedSetupRequested || null,
         guests: guests
           .filter((g) => g.fullName.trim() || g.idNumber.trim())
           .map((g) => ({
@@ -281,6 +326,11 @@ export default function NewReservationPage() {
               {filteredUnits.length === 0 && (
                 <p className="text-xs text-amber-600 mt-1">لا توجد وحدات شاغرة من هذا النوع</p>
               )}
+              {selectedUnit?.unitTypeRef && (
+                <p className="text-xs text-gray-500 mt-1 truncate">
+                  {selectedUnit.unitTypeRef.nameAr}
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1.5">نوع الإقامة</label>
@@ -295,6 +345,110 @@ export default function NewReservationPage() {
               </select>
             </div>
           </div>
+
+          {selectedType && (
+            <div className="mt-4 bg-gold-soft/40 border border-gold/20 rounded-lg p-3 space-y-2">
+              <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-sm">
+                <span className="flex items-center gap-1.5 text-gray-700">
+                  <UsersIcon size={14} className="text-primary-light" />
+                  السعة: <b>{selectedType.maxOccupancy}</b>
+                  <span className="text-gray-400">·</span>
+                  بالغون: <b>{selectedType.maxAdults}</b>
+                </span>
+                {selectedType.hasKitchen && (
+                  <span className="text-xs bg-white text-gray-600 px-2 py-0.5 rounded">
+                    مطبخ
+                  </span>
+                )}
+                {selectedType.hasBalcony && (
+                  <span className="text-xs bg-white text-gray-600 px-2 py-0.5 rounded">
+                    شرفة
+                  </span>
+                )}
+              </div>
+              <div className="space-y-1">
+                {selectedType.rooms.map((room) => (
+                  <div key={room.id} className="text-xs">
+                    <span className="font-medium text-gray-700">{room.nameAr}:</span>{" "}
+                    {room.beds.length === 0 ? (
+                      <span className="text-gray-400">بلا سرير</span>
+                    ) : (
+                      <span className="text-gray-600 inline-flex items-center gap-2 flex-wrap">
+                        {room.beds.map((b) => (
+                          <span
+                            key={b.id}
+                            className="inline-flex items-center gap-1"
+                          >
+                            <BedIcon
+                              bedType={b.bedType}
+                              size={11}
+                              className="text-primary-light"
+                            />
+                            {b.count > 1 ? `${b.count}× ` : ""}
+                            {(
+                              {
+                                single: "مفرد",
+                                double: "مزدوج",
+                                queen: "Queen",
+                                king: "King",
+                                sofa_bed: "كنبة سرير",
+                                bunk_bed: "طابقين",
+                                crib: "أطفال",
+                                arabic_floor_seating: "جلسة عربية",
+                              } as Record<string, string>
+                            )[b.bedType] ?? b.bedType}
+                            {b.sleepsExtra && (
+                              <span className="text-[10px] text-green-600">
+                                (نوم إضافي)
+                              </span>
+                            )}
+                          </span>
+                        ))}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {hasCombinableBeds && (
+                <div className="pt-2 border-t border-gold/20">
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                    ترتيب الأسرّة المطلوب
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { v: "", label: "بدون تفضيل" },
+                      { v: "default", label: "افتراضي" },
+                      { v: "separated", label: "مفصولة" },
+                      { v: "combined", label: "مدمجة" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.v}
+                        type="button"
+                        onClick={() => setBedSetupRequested(opt.v)}
+                        className={cn(
+                          "text-xs px-3 py-1 rounded-full border transition-colors",
+                          bedSetupRequested === opt.v
+                            ? "bg-primary text-white border-primary"
+                            : "bg-white text-gray-600 border-gray-200 hover:border-primary/50",
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {overCapacity && selectedType && (
+            <div className="mt-3 flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">
+              <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+              <span>
+                عدد النزلاء ({numGuests}) يتجاوز السعة القصوى لهذا النوع ({selectedType.maxOccupancy}).
+              </span>
+            </div>
+          )}
         </div>
 
         {/* بيانات المستأجر */}

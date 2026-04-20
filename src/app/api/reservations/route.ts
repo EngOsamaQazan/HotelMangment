@@ -81,6 +81,7 @@ export async function POST(request: Request) {
       notes,
       groupId,
       guests,
+      bedSetupRequested,
     } = body;
 
     if (!unitId || !guestName || !checkIn || !checkOut || !unitPrice || !totalAmount) {
@@ -119,6 +120,7 @@ export async function POST(request: Request) {
           numGuests: numGuests || 1,
           notes: notes || null,
           groupId: groupId || null,
+          bedSetupRequested: bedSetupRequested || null,
           status: "active",
         },
       });

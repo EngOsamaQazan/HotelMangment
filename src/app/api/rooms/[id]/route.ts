@@ -21,24 +21,66 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { status } = body;
+    const { status, bedSetup, notes, unitTypeId, bookingRoomCode } = body;
 
-    const validStatuses = ["available", "occupied", "maintenance"];
-    if (!status || !validStatuses.includes(status)) {
-      return NextResponse.json(
-        { error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` },
-        { status: 400 }
-      );
+    const updateData: Record<string, unknown> = {};
+
+    if (status !== undefined) {
+      const validStatuses = ["available", "occupied", "maintenance"];
+      if (!validStatuses.includes(status)) {
+        return NextResponse.json(
+          { error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` },
+          { status: 400 }
+        );
+      }
+      updateData.status = status;
+    }
+
+    if (bedSetup !== undefined) {
+      const validSetups = ["default", "combined", "separated"];
+      if (!validSetups.includes(bedSetup)) {
+        return NextResponse.json(
+          { error: `Invalid bedSetup` },
+          { status: 400 },
+        );
+      }
+      updateData.bedSetup = bedSetup;
+    }
+
+    if (notes !== undefined) updateData.notes = notes;
+    if (bookingRoomCode !== undefined) updateData.bookingRoomCode = bookingRoomCode || null;
+
+    if (unitTypeId !== undefined && unitTypeId !== null) {
+      const typeExists = await prisma.unitType.findUnique({
+        where: { id: Number(unitTypeId) },
+        select: { id: true, category: true },
+      });
+      if (!typeExists) {
+        return NextResponse.json(
+          { error: "نوع الوحدة المحدد غير موجود" },
+          { status: 400 },
+        );
+      }
+      updateData.unitTypeId = typeExists.id;
+      updateData.unitType = typeExists.category === "apartment" ? "apartment" : "room";
     }
 
     const updated = await prisma.unit.update({
       where: { id: unitId },
-      data: { status },
+      data: updateData,
       include: {
         reservations: {
           where: { status: "active" },
           orderBy: { checkIn: "desc" },
           take: 1,
+        },
+        unitTypeRef: {
+          include: {
+            rooms: {
+              orderBy: { position: "asc" },
+              include: { beds: true },
+            },
+          },
         },
       },
     });
@@ -49,21 +91,39 @@ export async function PATCH(
       id: updated.id,
       unitNumber: updated.unitNumber,
       type: updated.unitType,
+      unitTypeId: updated.unitTypeId,
+      unitType: updated.unitTypeRef
+        ? {
+            id: updated.unitTypeRef.id,
+            code: updated.unitTypeRef.code,
+            nameAr: updated.unitTypeRef.nameAr,
+            nameEn: updated.unitTypeRef.nameEn,
+            category: updated.unitTypeRef.category,
+            maxAdults: updated.unitTypeRef.maxAdults,
+            maxOccupancy: updated.unitTypeRef.maxOccupancy,
+            hasKitchen: updated.unitTypeRef.hasKitchen,
+            hasBalcony: updated.unitTypeRef.hasBalcony,
+            rooms: updated.unitTypeRef.rooms,
+          }
+        : null,
       status: updated.status,
       floor: updated.floor,
       description: updated.description,
+      bedSetup: updated.bedSetup,
+      notes: updated.notes,
+      bookingRoomCode: updated.bookingRoomCode,
       guestName: activeRes?.guestName || undefined,
       phone: activeRes?.phone || undefined,
       checkInDate: activeRes?.checkIn?.toISOString() || undefined,
       checkOutDate: activeRes?.checkOut?.toISOString() || undefined,
-      notes: activeRes?.notes || updated.description || undefined,
+      reservationNotes: activeRes?.notes || undefined,
     });
   } catch (error) {
     const authErr = handleAuthError(error);
     if (authErr) return authErr;
     console.error("PATCH /api/rooms/[id] error:", error);
     return NextResponse.json(
-      { error: "Failed to update room status" },
+      { error: "Failed to update room" },
       { status: 500 }
     );
   }

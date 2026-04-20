@@ -13,6 +13,7 @@
     "db:seed-demo-tasks": "npx ts-node --project tsconfig.scripts.json scripts/seed-demo-tasks.ts",
     "db:seed-unit-types": "npx ts-node --project tsconfig.scripts.json prisma/seed-unit-types.ts",
     "db:backfill-units": "npx ts-node --project tsconfig.scripts.json prisma/scripts/backfill-unit-types.ts",
+    "db:migrate-prices": "npx ts-node --project tsconfig.scripts.json prisma/scripts/migrate-prices.ts",
     "db:migrate-user-roles": "npx ts-node --project tsconfig.scripts.json scripts/migrate-user-roles.ts",
     "db:reset": "prisma db push --force-reset && npm run db:seed",
     "check:permissions": "npx ts-node --project tsconfig.scripts.json scripts/check-permissions.ts",

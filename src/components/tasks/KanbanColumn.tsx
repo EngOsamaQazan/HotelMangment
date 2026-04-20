@@ -39,7 +39,7 @@ export function KanbanColumn({
   });
 
   return (
-    <div className="w-72 shrink-0 flex flex-col bg-gray-100 rounded-lg max-h-[calc(100vh-12rem)]">
+    <div className="w-[85vw] max-w-[288px] sm:w-72 shrink-0 snap-start md:snap-align-none flex flex-col bg-gray-100 rounded-lg max-h-[70vh] md:max-h-[calc(100vh-12rem)]">
       <div className="px-3 py-2.5 flex items-center justify-between gap-2 border-b border-gray-200">
         {editing ? (
           <input

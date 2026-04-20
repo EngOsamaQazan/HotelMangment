@@ -16,6 +16,21 @@ export async function GET(request: Request) {
     const units = await prisma.unit.findMany({
       where,
       orderBy: { unitNumber: "asc" },
+      include: {
+        unitTypeRef: {
+          include: {
+            rooms: {
+              orderBy: { position: "asc" },
+              include: { beds: true },
+            },
+            amenities: { include: { amenity: true } },
+            photos: {
+              where: { isPrimary: true },
+              take: 1,
+            },
+          },
+        },
+      },
     });
 
     return NextResponse.json(units);

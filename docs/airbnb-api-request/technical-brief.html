@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8" />
+<title>Al-Mafraq Hotel Group — Airbnb Connectivity Plan (SiteMinder)</title>
+<style>
+  @page { size: A4; margin: 22mm 18mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: #14261f;
+    line-height: 1.55;
+    font-size: 11pt;
+  }
+  h1, h2, h3 { color: #0E3B33; font-weight: 700; margin: 0 0 8pt; }
+  h1 { font-size: 22pt; letter-spacing: .2pt; }
+  h2 { font-size: 14pt; margin-top: 18pt; border-bottom: 1px solid #D4B273; padding-bottom: 4pt; }
+  h3 { font-size: 12pt; margin-top: 12pt; color: #155A4C; }
+  p  { margin: 6pt 0; }
+  code { background: #f4f1ea; padding: 1pt 4pt; border-radius: 3pt; font-size: 10pt; color: #5a3b0a; }
+  table { border-collapse: collapse; width: 100%; margin: 8pt 0; font-size: 10.5pt; }
+  th, td { border: 1px solid #d8d2c4; padding: 5pt 8pt; text-align: left; vertical-align: top; }
+  th { background: #0E3B33; color: #fff; font-weight: 600; }
+  tr:nth-child(even) td { background: #faf7f1; }
+  ul, ol { margin: 4pt 0 8pt 20pt; padding: 0; }
+  li { margin: 3pt 0; }
+  .brand {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14pt 18pt; background: linear-gradient(135deg,#0E3B33 0%,#155A4C 100%);
+    color: #E8D0A0; border-radius: 8pt; margin-bottom: 18pt;
+  }
+  .brand .name { font-size: 20pt; font-weight: 800; letter-spacing: 1pt; color: #E8D0A0; }
+  .brand .sub  { font-size: 9.5pt; opacity: .85; margin-top: 2pt; }
+  .meta { font-size: 9.5pt; color: #5b6b65; margin-bottom: 14pt; }
+  .kv { margin: 4pt 0; font-size: 10.5pt; }
+  .kv b { display: inline-block; min-width: 180pt; color: #0E3B33; }
+  .pill {
+    display: inline-block; background: #fff; color: #0E3B33; border: 1px solid #D4B273;
+    border-radius: 999px; padding: 2pt 10pt; font-size: 9pt; margin-right: 4pt;
+  }
+  .callout {
+    background: #fff8e6; border-left: 4pt solid #D4B273; padding: 10pt 12pt;
+    border-radius: 4pt; margin: 10pt 0; font-size: 10.5pt;
+  }
+  .callout b { color: #0E3B33; }
+  .topology {
+    background: #0E3B33; color: #E8D0A0; font-family: "Consolas","Courier New",monospace;
+    font-size: 9.5pt; padding: 12pt 14pt; border-radius: 6pt; white-space: pre;
+    line-height: 1.35;
+  }
+  .ok  { color: #0f7b5f; font-weight: 700; }
+  .no  { color: #a63a22; font-weight: 700; }
+  .warn{ color: #a07b1a; font-weight: 700; }
+  .page-break { page-break-before: always; }
+  .shot { page-break-inside: avoid; margin: 14pt 0 18pt; }
+  .shot-title { font-weight: 700; color: #0E3B33; font-size: 11.5pt; margin-bottom: 2pt; }
+  .shot-desc  { font-size: 10pt; color: #3a4843; margin-bottom: 6pt; }
+  .shot img   { max-width: 100%; border: 1px solid #D4B273; border-radius: 6pt; display: block; }
+</style>
+</head>
+<body>
+
+<div class="brand">
+  <div>
+    <div class="name">AL-MAFRAQ HOTEL GROUP</div>
+    <div class="sub">Airbnb connectivity plan · via SiteMinder channel manager</div>
+  </div>
+  <div style="text-align:right; font-size:9pt;">
+    <div>April 2026</div>
+    <div>Target channel · Airbnb</div>
+  </div>
+</div>
+
+<div class="meta">
+  <span class="pill">Owner: Osama Qazan</span>
+  <span class="pill">osamaqazan89@gmail.com</span>
+  <span class="pill">Airbnb: guest → host</span>
+  <span class="pill">Channel Manager: SiteMinder</span>
+  <span class="pill">Jordan — Mafraq</span>
+</div>
+
+<h2>0. Why a channel manager, not direct API?</h2>
+<div class="callout">
+  Airbnb's own partner portal (<code>https://www.airbnb.com/partner</code>) states:
+  <br/><br/>
+  <i>"At this time, we are not accepting new access requests for our API. Our global
+  team of partner managers will reach out to prospective partners based on the supply
+  opportunity your business represents, strength of your technology, and ability to
+  support our shared customers."</i>
+  <br/><br/>
+  <b>Direct API access is closed to single properties.</b> The only way to get real-time
+  ARI and reservation sync with Airbnb is through an <b>approved connectivity
+  partner / channel manager</b>. We are choosing <b>SiteMinder</b>, an officially
+  approved Airbnb partner (see <code>siteminder.com/channel-manager/airbnb-hotels</code>).
+</div>
+
+<h2>1. Executive summary</h2>
+<p>
+  We operate an <b>in-house Property Management System (PMS)</b> built specifically
+  for our hotel group: 3 properties — property <code>14364167</code> (Al-Mafraq
+  Hotel) already live on Booking.com, and two more being onboarded. We want the
+  same property footprint to go live on <b>Airbnb</b> with the same guarantees:
+  single source of truth in our PMS, real-time two-way sync, no double-bookings,
+  and one operational dashboard for the whole channel mix.
+</p>
+<p>
+  Our PMS will integrate with SiteMinder's public <b>pmsXchange</b> and
+  <b>SiteMinder Exchange (SMX)</b> APIs. SiteMinder then fans our inventory out
+  to Airbnb, Booking.com, Expedia, Agoda, and 420+ other channels from one
+  integration on our side.
+</p>
+<p>The system is already in production at <code>https://hotel.aqssat.co</code> and is used daily by our staff.</p>
+
+<h2>2. Target topology</h2>
+<div class="topology">+-------------------+      pmsXchange (REST + SOAP)
+|   Fakher PMS      |  &lt;---------------------&gt; +-----------------+
+|  (this codebase)  |                            |   SiteMinder    |
+|                   |   SMX Reservations (REST)  |   Platform      |
+|  Single source    |  &lt;---------------------    |                 |
+|   of truth        |                            +-----------------+
++-------------------+                                  | |
+                                                       | |
+                             +-------------------------+ +--------+
+                             |                                    |
+                             v                                    v
+                     +---------------+                    +---------------+
+                     |    Airbnb     |                    | Booking.com,  |
+                     |  (via CM)     |                    | Expedia, etc. |
+                     +---------------+                    +---------------+
+</div>
+
+<h2>3. System overview</h2>
+<table>
+  <tr><th style="width:32%;">Layer</th><th>Technology</th></tr>
+  <tr><td>Runtime</td><td>Next.js 16 (App Router) on Node.js</td></tr>
+  <tr><td>Language</td><td>TypeScript (strict mode)</td></tr>
+  <tr><td>Database</td><td>PostgreSQL via Prisma ORM 6</td></tr>
+  <tr><td>Auth</td><td>NextAuth.js (JWT, bcrypt, 2FA-ready)</td></tr>
+  <tr><td>Realtime</td><td>Socket.IO + Postgres LISTEN/NOTIFY triggers</td></tr>
+  <tr><td>Permissions</td><td>Fine-grained RBAC registry with <code>requirePermission()</code></td></tr>
+  <tr><td>Deployment</td><td>Single-region VPS, Nginx reverse proxy, PM2 processes</td></tr>
+  <tr><td>Credential storage</td><td>AES-256-GCM at rest (HKDF-derived key)</td></tr>
+</table>
+<p>
+  All external-integration credentials are encrypted with AES-256-GCM via an
+  HKDF-derived key from <code>BOOKING_ENC_KEY</code>
+  (see <code>src/lib/booking/encryption.ts</code>). The same vault will hold
+  SiteMinder API keys and per-channel mapping tokens.
+</p>
+
+<h2>4. Data model · mapping our schema to SiteMinder &amp; Airbnb</h2>
+<table>
+  <tr>
+    <th style="width:30%;">PMS concept (Prisma)</th>
+    <th style="width:30%;">SiteMinder object</th>
+    <th>Airbnb concept</th>
+  </tr>
+  <tr><td><code>UnitType</code></td><td><code>RoomType</code></td><td><code>Listing</code></td></tr>
+  <tr><td><code>UnitTypeBed</code></td><td>Bed configuration</td><td>Bed configuration</td></tr>
+  <tr><td><code>Unit</code></td><td>Inventory count per type</td><td>Managed by SM</td></tr>
+  <tr><td><code>Rate</code> / <code>UnitTypePrice</code></td><td><code>RatePlan</code></td><td>Nightly price / min stay</td></tr>
+  <tr><td><code>Reservation</code></td><td><code>Reservation</code></td><td>Reservation</td></tr>
+  <tr><td><code>Guest</code></td><td>Guest profile</td><td>Guest</td></tr>
+  <tr><td><code>Amenity</code> / <code>Photo</code></td><td>Content attributes</td><td>Amenities / photos</td></tr>
+</table>
+<p>
+  The in-flight <code>UnitType</code> redesign (see
+  <code>docs/plans/unit-types-redesign.md</code>) normalises exactly the fields
+  SiteMinder expects: <code>maxOccupancy</code>, <code>bedroomCount</code>,
+  <code>livingRoomCount</code>, <code>bathroomCount</code>, per-type bed list,
+  amenity list, photo gallery, and seasonal <code>Rate</code> records.
+</p>
+<p>
+  <b>Listing strategy:</b> one Airbnb listing per <code>UnitType</code>, with
+  inventory count equal to the number of physical units of that type. This
+  matches Airbnb's "Hotels / Boutique Hotel" model and avoids the operational
+  pain of 20+ identical per-room listings.
+</p>
+
+<h2>5. APIs we will consume from SiteMinder (priority order)</h2>
+<ol>
+  <li><b>pmsXchange · Content / Room setup</b> — room types, amenities, bed
+    configurations, photos, descriptions
+    (<code>OTA_HotelDescriptiveContentNotif</code>, <code>OTA_HotelRoomList</code>).</li>
+  <li><b>pmsXchange · ARI (Availability, Rates, Inventory)</b> — nightly
+    availability, nightly rates, restrictions
+    (<code>OTA_HotelAvailNotif</code>, <code>OTA_HotelRateAmountNotif</code>,
+    <code>OTA_HotelInvCountNotif</code>).</li>
+  <li><b>SiteMinder Exchange (SMX) · Reservation retrieval</b> — new, modified,
+    and cancelled reservations from every connected channel, including Airbnb
+    (REST/JSON with SOAP/XML fallback).</li>
+  <li><b>SiteMinder webhooks / notifications</b> — push reservations to our PMS
+    within ~30s (vs. polling).</li>
+  <li><b>Nightly content reconciliation</b> — drift detection between PMS and
+    SiteMinder content store.</li>
+</ol>
+<p>
+  Every stream will be idempotent (SiteMinder message IDs), retried with
+  exponential backoff + dead-letter queue, and carry structured logs with
+  correlation IDs across PMS ↔ SiteMinder ↔ OTA. Channel-level feature flags let
+  us pause a single OTA (e.g. Airbnb) without affecting the others.
+</p>
+
+<h2>6. Internal modules already in production</h2>
+<table>
+  <tr><th>Module</th><th>Status</th><th>Notes</th></tr>
+  <tr><td>Reservations</td><td>Live</td><td>CRUD, check-in/out, deposits, <code>source</code> field already supports <code>AIRBNB</code></td></tr>
+  <tr><td>Unit types · beds · amenities · photos</td><td>Live</td><td>Schema described in §4</td></tr>
+  <tr><td>Seasons &amp; rates</td><td>Live</td><td>Seasonal per-unit-type pricing, feeds ARI directly</td></tr>
+  <tr><td>Booking integration skeleton</td><td>Live</td><td><code>credentials/</code> · <code>inbox/</code> · <code>jobs/</code> · <code>property-map/</code></td></tr>
+  <tr><td>Monthly reports</td><td>Live</td><td>Revenue, occupancy, ADR, RevPAR, channel mix</td></tr>
+  <tr><td>Tasks (Kanban)</td><td>Live</td><td>Ops board for mapping / parity exceptions</td></tr>
+  <tr><td>Notifications</td><td>Live</td><td>Socket.IO + Postgres NOTIFY triggers</td></tr>
+  <tr><td>Permissions</td><td>Live</td><td>40+ capabilities, enforced per API route</td></tr>
+</table>
+<p>
+  <b>Only channel-specific adapters are missing.</b> We will add
+  <code>src/lib/channel-managers/siteminder/</code>, a new
+  <code>ChannelProvider = SITEMINDER</code> value, and a
+  <code>src/app/settings/channel-managers/</code> UI for credentials + room-type
+  mapping + push history — registered via the permissions registry.
+</p>
+
+<h2>7. Security &amp; compliance</h2>
+<ul>
+  <li>TLS end-to-end (Let's Encrypt, auto-renewed).</li>
+  <li>AES-256-GCM at rest for all third-party credentials; no plaintext storage.</li>
+  <li>HMAC-verified inbound webhooks (already implemented for Booking; reused for SiteMinder).</li>
+  <li>Full audit log for reservation edits, rate changes, permission changes, channel mapping changes.</li>
+  <li>GDPR-aware: guest data can be anonymised / exported on request.</li>
+  <li>Edge rate limiting (<code>src/lib/rateLimit.ts</code>).</li>
+  <li>Ready to sign and honour a Data Processing Agreement (DPA) with SiteMinder.</li>
+</ul>
+
+<h2>8. Rollout plan</h2>
+<table>
+  <tr><th>Phase</th><th>Scope</th><th>ETA</th></tr>
+  <tr><td>0</td><td>Open SiteMinder account; onboard Al-Mafraq as a property</td><td>2 weeks</td></tr>
+  <tr><td>1</td><td>SiteMinder developer credentials (sandbox + production)</td><td>1 week</td></tr>
+  <tr><td>2</td><td>pmsXchange client: Content + ARI · map UnitTypes → RoomTypes</td><td>3 weeks</td></tr>
+  <tr><td>3</td><td>SMX client: reservations (REST/JSON) + webhooks</td><td>2 weeks</td></tr>
+  <tr><td>4</td><td>End-to-end sandbox test: push ARI → verify on Airbnb staging</td><td>1 week</td></tr>
+  <tr><td>5</td><td>Certification + go-live for property 14364167</td><td>1 week</td></tr>
+  <tr><td>6</td><td>Onboard properties 2 &amp; 3 under the same SM account</td><td>2 weeks</td></tr>
+  <tr><td>7</td><td>Monitoring dashboards + on-call rotation + parity alerts</td><td>1 week</td></tr>
+</table>
+<p><b>Total: ~13 weeks to full production across 3 properties on Airbnb + Booking + Expedia.</b></p>
+
+<h2>9. Action items · what we need next</h2>
+<h3>Business side</h3>
+<ol>
+  <li>Open a <b>SiteMinder</b> account for Al-Mafraq Hotel Group.</li>
+  <li>Convert the Airbnb account (<code>osamaqazan89@gmail.com</code>) from <b>guest → host</b>.</li>
+  <li>Complete the Airbnb host profile: ID verification, payout method, tax info, profile photo, cancellation policy.</li>
+  <li>Create the Airbnb listing manually as a "Boutique Hotel" (or the Jordan-supported equivalent) with photos and descriptions — SiteMinder requires an existing listing before API mapping.</li>
+  <li>Request the SiteMinder ↔ Airbnb connection from SiteMinder support; provide both account IDs.</li>
+</ol>
+<h3>Technical side</h3>
+<ol>
+  <li>Request SiteMinder developer credentials (sandbox + production).</li>
+  <li>Store them via <code>booking/credentials</code> under provider <code>SITEMINDER</code>.</li>
+  <li>Build the adapter (§6).</li>
+  <li>Run through SiteMinder's certification checklist.</li>
+  <li>Flip the production feature flag.</li>
+</ol>
+
+<h2>10. Alternatives considered</h2>
+<table>
+  <tr><th>Option</th><th>Verdict</th></tr>
+  <tr><td>Apply directly to Airbnb for API access</td><td class="no">Closed to new applicants</td></tr>
+  <tr><td>Hostaway (vacation-rental oriented)</td><td class="no">Less ideal for hotel rooms</td></tr>
+  <tr><td>Cloudbeds (PMS + CM in one)</td><td class="no">Would replace our own PMS</td></tr>
+  <tr><td>STAAH (Middle-East focus)</td><td class="ok">Viable backup; similar plan</td></tr>
+  <tr><td><b>SiteMinder (chosen)</b></td><td class="ok">Strongest API + OTA reach</td></tr>
+  <tr><td>Manage Airbnb manually (no API)</td><td class="warn">Not scalable beyond one unit type</td></tr>
+</table>
+
+<h2>11. Contact</h2>
+<div class="kv"><b>Owner &amp; technical sponsor:</b> Osama Qazan</div>
+<div class="kv"><b>Email:</b> osamaqazan89@gmail.com</div>
+<div class="kv"><b>Existing Booking property ID:</b> 14364167</div>
+<div class="kv"><b>Airbnb account (to be host):</b> osamaqazan89@gmail.com</div>
+<div class="kv"><b>System URL:</b> https://hotel.aqssat.co</div>
+<div class="kv"><b>Country / city:</b> Jordan — Mafraq, Al-Zuhour district</div>
+<p>Happy to jump on a call with SiteMinder's partner manager or share read-only demo access to our PMS on request.</p>
+
+<div class="page-break"></div>
+
+<h2>Appendix · Screenshots from the production system</h2>
+<p style="color:#5b6b65; font-size:10pt;">
+  The following screenshots are captured live from <code>https://hotel.aqssat.co</code>
+  (Arabic RTL UI). They illustrate the modules that will consume the SiteMinder
+  APIs and surface Airbnb-originated reservations.
+</p>
+
+<div class="shot">
+  <div class="shot-title">1. Operations dashboard — live KPIs</div>
+  <div class="shot-desc">Total units, occupied, vacant, active reservations, today's check-ins / check-outs. The same numbers will be pushed as availability to SiteMinder via <code>OTA_HotelAvailNotif</code>.</div>
+  <img src="../booking-api-request/screenshots/01-dashboard.png" alt="Dashboard"/>
+</div>
+
+<div class="shot">
+  <div class="shot-title">2. Reservations module</div>
+  <div class="shot-desc">Full reservations log with status, dates, amount paid and balance. This is the sink for reservations pulled from SMX — including bookings originating on Airbnb.</div>
+  <img src="../booking-api-request/screenshots/02-reservations.png" alt="Reservations"/>
+</div>
+
+<div class="shot">
+  <div class="shot-title">3. Rooms &amp; apartments status</div>
+  <div class="shot-desc">Per-unit status across hotel rooms (101–109) and serviced apartments (01–06). This inventory is the source of truth the pmsXchange Content + ARI APIs will sync to every channel, including Airbnb.</div>
+  <img src="../booking-api-request/screenshots/03-rooms-status.png" alt="Rooms status"/>
+</div>
+
+<div class="shot">
+  <div class="shot-title">4. Operational Kanban (Tasks)</div>
+  <div class="shot-desc">Cross-team boards: guest experience, housekeeping, reception &amp; reservations. Exception events (mapping mismatch, parity alert, Airbnb cancellation-without-refund) will flow in here.</div>
+  <img src="../booking-api-request/screenshots/04-tasks-boards.png" alt="Task boards"/>
+</div>
+
+<div class="shot">
+  <div class="shot-title">5. Monthly financial &amp; occupancy report</div>
+  <div class="shot-desc">Revenue, ADR, occupancy % per unit. Will enrich with Airbnb-channel share once the integration is live.</div>
+  <img src="../booking-api-request/screenshots/05-monthly-report.png" alt="Monthly report"/>
+</div>
+
+<div class="shot">
+  <div class="shot-title">6. Guest registry</div>
+  <div class="shot-desc">De-duplicated guest profiles with document IDs and stay history. Airbnb guests arriving via SMX will merge on <code>customerId</code>.</div>
+  <img src="../booking-api-request/screenshots/06-guests.png" alt="Guests"/>
+</div>
+
+</body>
+</html>

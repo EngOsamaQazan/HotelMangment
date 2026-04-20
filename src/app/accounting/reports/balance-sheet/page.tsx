@@ -142,8 +142,8 @@ export default function BalanceSheetPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <section className="bg-card-bg rounded-xl shadow-sm p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+            <section className="bg-card-bg rounded-xl shadow-sm p-3 sm:p-6 overflow-x-auto">
               <h3 className="text-lg font-bold text-blue-700 mb-3">الأصول</h3>
               <table className="w-full text-sm">
                 <tbody className="divide-y divide-gray-100">
@@ -180,7 +180,7 @@ export default function BalanceSheetPage() {
               </table>
             </section>
 
-            <section className="bg-card-bg rounded-xl shadow-sm p-6 space-y-6">
+            <section className="bg-card-bg rounded-xl shadow-sm p-3 sm:p-6 space-y-6 overflow-x-auto">
               <div>
                 <h3 className="text-lg font-bold text-orange-700 mb-3">الخصوم</h3>
                 <table className="w-full text-sm">

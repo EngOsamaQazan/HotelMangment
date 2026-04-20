@@ -22,7 +22,18 @@ export async function GET(request: Request) {
 
     const maintenanceList = await prisma.maintenance.findMany({
       where,
-      include: { unit: true },
+      include: {
+        unit: true,
+        task: {
+          select: {
+            id: true,
+            boardId: true,
+            title: true,
+            completedAt: true,
+            board: { select: { id: true, name: true } },
+          },
+        },
+      },
       orderBy: { requestDate: "desc" },
     });
 

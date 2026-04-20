@@ -257,37 +257,39 @@ export default function BoardPage({
   return (
     <div className="space-y-4">
       {/* Top bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <div className="flex items-start gap-3">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex items-start gap-2 min-w-0">
           <Link
             href="/tasks"
-            className="mt-1 p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
+            className="mt-1 p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0"
           >
             <ArrowRight size={18} />
           </Link>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span
-                className="inline-block w-3 h-3 rounded-full"
+                className="inline-block w-3 h-3 rounded-full shrink-0"
                 style={{ background: accent }}
               />
-              <h1 className="text-xl sm:text-2xl font-bold text-primary">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-primary truncate">
                 {board.name}
               </h1>
             </div>
             {board.description && (
-              <p className="text-xs text-gray-500 mt-0.5">{board.description}</p>
+              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                {board.description}
+              </p>
             )}
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden text-xs">
+          <div className="flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden text-xs w-full md:w-auto">
             {(["board", "members", "labels"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
                 className={cn(
-                  "px-3 py-2 transition-colors",
+                  "flex-1 md:flex-none px-3 py-2 transition-colors",
                   tab === t
                     ? "bg-primary text-white"
                     : "text-gray-600 hover:bg-gray-50",
@@ -305,8 +307,8 @@ export default function BoardPage({
       {tab === "board" && (
         <>
           {/* Filters */}
-          <div className="flex items-center gap-2 flex-wrap bg-card-bg rounded-lg p-2 shadow-sm">
-            <span className="text-xs text-gray-500 flex items-center gap-1 px-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:flex-wrap bg-card-bg rounded-lg p-2 shadow-sm">
+            <span className="text-xs text-gray-500 flex items-center gap-1 px-2 shrink-0">
               <Filter size={12} /> فلاتر:
             </span>
             <select
@@ -317,7 +319,7 @@ export default function BoardPage({
                   v === "all" ? "all" : v === "me" ? "me" : Number(v),
                 );
               }}
-              className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none bg-white"
+              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none bg-white min-w-0 flex-1 sm:flex-none"
             >
               <option value="all">كل المُسندين</option>
               <option value="me">المُسندة إليّ</option>
@@ -334,7 +336,7 @@ export default function BoardPage({
                   e.target.value === "all" ? "all" : Number(e.target.value),
                 )
               }
-              className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none bg-white"
+              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none bg-white min-w-0 flex-1 sm:flex-none"
             >
               <option value="all">كل التسميات</option>
               {board.labels.map((l) => (
@@ -353,7 +355,7 @@ export default function BoardPage({
             onDragEnd={handleDragEnd}
             onDragCancel={() => setActiveCard(null)}
           >
-            <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4">
+            <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 md:-mx-6 md:px-6 snap-x snap-mandatory md:snap-none">
               {board.columns.map((col) => (
                 <KanbanColumn
                   key={col.id}
@@ -462,7 +464,7 @@ function AddColumnButton({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="w-72 shrink-0 h-fit bg-white/60 hover:bg-white border border-dashed border-gray-300 rounded-lg p-3 text-sm text-gray-500 hover:text-primary transition-colors flex items-center justify-center gap-2"
+        className="w-[85vw] max-w-[288px] sm:w-72 shrink-0 h-fit bg-white/60 hover:bg-white border border-dashed border-gray-300 rounded-lg p-3 text-sm text-gray-500 hover:text-primary transition-colors flex items-center justify-center gap-2"
       >
         <Plus size={16} /> عمود جديد
       </button>
@@ -471,7 +473,7 @@ function AddColumnButton({
   return (
     <form
       onSubmit={submit}
-      className="w-72 shrink-0 h-fit bg-white border border-gray-200 rounded-lg p-3 space-y-2"
+      className="w-[85vw] max-w-[288px] sm:w-72 shrink-0 h-fit bg-white border border-gray-200 rounded-lg p-3 space-y-2"
     >
       <input
         autoFocus

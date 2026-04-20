@@ -150,13 +150,13 @@ export default function PeriodsPage() {
       ) : (
         <div className="space-y-6">
           {years.map((year) => (
-            <div key={year} className="bg-card-bg rounded-xl shadow-sm p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">عام {year}</h2>
+            <div key={year} className="bg-card-bg rounded-xl shadow-sm p-3 sm:p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+                <h2 className="text-base sm:text-lg font-bold text-gray-800">عام {year}</h2>
                 <button
                   onClick={() => closeYear(year)}
                   disabled={busy}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50 w-full sm:w-auto"
                 >
                   <Archive size={16} /> إقفال السنة
                 </button>

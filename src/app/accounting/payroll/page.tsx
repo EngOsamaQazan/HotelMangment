@@ -224,7 +224,7 @@ function EmployeeTable({
       <div className={cn("px-5 py-3 font-bold", inactive ? "bg-gray-100 text-gray-600" : "bg-green-50 text-green-800")}>
         {title}
       </div>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto hidden md:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 text-gray-600">
@@ -288,6 +288,73 @@ function EmployeeTable({
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="md:hidden divide-y divide-gray-100">
+        {rows.map((e) => (
+          <div
+            key={e.id}
+            className={cn("p-3 space-y-2", inactive && "opacity-60")}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <Link
+                  href={`/accounting/parties/${e.id}`}
+                  className="inline-flex items-center gap-1.5 font-medium text-gray-800 hover:text-primary"
+                >
+                  <User size={14} className="text-gray-400 shrink-0" />
+                  <span className="break-words">{e.name}</span>
+                </Link>
+                {e.jobTitle && (
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {e.jobTitle}
+                  </p>
+                )}
+              </div>
+              <Link
+                href={`/accounting/payroll/${e.id}?year=${year}&month=${month}`}
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline shrink-0"
+              >
+                <Receipt size={12} /> سليب
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="bg-gray-50 rounded-lg p-2">
+                <p className="text-gray-400">الراتب الأساسي</p>
+                <p className="font-semibold text-gray-800 tabular-nums">
+                  {e.baseSalary != null ? formatAmount(e.baseSalary) : "—"}
+                </p>
+              </div>
+              <div className="bg-blue-50 rounded-lg p-2">
+                <p className="text-gray-400">العمولة</p>
+                <p className="font-semibold text-blue-700 tabular-nums">
+                  {e.payroll ? formatAmount(e.payroll.commission) : "—"}
+                </p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-2">
+                <p className="text-gray-400">إجمالي</p>
+                <p className="font-bold text-gray-800 tabular-nums">
+                  {e.payroll ? formatAmount(e.payroll.gross) : "—"}
+                </p>
+              </div>
+              <div className="bg-red-50 rounded-lg p-2">
+                <p className="text-gray-400">سلف</p>
+                <p className="font-semibold text-red-700 tabular-nums">
+                  {e.payroll && e.payroll.outstandingAdvance > 0
+                    ? `-${formatAmount(e.payroll.outstandingAdvance)}`
+                    : "—"}
+                </p>
+              </div>
+              <div className="col-span-2 bg-green-50 rounded-lg p-2">
+                <p className="text-gray-400">صافي</p>
+                <p className="font-bold text-green-700 tabular-nums">
+                  {e.payroll
+                    ? `${formatAmount(e.payroll.net)} د.أ`
+                    : "—"}
+                </p>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

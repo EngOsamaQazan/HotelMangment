@@ -321,7 +321,7 @@ export default function PartiesPage() {
         </div>
       ) : (
         <div className="bg-card-bg rounded-xl shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto hidden md:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 text-gray-600">
@@ -434,6 +434,95 @@ export default function PartiesPage() {
               </tbody>
             </table>
           </div>
+          {/* Mobile cards */}
+          <div className="md:hidden divide-y divide-gray-100">
+            {pagedParties.map((p) => {
+              const balance = p.balance ?? 0;
+              return (
+                <div key={p.id} className="p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Link
+                          href={`/accounting/parties/${p.id}`}
+                          className="font-medium text-gray-800 hover:text-primary break-words"
+                        >
+                          {p.name}
+                        </Link>
+                        <span
+                          className={cn(
+                            "inline-block px-2 py-0.5 text-[10px] font-medium rounded-full",
+                            TYPE_COLORS[p.type],
+                          )}
+                        >
+                          {TYPE_LABELS[p.type]}
+                        </span>
+                        {!p.isActive && (
+                          <span className="text-[10px] text-gray-400">
+                            غير نشط
+                          </span>
+                        )}
+                      </div>
+                      {p.nationalId && (
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {p.nationalId}
+                        </p>
+                      )}
+                      {p.phone && (
+                        <p className="text-xs text-gray-600 mt-0.5 inline-flex items-center gap-1 direction-ltr">
+                          <Phone size={11} />
+                          {p.phone}
+                        </p>
+                      )}
+                    </div>
+                    <div
+                      className={cn(
+                        "text-sm font-bold tabular-nums shrink-0 text-left",
+                        balance > 0
+                          ? "text-green-700"
+                          : balance < 0
+                            ? "text-red-700"
+                            : "text-gray-400",
+                      )}
+                    >
+                      {formatAmount(Math.abs(balance))}
+                      {balance !== 0 && (
+                        <span className="block text-[10px] font-normal text-gray-500">
+                          {balance > 0 ? "(لنا عليه)" : "(له علينا)"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 pt-1 border-t border-gray-50">
+                    <Link
+                      href={`/accounting/parties/${p.id}`}
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      <Eye size={13} /> كشف
+                    </Link>
+                    <button
+                      onClick={() => openEdit(p)}
+                      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                    >
+                      <Pencil size={13} /> تعديل
+                    </button>
+                    <button
+                      onClick={() => handleDelete(p)}
+                      disabled={deletingId === p.id}
+                      className="inline-flex items-center gap-1 text-xs text-red-600 hover:underline disabled:opacity-50"
+                    >
+                      {deletingId === p.id ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={13} />
+                      )}
+                      حذف
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
           <div className="px-4 py-3 border-t border-gold/20">
             <Pagination
               page={page}
@@ -447,12 +536,12 @@ export default function PartiesPage() {
 
       {showForm && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4"
           onClick={(e) => e.target === e.currentTarget && closeForm()}
         >
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 overflow-hidden">
-            <div className="px-6 py-4 bg-gray-50 flex items-center justify-between border-b">
-              <h3 className="text-lg font-bold text-gray-800">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg overflow-hidden max-h-[95vh] flex flex-col">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 flex items-center justify-between border-b shrink-0">
+              <h3 className="text-base sm:text-lg font-bold text-gray-800">
                 {editingId ? "تعديل الطرف" : "إضافة طرف جديد"}
               </h3>
               <button
@@ -462,8 +551,8 @@ export default function PartiesPage() {
                 <X size={20} className="text-gray-500" />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     النوع
@@ -500,7 +589,7 @@ export default function PartiesPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     الهاتف
@@ -556,7 +645,7 @@ export default function PartiesPage() {
                       placeholder="مثلاً: موظف استقبال"
                     />
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">
                         الراتب الأساسي (د.أ)
@@ -607,7 +696,7 @@ export default function PartiesPage() {
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">
                         تاريخ التعيين
@@ -664,11 +753,11 @@ export default function PartiesPage() {
                   <span className="text-sm text-gray-700">الطرف نشط</span>
                 </label>
               )}
-              <div className="flex gap-3 pt-2">
+              <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 pt-2">
                 <button
                   type="button"
                   onClick={closeForm}
-                  className="px-6 py-2.5 border rounded-lg text-gray-600 hover:bg-gray-50 text-sm"
+                  className="px-4 sm:px-6 py-2.5 border rounded-lg text-gray-600 hover:bg-gray-50 text-sm"
                 >
                   إلغاء
                 </button>

@@ -1,11 +1,12 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { seedAccounting } from "./seed-accounting";
+import { seedUnitTypes } from "./seed-unit-types";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("🏨 بدء تهيئة قاعدة بيانات فندق الفاخر...\n");
+  console.log("🏨 بدء تهيئة قاعدة بيانات فندق المفرق...\n");
 
   // ===== Users =====
   console.log("👤 إنشاء المستخدمين...");
@@ -64,35 +65,63 @@ async function main() {
     },
   });
 
+  // ===== Unit Types catalog (must run before creating Units) =====
+  await seedUnitTypes(prisma);
+
   // ===== Units =====
   console.log("🏠 إنشاء الغرف والشقق...");
+
+  // Canonical mapping: unitNumber → UnitType.code (kept in sync with
+  // prisma/scripts/backfill-unit-types.ts).
+  const UNIT_TO_TYPE: Record<string, string> = {
+    "01":  "APT-1BR-DBL",
+    "02":  "APT-1BR-DBL",
+    "03":  "APT-1BR-DBL",
+    "04":  "APT-2BR-MIX-A",
+    "05":  "APT-1BR-TWIN",
+    "06":  "APT-2BR-MIX-B",
+    "101": "HTL-SUITE",
+    "102": "HTL-TWIN",
+    "103": "HTL-TWIN",
+    "104": "HTL-TRIPLE",
+    "105": "HTL-KING",
+    "106": "HTL-TRIPLE",
+    "107": "HTL-TRIPLE",
+    "108": "HTL-KING",
+    "109": "HTL-QUAD",
+  };
+
+  const unitTypes = await prisma.unitType.findMany({
+    select: { id: true, code: true },
+  });
+  const typeByCode = new Map(unitTypes.map((t) => [t.code, t]));
+
   const rooms = ["101", "102", "103", "104", "105", "106", "107", "108", "109"];
   const apartments = ["01", "02", "03", "04", "05", "06"];
+  const allUnits = [...apartments, ...rooms];
 
-  for (const num of rooms) {
+  for (const num of allUnits) {
+    const code = UNIT_TO_TYPE[num];
+    const type = code ? typeByCode.get(code) : undefined;
+    const isApartment = apartments.includes(num);
+    const legacyType = isApartment ? "apartment" : "room";
+    const floor = isApartment ? (num <= "03" ? 1 : 2) : 1;
+    const description = isApartment
+      ? `شقة مفروشة رقم ${num}`
+      : `غرفة فندقية رقم ${num}`;
+
     await prisma.unit.upsert({
       where: { unitNumber: num },
-      update: {},
-      create: {
-        unitNumber: num,
-        unitType: "room",
-        status: "available",
-        floor: 1,
-        description: `غرفة فندقية رقم ${num}`,
+      update: {
+        unitTypeId: type?.id ?? null,
       },
-    });
-  }
-
-  for (const num of apartments) {
-    await prisma.unit.upsert({
-      where: { unitNumber: num },
-      update: {},
       create: {
         unitNumber: num,
-        unitType: "apartment",
+        unitType: legacyType,
+        unitTypeId: type?.id ?? null,
         status: "available",
-        floor: num <= "03" ? 1 : 2,
-        description: `شقة مفروشة رقم ${num}`,
+        floor,
+        description,
       },
     });
   }

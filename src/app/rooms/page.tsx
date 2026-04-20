@@ -12,19 +12,59 @@ import {
   Wrench,
   User,
   CalendarDays,
+  Users,
+  Link2,
+  Save,
 } from "lucide-react";
 import { cn, formatDate, statusLabels, unitTypeLabels } from "@/lib/utils";
+import { BedIcon } from "@/components/unit-types/shared";
+import { usePermissions } from "@/lib/permissions/client";
+
+interface UnitTypeBed {
+  id: number;
+  bedType: string;
+  count: number;
+  combinable: boolean;
+  combinesToType: string | null;
+  sleepsExtra: boolean;
+}
+
+interface UnitTypeRoom {
+  id: number;
+  nameAr: string;
+  kind: string;
+  position: number;
+  beds: UnitTypeBed[];
+}
+
+interface UnitTypeInfo {
+  id: number;
+  code: string;
+  nameAr: string;
+  nameEn: string;
+  category: string;
+  maxAdults: number;
+  maxOccupancy: number;
+  hasKitchen: boolean;
+  hasBalcony: boolean;
+  rooms: UnitTypeRoom[];
+}
 
 interface Unit {
   id: number;
   unitNumber: string;
   type: "room" | "apartment";
   status: "available" | "occupied" | "maintenance";
+  unitTypeId: number | null;
+  unitType: UnitTypeInfo | null;
+  bedSetup: string;
+  notes: string | null;
+  bookingRoomCode: string | null;
   guestName?: string;
   checkOutDate?: string;
   phone?: string;
   checkInDate?: string;
-  notes?: string;
+  reservationNotes?: string;
 }
 
 const statusConfig: Record<
@@ -267,6 +307,10 @@ export default function RoomsPage() {
           onClose={() => setSelectedUnit(null)}
           onStatusChange={handleStatusChange}
           updating={updatingStatus}
+          onUnitUpdate={(updated) => {
+            setUnits((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+            setSelectedUnit(updated);
+          }}
         />
       )}
     </div>
@@ -302,9 +346,21 @@ function UnitCard({ unit, onClick }: { unit: Unit; onClick: () => void }) {
         </span>
       </div>
 
-      <p className="text-xs text-gray-500 mb-2">
-        {unitTypeLabels[unit.type] || unit.type}
+      <p className="text-xs text-gray-500 mb-1 truncate">
+        {unit.unitType?.nameAr ?? unitTypeLabels[unit.type] ?? unit.type}
       </p>
+
+      {unit.unitType && (
+        <div className="flex items-center gap-1.5 text-[11px] text-gray-500 mb-2">
+          <Users size={11} className="text-gray-400" />
+          <span>{unit.unitType.maxOccupancy} أشخاص</span>
+          <span className="text-gray-300">·</span>
+          <BedDouble size={11} className="text-gray-400" />
+          <span className="truncate">
+            {unit.unitType.rooms.reduce((n, r) => n + r.beds.reduce((s, b) => s + (b.bedType === "arabic_floor_seating" ? 0 : b.count), 0), 0)} سرير
+          </span>
+        </div>
+      )}
 
       {unit.status === "occupied" && unit.guestName && (
         <div className="mt-3 pt-3 border-t border-gray-200/60 space-y-1.5">
@@ -329,13 +385,26 @@ function UnitModal({
   onClose,
   onStatusChange,
   updating,
+  onUnitUpdate,
 }: {
   unit: Unit;
   onClose: () => void;
   onStatusChange: (unitId: number, status: string) => void;
   updating: boolean;
+  onUnitUpdate: (unit: Unit) => void;
 }) {
   const config = statusConfig[unit.status] || statusConfig.available;
+  const [notes, setNotes] = useState(unit.notes ?? "");
+  const [bedSetup, setBedSetup] = useState(unit.bedSetup);
+  const [saving, setSaving] = useState(false);
+  const { can } = usePermissions();
+  const canEdit = can("rooms:edit");
+
+  // Does any bed in this unit type support combining?
+  const hasCombinable =
+    unit.unitType?.rooms.some((r) =>
+      r.beds.some((b) => b.combinable && b.count > 1),
+    ) ?? false;
 
   useEffect(() => {
     function handleEsc(e: KeyboardEvent) {
@@ -345,51 +414,131 @@ function UnitModal({
     return () => document.removeEventListener("keydown", handleEsc);
   }, [onClose]);
 
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const patch: Record<string, unknown> = {};
+      if (notes !== (unit.notes ?? "")) patch.notes = notes || null;
+      if (bedSetup !== unit.bedSetup) patch.bedSetup = bedSetup;
+      if (Object.keys(patch).length === 0) {
+        setSaving(false);
+        return;
+      }
+      const res = await fetch(`/api/rooms/${unit.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error("فشل الحفظ");
+      const updated = await res.json();
+      onUnitUpdate(updated);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "فشل الحفظ");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const isDirty = notes !== (unit.notes ?? "") || bedSetup !== unit.bedSetup;
+
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden animate-in fade-in zoom-in-95">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[95vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
         {/* Header */}
         <div
           className={cn(
-            "px-6 py-4 flex items-center justify-between",
-            config.bg
+            "px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between shrink-0 gap-2",
+            config.bg,
           )}
         >
-          <div>
-            <h3 className="text-xl font-bold text-gray-800">
+          <div className="min-w-0">
+            <h3 className="text-lg sm:text-xl font-bold text-gray-800">
               الوحدة {unit.unitNumber}
             </h3>
-            <p className="text-sm text-gray-500">
-              {unitTypeLabels[unit.type] || unit.type}
+            <p className="text-xs sm:text-sm text-gray-500 truncate">
+              {unit.unitType?.nameAr ?? unitTypeLabels[unit.type] ?? unit.type}
+              {unit.unitType && (
+                <span className="text-xs text-gray-400 mr-2">
+                  ({unit.unitType.code})
+                </span>
+              )}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-white/60 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-white/60 transition-colors shrink-0"
           >
             <X size={20} className="text-gray-500" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-500">الحالة الحالية</span>
             <span
               className={cn(
                 "inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1 rounded-full",
                 config.badge,
-                config.badgeText
+                config.badgeText,
               )}
             >
               {statusLabels[unit.status] || unit.status}
             </span>
           </div>
+
+          {/* Unit Type details */}
+          {unit.unitType && (
+            <div className="bg-gray-50/80 rounded-lg p-3 space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <Users size={14} className="text-primary-light" />
+                <span className="text-gray-600">السعة:</span>
+                <b className="text-gray-800">{unit.unitType.maxOccupancy}</b>
+                <span className="text-gray-400">·</span>
+                <span className="text-gray-600">بالغون:</span>
+                <b className="text-gray-800">{unit.unitType.maxAdults}</b>
+              </div>
+              <div className="space-y-1">
+                {unit.unitType.rooms.map((room) => (
+                  <div key={room.id} className="text-xs">
+                    <span className="font-medium text-gray-600">
+                      {room.nameAr}:
+                    </span>{" "}
+                    {room.beds.length === 0 ? (
+                      <span className="text-gray-400">بلا سرير</span>
+                    ) : (
+                      <span className="text-gray-700 inline-flex items-center gap-2 flex-wrap">
+                        {room.beds.map((b) => (
+                          <span
+                            key={b.id}
+                            className="inline-flex items-center gap-1"
+                          >
+                            <BedIcon
+                              bedType={b.bedType}
+                              size={12}
+                              className="text-primary-light"
+                            />
+                            {b.count > 1 ? `${b.count}× ` : ""}
+                            {bedTypeLabelAr(b.bedType)}
+                            {b.combinable && (
+                              <span className="text-[10px] text-blue-600">
+                                (قابل للدمج)
+                              </span>
+                            )}
+                          </span>
+                        ))}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {unit.guestName && (
             <div className="flex items-center justify-between">
@@ -427,50 +576,147 @@ function UnitModal({
             </div>
           )}
 
-          {unit.notes && (
+          {unit.reservationNotes && (
             <div>
-              <span className="text-sm text-gray-500 block mb-1">ملاحظات</span>
-              <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">
-                {unit.notes}
+              <span className="text-sm text-gray-500 block mb-1">ملاحظات الحجز</span>
+              <p className="text-sm text-gray-700 bg-blue-50/50 p-3 rounded-lg">
+                {unit.reservationNotes}
               </p>
             </div>
           )}
 
-          {/* Status Change */}
-          <div className="pt-4 border-t border-gray-100">
-            <p className="text-sm font-medium text-gray-600 mb-3">
-              تغيير الحالة
-            </p>
-            <div className="flex flex-col sm:flex-row gap-2">
-              {Object.entries(statusConfig).map(([key, cfg]) => {
-                const Icon = cfg.icon;
-                const isActive = unit.status === key;
-                return (
+          {/* Bed Setup (only if combinable) */}
+          {hasCombinable && (
+            <div className="pt-3 border-t border-gray-100">
+              <p className="text-sm font-medium text-gray-600 mb-2">
+                ترتيب الأسرّة
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { v: "default", label: "افتراضي" },
+                  { v: "separated", label: "مفصولة" },
+                  { v: "combined", label: "مدمجة" },
+                ].map((opt) => (
                   <button
-                    key={key}
-                    disabled={isActive || updating}
-                    onClick={() => onStatusChange(unit.id, key)}
+                    key={opt.v}
+                    type="button"
+                    disabled={!canEdit}
+                    onClick={() => setBedSetup(opt.v)}
                     className={cn(
-                      "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-colors",
-                      isActive
-                        ? cn(cfg.badge, cfg.badgeText, "cursor-default")
-                        : "bg-gray-100 text-gray-500 hover:bg-gray-200",
-                      updating && !isActive && "opacity-50 cursor-not-allowed"
+                      "text-xs font-medium py-2 rounded-lg border transition-colors",
+                      bedSetup === opt.v
+                        ? "bg-primary text-white border-primary"
+                        : "bg-white text-gray-600 border-gray-200 hover:border-primary/50",
+                      !canEdit && "cursor-not-allowed opacity-70",
                     )}
                   >
-                    {updating && !isActive ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Icon size={14} />
-                    )}
-                    {statusLabels[key]}
+                    {opt.label}
                   </button>
-                );
-              })}
+                ))}
+              </div>
             </div>
+          )}
+
+          {/* Notes editor */}
+          <div>
+            <label className="text-sm font-medium text-gray-600 block mb-1">
+              ملاحظات الوحدة
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              disabled={!canEdit}
+              rows={2}
+              placeholder="ملاحظات خاصة بهذه الوحدة (اختياري)"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y disabled:bg-gray-50"
+            />
           </div>
+
+          {unit.bookingRoomCode && (
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <Link2 size={12} />
+              Booking Room: <span className="font-mono">{unit.bookingRoomCode}</span>
+            </div>
+          )}
+
+          {/* Status Change */}
+          {canEdit && (
+            <div className="pt-4 border-t border-gray-100">
+              <p className="text-sm font-medium text-gray-600 mb-3">
+                تغيير الحالة
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                {Object.entries(statusConfig).map(([key, cfg]) => {
+                  const Icon = cfg.icon;
+                  const isActive = unit.status === key;
+                  return (
+                    <button
+                      key={key}
+                      disabled={isActive || updating}
+                      onClick={() => onStatusChange(unit.id, key)}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-colors",
+                        isActive
+                          ? cn(cfg.badge, cfg.badgeText, "cursor-default")
+                          : "bg-gray-100 text-gray-500 hover:bg-gray-200",
+                        updating && !isActive && "opacity-50 cursor-not-allowed",
+                      )}
+                    >
+                      {updating && !isActive ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Icon size={14} />
+                      )}
+                      {statusLabels[key]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Sticky Save Footer */}
+        {canEdit && isDirty && (
+          <div className="shrink-0 px-6 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setNotes(unit.notes ?? "");
+                setBedSetup(unit.bedSetup);
+              }}
+              className="px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-white text-sm"
+            >
+              تراجع
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 text-sm font-medium"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              حفظ
+            </button>
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+// Keep the summarizeBeds import chain lean; labels resolved inline.
+function bedTypeLabelAr(bedType: string): string {
+  return (
+    {
+      single: "مفرد",
+      double: "مزدوج",
+      queen: "Queen",
+      king: "King",
+      sofa_bed: "كنبة سرير",
+      bunk_bed: "طابقين",
+      crib: "أطفال",
+      arabic_floor_seating: "جلسة عربية",
+    }[bedType] ?? bedType
   );
 }

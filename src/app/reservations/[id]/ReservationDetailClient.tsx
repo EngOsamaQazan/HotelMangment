@@ -336,8 +336,8 @@ export default function ReservationDetailClient({ id }: { id: string }) {
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-xl p-4 sm:p-6 max-w-sm w-full">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-red-100 rounded-full">
                 <AlertTriangle className="text-red-600" size={24} />
@@ -749,7 +749,7 @@ export default function ReservationDetailClient({ id }: { id: string }) {
               <div className="w-1 h-6 bg-primary rounded-full" />
               البيانات المالية
             </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
               <FinanceCard
                 label="سعر الوحدة"
                 value={formatAmount(reservation.unitPrice)}
@@ -793,12 +793,12 @@ export default function ReservationDetailClient({ id }: { id: string }) {
 
           {/* النزلاء */}
           {reservation.guests.length > 0 && (
-            <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 p-6">
-              <h2 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+            <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 p-3 sm:p-6">
+              <h2 className="text-base sm:text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
                 <div className="w-1 h-6 bg-primary rounded-full" />
                 النزلاء ({reservation.guests.length})
               </h2>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-100">

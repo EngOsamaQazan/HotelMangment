@@ -148,7 +148,7 @@ export default function MonthlyReportPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 no-print">
         <h1 className="text-xl sm:text-2xl font-bold text-primary">التقرير الشهري</h1>
         <button
@@ -161,37 +161,46 @@ export default function MonthlyReportPage() {
       </div>
 
       {/* Month/Year Selector */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 bg-card-bg rounded-xl p-3 sm:p-4 shadow-sm no-print">
-        <CalendarDays size={20} className="text-primary shrink-0" />
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <label className="text-sm text-gray-500 shrink-0">الشهر:</label>
-          <select
-            value={month}
-            onChange={(e) => setMonth(parseInt(e.target.value))}
-            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary flex-1 sm:flex-none"
-          >
-            {MONTHS.map((m, i) => (
-              <option key={i} value={i + 1}>
-                {m}
-              </option>
-            ))}
-          </select>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 bg-card-bg rounded-xl p-3 sm:p-4 shadow-sm no-print">
+        <div className="flex items-center gap-2 shrink-0">
+          <CalendarDays size={20} className="text-primary shrink-0" />
+          <span className="text-sm text-gray-500 sm:hidden">الفترة</span>
         </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <label className="text-sm text-gray-500 shrink-0">السنة:</label>
-          <select
-            value={year}
-            onChange={(e) => setYear(parseInt(e.target.value))}
-            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary flex-1 sm:flex-none"
-          >
-            {Array.from({ length: 5 }, (_, i) => (year || new Date().getFullYear()) - 2 + i).map(
-              (y) => (
-                <option key={y} value={y}>
-                  {y}
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-4 flex-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <label className="text-sm text-gray-500 shrink-0 hidden sm:inline">
+              الشهر:
+            </label>
+            <select
+              value={month}
+              onChange={(e) => setMonth(parseInt(e.target.value))}
+              className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary flex-1 sm:flex-none min-w-0"
+            >
+              {MONTHS.map((m, i) => (
+                <option key={i} value={i + 1}>
+                  {m}
                 </option>
-              )
-            )}
-          </select>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2 min-w-0">
+            <label className="text-sm text-gray-500 shrink-0 hidden sm:inline">
+              السنة:
+            </label>
+            <select
+              value={year}
+              onChange={(e) => setYear(parseInt(e.target.value))}
+              className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary flex-1 sm:flex-none min-w-0"
+            >
+              {Array.from({ length: 5 }, (_, i) => (year || new Date().getFullYear()) - 2 + i).map(
+                (y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                )
+              )}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -218,7 +227,7 @@ export default function MonthlyReportPage() {
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <ReportCard
               title="إجمالي الإيرادات"
               value={`${formatAmount(data.summary.totalIncome)} د.أ`}
@@ -245,116 +254,211 @@ export default function MonthlyReportPage() {
             />
           </div>
 
-          {/* Unit Reports Table */}
+          {/* Unit Reports */}
           <div className="bg-card-bg rounded-xl shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                <BarChart3 size={20} className="text-primary" />
-                تفاصيل الوحدات — {MONTHS[month - 1]} {year}
+            <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100">
+              <h2 className="text-base sm:text-lg font-bold text-gray-800 flex items-center gap-2">
+                <BarChart3 size={20} className="text-primary shrink-0" />
+                <span className="truncate">
+                  تفاصيل الوحدات — {MONTHS[month - 1]} {year}
+                </span>
               </h2>
             </div>
 
             {unitReports.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+              <div className="flex flex-col items-center justify-center py-16 text-gray-400 px-4 text-center">
                 <BarChart3 size={48} className="mb-3 opacity-50" />
                 <p>لا توجد حجوزات في هذا الشهر</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50 text-gray-600">
-                      <th className="text-right px-4 py-3 font-medium">
-                        الوحدة
-                      </th>
-                      <th className="text-right px-4 py-3 font-medium">
-                        النوع
-                      </th>
-                      <th className="text-center px-4 py-3 font-medium">
-                        عدد الحجوزات
-                      </th>
-                      <th className="text-center px-4 py-3 font-medium">
-                        إجمالي الليالي
-                      </th>
-                      <th className="text-right px-4 py-3 font-medium">
-                        الإيرادات
-                      </th>
-                      <th className="text-right px-4 py-3 font-medium">
-                        المدفوع
-                      </th>
-                      <th className="text-right px-4 py-3 font-medium">
-                        المتبقي
-                      </th>
-                      <th className="text-center px-4 py-3 font-medium">
-                        نسبة الإشغال
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {unitReports.map((u) => (
-                      <tr
-                        key={u.unitNumber}
-                        className="hover:bg-gray-50/50 transition-colors"
-                      >
-                        <td className="px-4 py-3 font-bold text-gray-800">
-                          {u.unitNumber}
-                        </td>
-                        <td className="px-4 py-3 text-gray-500 text-xs">
-                          {u.unitType === "room" ? "غرفة" : "شقة"}
-                        </td>
-                        <td className="px-4 py-3 text-center text-gray-700">
-                          {u.reservations}
-                        </td>
-                        <td className="px-4 py-3 text-center text-gray-700">
-                          {u.totalNights}
-                        </td>
-                        <td className="px-4 py-3 font-medium text-gray-800">
-                          {formatAmount(u.revenue)}
-                        </td>
-                        <td className="px-4 py-3 text-success font-medium">
-                          {formatAmount(u.paid)}
-                        </td>
-                        <td
-                          className={cn(
-                            "px-4 py-3 font-medium",
-                            u.remaining > 0 ? "text-danger" : "text-gray-400"
-                          )}
+              <>
+                {/* Desktop / print Table ≥ md */}
+                <div className="hidden md:block overflow-x-auto print:block">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-600">
+                        <th className="text-right px-4 py-3 font-medium">
+                          الوحدة
+                        </th>
+                        <th className="text-right px-4 py-3 font-medium">
+                          النوع
+                        </th>
+                        <th className="text-center px-4 py-3 font-medium">
+                          عدد الحجوزات
+                        </th>
+                        <th className="text-center px-4 py-3 font-medium">
+                          إجمالي الليالي
+                        </th>
+                        <th className="text-right px-4 py-3 font-medium">
+                          الإيرادات
+                        </th>
+                        <th className="text-right px-4 py-3 font-medium">
+                          المدفوع
+                        </th>
+                        <th className="text-right px-4 py-3 font-medium">
+                          المتبقي
+                        </th>
+                        <th className="text-center px-4 py-3 font-medium">
+                          نسبة الإشغال
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {unitReports.map((u) => (
+                        <tr
+                          key={u.unitNumber}
+                          className="hover:bg-gray-50/50 transition-colors"
                         >
-                          {formatAmount(u.remaining)}
+                          <td className="px-4 py-3 font-bold text-gray-800">
+                            {u.unitNumber}
+                          </td>
+                          <td className="px-4 py-3 text-gray-500 text-xs">
+                            {u.unitType === "room" ? "غرفة" : "شقة"}
+                          </td>
+                          <td className="px-4 py-3 text-center text-gray-700">
+                            {u.reservations}
+                          </td>
+                          <td className="px-4 py-3 text-center text-gray-700">
+                            {u.totalNights}
+                          </td>
+                          <td className="px-4 py-3 font-medium text-gray-800 tabular-nums">
+                            {formatAmount(u.revenue)}
+                          </td>
+                          <td className="px-4 py-3 text-success font-medium tabular-nums">
+                            {formatAmount(u.paid)}
+                          </td>
+                          <td
+                            className={cn(
+                              "px-4 py-3 font-medium tabular-nums",
+                              u.remaining > 0 ? "text-danger" : "text-gray-400"
+                            )}
+                          >
+                            {formatAmount(u.remaining)}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <OccupancyBar value={u.occupancy} />
+                          </td>
+                        </tr>
+                      ))}
+
+                      {/* Total Row */}
+                      <tr className="bg-primary/5 font-bold text-gray-800 border-t-2 border-primary/20">
+                        <td className="px-4 py-3" colSpan={2}>
+                          الإجمالي
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <OccupancyBar value={u.occupancy} />
+                          {totals.reservations}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {totals.totalNights}
+                        </td>
+                        <td className="px-4 py-3 tabular-nums">
+                          {formatAmount(totals.revenue)}
+                        </td>
+                        <td className="px-4 py-3 text-success tabular-nums">
+                          {formatAmount(totals.paid)}
+                        </td>
+                        <td className="px-4 py-3 text-danger tabular-nums">
+                          {formatAmount(totals.remaining)}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {totalOccupancy.toFixed(1)}%
                         </td>
                       </tr>
-                    ))}
+                    </tbody>
+                  </table>
+                </div>
 
-                    {/* Total Row */}
-                    <tr className="bg-primary/5 font-bold text-gray-800 border-t-2 border-primary/20">
-                      <td className="px-4 py-3" colSpan={2}>
-                        الإجمالي
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {totals.reservations}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {totals.totalNights}
-                      </td>
-                      <td className="px-4 py-3">
-                        {formatAmount(totals.revenue)}
-                      </td>
-                      <td className="px-4 py-3 text-success">
-                        {formatAmount(totals.paid)}
-                      </td>
-                      <td className="px-4 py-3 text-danger">
-                        {formatAmount(totals.remaining)}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {totalOccupancy.toFixed(1)}%
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+                {/* Mobile Cards < md */}
+                <div className="md:hidden divide-y divide-gray-100 print:hidden">
+                  {unitReports.map((u) => (
+                    <div key={u.unitNumber} className="p-3 sm:p-4 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-base font-bold text-gray-800">
+                            {u.unitNumber}
+                          </p>
+                          <p className="text-[11px] text-gray-500">
+                            {u.unitType === "room" ? "غرفة" : "شقة"} ·{" "}
+                            {u.reservations} حجز · {u.totalNights} ليلة
+                          </p>
+                        </div>
+                        <div className="shrink-0 w-24">
+                          <OccupancyBar value={u.occupancy} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                        <div className="bg-gray-50 rounded-lg py-2 px-1">
+                          <p className="text-[10px] text-gray-400 mb-0.5">
+                            الإيرادات
+                          </p>
+                          <p className="font-bold text-gray-800 tabular-nums break-words">
+                            {formatAmount(u.revenue)}
+                          </p>
+                        </div>
+                        <div className="bg-green-50 rounded-lg py-2 px-1">
+                          <p className="text-[10px] text-gray-400 mb-0.5">
+                            المدفوع
+                          </p>
+                          <p className="font-bold text-success tabular-nums break-words">
+                            {formatAmount(u.paid)}
+                          </p>
+                        </div>
+                        <div
+                          className={cn(
+                            "rounded-lg py-2 px-1",
+                            u.remaining > 0 ? "bg-red-50" : "bg-gray-50"
+                          )}
+                        >
+                          <p className="text-[10px] text-gray-400 mb-0.5">
+                            المتبقي
+                          </p>
+                          <p
+                            className={cn(
+                              "font-bold tabular-nums break-words",
+                              u.remaining > 0 ? "text-danger" : "text-gray-500"
+                            )}
+                          >
+                            {formatAmount(u.remaining)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="p-3 sm:p-4 bg-primary/5 border-t-2 border-primary/20 space-y-2">
+                    <p className="text-sm font-bold text-gray-800">
+                      الإجمالي ({totals.reservations} حجز · {totals.totalNights}{" "}
+                      ليلة · {totalOccupancy.toFixed(1)}%)
+                    </p>
+                    <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                      <div className="bg-white rounded-lg py-2 px-1 shadow-sm">
+                        <p className="text-[10px] text-gray-400 mb-0.5">
+                          الإيرادات
+                        </p>
+                        <p className="font-bold text-gray-800 tabular-nums break-words">
+                          {formatAmount(totals.revenue)}
+                        </p>
+                      </div>
+                      <div className="bg-white rounded-lg py-2 px-1 shadow-sm">
+                        <p className="text-[10px] text-gray-400 mb-0.5">
+                          المدفوع
+                        </p>
+                        <p className="font-bold text-success tabular-nums break-words">
+                          {formatAmount(totals.paid)}
+                        </p>
+                      </div>
+                      <div className="bg-white rounded-lg py-2 px-1 shadow-sm">
+                        <p className="text-[10px] text-gray-400 mb-0.5">
+                          المتبقي
+                        </p>
+                        <p className="font-bold text-danger tabular-nums break-words">
+                          {formatAmount(totals.remaining)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </>
@@ -421,14 +525,18 @@ function ReportCard({
   const c = colors[color];
 
   return (
-    <div className={cn("rounded-xl shadow-sm p-5 border", c.bg, c.border)}>
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-sm text-gray-600 font-medium">{title}</span>
-        <div className={cn("p-2 rounded-lg", c.bg)}>
-          <Icon size={20} className={c.icon} />
+    <div className={cn("rounded-xl shadow-sm p-3 sm:p-5 border", c.bg, c.border)}>
+      <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3">
+        <span className="text-[11px] sm:text-sm text-gray-600 font-medium truncate">
+          {title}
+        </span>
+        <div className={cn("p-1.5 sm:p-2 rounded-lg shrink-0", c.bg)}>
+          <Icon size={18} className={c.icon} />
         </div>
       </div>
-      <p className="text-xl font-bold text-gray-800">{value}</p>
+      <p className="text-sm sm:text-xl font-bold text-gray-800 tabular-nums break-words">
+        {value}
+      </p>
     </div>
   );
 }
@@ -445,13 +553,13 @@ function OccupancyBar({ value }: { value: number }) {
 
   return (
     <div className="flex items-center gap-2 justify-center">
-      <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+      <div className="flex-1 min-w-0 max-w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
         <div
           className={cn("h-full rounded-full transition-all", color)}
           style={{ width: `${Math.min(100, value)}%` }}
         />
       </div>
-      <span className="text-xs text-gray-600 w-10 text-left">
+      <span className="text-[11px] text-gray-600 shrink-0 tabular-nums">
         {value.toFixed(0)}%
       </span>
     </div>

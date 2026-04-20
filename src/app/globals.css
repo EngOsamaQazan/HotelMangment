@@ -30,6 +30,11 @@
   --color-page-bg: #F6F3ED;
 }
 
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
 body {
   font-family: "Tajawal", "Arial", sans-serif;
   background: var(--color-page-bg);
@@ -37,7 +42,20 @@ body {
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
-  overflow-x: hidden;
+}
+
+/* Safety net — prevent embedded media from blowing out their container. */
+img, svg, video, iframe, canvas {
+  max-width: 100%;
+}
+
+/* Long tokens (URLs, account codes, email addresses) should wrap inside tight
+   containers on narrow screens instead of forcing horizontal scroll. */
+@media (max-width: 640px) {
+  .wrap-anywhere {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
 }
 
 @media print {
@@ -67,9 +85,14 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
 }
 
+/* iOS Safari auto-zooms on form fields whose font-size is below 16px.
+   Scope this to text-entry controls only — keep buttons' original sizing so
+   icon buttons and compact pills don't grow unexpectedly on phones. */
 @media (max-width: 768px) {
-  input, select, textarea, button {
-    font-size: 16px !important;
+  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: 16px;
   }
 }
 
@@ -84,23 +107,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
 }
 
-@media (horizontal-viewport-segments: 2) {
-  main {
-    column-count: 2;
-    column-gap: env(viewport-segment-right 0 0, 0px);
-  }
-  main > * {
-    break-inside: avoid;
-  }
-}
-
-@media (vertical-viewport-segments: 2) {
-  main {
-    display: flex;
-    flex-direction: column;
-  }
-}
-
+/* Foldables: allow opt-in split layouts via explicit classes, but never force
+   `main` into CSS columns (that would clip tables, modals, and sticky bars). */
 @media (spanning: single-fold-vertical) {
   .fold-split {
     display: grid;
@@ -120,11 +128,5 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 @media screen and (device-width: 344px) and (device-height: 882px) {
   body {
     font-size: 13px;
-  }
-}
-
-@media screen and (min-width: 712px) and (max-width: 768px) and (min-height: 800px) {
-  .grid-cols-1 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
