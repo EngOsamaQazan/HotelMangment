@@ -85,8 +85,8 @@ jobs:
             -e "ssh -i ~/.ssh/deploy_key" \
             --exclude='.git' \
             --exclude='.github' \
+            --exclude='node_modules' \
             --exclude='.next/cache' \
-            --exclude='node_modules/.cache' \
             ./ "$REMOTE:$RELEASE/"
 
       # ───── 7. Activate release on server ──────────────────────
