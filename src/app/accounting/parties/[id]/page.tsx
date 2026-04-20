@@ -14,6 +14,8 @@ import {
   Scale,
   Printer,
   Pencil,
+  Briefcase,
+  Receipt,
 } from "lucide-react";
 import { cn, formatAmount, formatDate } from "@/lib/utils";
 
@@ -40,12 +42,33 @@ interface StatementData {
     email: string | null;
     nationalId: string | null;
     notes: string | null;
+    isActive: boolean;
+    jobTitle: string | null;
+    baseSalary: number | null;
+    commissionRate: number | null;
+    salaryPayDay: number | null;
+    hireDate: string | null;
+    terminationDate: string | null;
   };
   openingBalance: number;
   closingBalance: number;
   totalDebit: number;
   totalCredit: number;
   rows: StatementRow[];
+}
+
+interface PayrollData {
+  period: { year: number; month: number };
+  roomRevenue: number;
+  baseSalary: number;
+  commissionRate: number;
+  commission: number;
+  gross: number;
+  outstandingAdvance: number;
+  empLiabBalance: number;
+  advancesThisPeriod: number;
+  paymentsThisPeriod: number;
+  net: number;
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -62,6 +85,7 @@ export default function PartyStatementPage() {
   const id = params.id as string;
 
   const [data, setData] = useState<StatementData | null>(null);
+  const [payroll, setPayroll] = useState<PayrollData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [from, setFrom] = useState("");
@@ -80,6 +104,18 @@ export default function PartyStatementPage() {
       if (!res.ok) throw new Error("فشل التحميل");
       const json = await res.json();
       setData(json);
+
+      if (json?.party?.type === "employee") {
+        const now = new Date();
+        const pRes = await fetch(
+          `/api/accounting/payroll/${id}?year=${now.getFullYear()}&month=${now.getMonth() + 1}`
+        );
+        if (pRes.ok) {
+          setPayroll(await pRes.json());
+        }
+      } else {
+        setPayroll(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "خطأ");
     } finally {
@@ -213,6 +249,116 @@ export default function PartyStatementPage() {
           <Scale size={40} className="opacity-40" />
         </div>
       </div>
+
+      {data.party.type === "employee" && (
+        <div className="bg-card-bg rounded-xl shadow-sm p-5 space-y-4 border border-green-100">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Briefcase size={20} className="text-green-700" />
+              <h3 className="text-base font-bold text-green-800">
+                بيانات الموظف والاستحقاقات
+              </h3>
+            </div>
+            <Link
+              href={`/accounting/payroll/${id}`}
+              className="inline-flex items-center gap-1 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700"
+            >
+              <Receipt size={14} /> سليب الراتب
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            <div>
+              <div className="text-xs text-gray-500">المسمّى</div>
+              <div className="font-medium text-gray-800">
+                {data.party.jobTitle ?? "—"}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">الراتب الأساسي</div>
+              <div className="font-bold text-gray-800">
+                {data.party.baseSalary != null
+                  ? `${formatAmount(data.party.baseSalary)} د.أ`
+                  : "—"}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">نسبة العمولة</div>
+              <div className="font-bold text-gray-800">
+                {data.party.commissionRate != null
+                  ? `${(data.party.commissionRate * 100).toFixed(2)}%`
+                  : "—"}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">يوم الاستحقاق</div>
+              <div className="font-medium text-gray-800">
+                {data.party.salaryPayDay != null
+                  ? `اليوم ${data.party.salaryPayDay}`
+                  : "—"}
+              </div>
+            </div>
+            {data.party.hireDate && (
+              <div>
+                <div className="text-xs text-gray-500">تاريخ التعيين</div>
+                <div className="font-medium text-gray-800">
+                  {formatDate(data.party.hireDate)}
+                </div>
+              </div>
+            )}
+            {data.party.terminationDate && (
+              <div>
+                <div className="text-xs text-gray-500">تاريخ إنهاء الخدمة</div>
+                <div className="font-medium text-red-700">
+                  {formatDate(data.party.terminationDate)}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {payroll && (
+            <div className="mt-2 p-4 bg-green-50 rounded-lg border border-green-200">
+              <div className="text-sm font-bold text-green-800 mb-3">
+                استحقاق شهر {payroll.period.month}/{payroll.period.year} حتى الآن
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-sm">
+                <div>
+                  <div className="text-xs text-gray-500">الراتب الأساسي</div>
+                  <div className="font-bold text-gray-800">
+                    {formatAmount(payroll.baseSalary)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500">
+                    إيراد الإيجار ({(payroll.commissionRate * 100).toFixed(0)}%)
+                  </div>
+                  <div className="font-medium text-gray-600">
+                    {formatAmount(payroll.roomRevenue)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500">العمولة</div>
+                  <div className="font-bold text-blue-700">
+                    {formatAmount(payroll.commission)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500">سلف قائمة</div>
+                  <div className="font-bold text-red-700">
+                    {formatAmount(payroll.outstandingAdvance)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500">الصافي المتوقع</div>
+                  <div className="font-bold text-green-700 text-base">
+                    {formatAmount(payroll.net)} د.أ
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="bg-card-bg rounded-xl p-3 sm:p-4 shadow-sm flex flex-wrap items-center gap-3 no-print">
         <span className="text-sm text-gray-500">الفترة:</span>

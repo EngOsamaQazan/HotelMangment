@@ -59,3 +59,8 @@ import-guests-preview.json
 
 # PM2
 .pm2-logs/
+
+# DB backups / one-off dumps
+backups/
+*.sql
+!prisma/**/*.sql

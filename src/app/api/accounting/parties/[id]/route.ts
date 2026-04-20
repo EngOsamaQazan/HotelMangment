@@ -52,7 +52,22 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { name, phone, email, nationalId, notes, isActive, code } = body;
+    const {
+      name,
+      phone,
+      email,
+      nationalId,
+      notes,
+      isActive,
+      code,
+      // employee-specific
+      baseSalary,
+      commissionRate,
+      salaryPayDay,
+      hireDate,
+      terminationDate,
+      jobTitle,
+    } = body;
 
     const data: Record<string, unknown> = {};
     if (name !== undefined) data.name = name;
@@ -62,6 +77,18 @@ export async function PATCH(
     if (notes !== undefined) data.notes = notes;
     if (isActive !== undefined) data.isActive = isActive;
     if (code !== undefined) data.code = code;
+    if (baseSalary !== undefined)
+      data.baseSalary = baseSalary === null || baseSalary === "" ? null : Number(baseSalary);
+    if (commissionRate !== undefined)
+      data.commissionRate =
+        commissionRate === null || commissionRate === "" ? null : Number(commissionRate);
+    if (salaryPayDay !== undefined)
+      data.salaryPayDay = salaryPayDay === null || salaryPayDay === "" ? null : Number(salaryPayDay);
+    if (hireDate !== undefined)
+      data.hireDate = hireDate ? new Date(hireDate) : null;
+    if (terminationDate !== undefined)
+      data.terminationDate = terminationDate ? new Date(terminationDate) : null;
+    if (jobTitle !== undefined) data.jobTitle = jobTitle || null;
 
     const party = await prisma.party.update({
       where: { id: partyId },

@@ -67,6 +67,12 @@ export async function POST(request: Request) {
       code,
       openingBalance,
       openingDate,
+      // employee-specific
+      baseSalary,
+      commissionRate,
+      salaryPayDay,
+      hireDate,
+      jobTitle,
     } = body;
 
     if (!name || !type) {
@@ -93,6 +99,20 @@ export async function POST(request: Request) {
           code: code || null,
           openingBalance: openingBalance ? Number(openingBalance) : 0,
           openingDate: openingDate ? new Date(openingDate) : null,
+          baseSalary:
+            type === "employee" && baseSalary !== undefined && baseSalary !== null && baseSalary !== ""
+              ? Number(baseSalary)
+              : null,
+          commissionRate:
+            type === "employee" && commissionRate !== undefined && commissionRate !== null && commissionRate !== ""
+              ? Number(commissionRate)
+              : null,
+          salaryPayDay:
+            type === "employee" && salaryPayDay !== undefined && salaryPayDay !== null && salaryPayDay !== ""
+              ? Number(salaryPayDay)
+              : null,
+          hireDate: hireDate ? new Date(hireDate) : null,
+          jobTitle: jobTitle || null,
         },
       });
 

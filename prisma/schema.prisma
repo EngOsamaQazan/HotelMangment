@@ -173,6 +173,15 @@ model Party {
   apAccountId     Int?      @map("ap_account_id")
   equityAccountId Int?      @map("equity_account_id")
   drawAccountId   Int?      @map("draw_account_id")
+
+  // ---- Employee-specific fields (used when type = 'employee') ----
+  baseSalary      Float?    @map("base_salary")
+  commissionRate  Float?    @map("commission_rate")    // e.g. 0.05 = 5% of rental revenue
+  salaryPayDay    Int?      @map("salary_pay_day")     // day of month (1-28) when salary is due
+  hireDate        DateTime? @map("hire_date")
+  terminationDate DateTime? @map("termination_date")
+  jobTitle        String?   @map("job_title")
+
   createdAt       DateTime  @default(now()) @map("created_at")
 
   arAccount     Account?      @relation("ARAccount",     fields: [arAccountId],     references: [id])

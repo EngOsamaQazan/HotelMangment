@@ -12,6 +12,7 @@ import {
   Calculator,
   Banknote,
   AlertTriangle,
+  Receipt,
 } from "lucide-react";
 
 const SECTIONS: Array<{
@@ -37,6 +38,12 @@ const SECTIONS: Array<{
     title: "الأطراف",
     desc: "الشركاء، الموردون، الموظفون، المُقرضون + كشف حساب",
     icon: Users,
+  },
+  {
+    href: "/accounting/payroll",
+    title: "الرواتب والأجور",
+    desc: "استحقاقات شهرية، عمولات، سلف، وسليبات رواتب قابلة للطباعة",
+    icon: Receipt,
   },
   {
     href: "/accounting/journal",

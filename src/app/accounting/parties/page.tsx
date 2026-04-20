@@ -28,6 +28,12 @@ interface Party {
   notes: string | null;
   isActive: boolean;
   balance?: number;
+  baseSalary?: number | null;
+  commissionRate?: number | null;
+  salaryPayDay?: number | null;
+  hireDate?: string | null;
+  terminationDate?: string | null;
+  jobTitle?: string | null;
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -68,6 +74,12 @@ export default function PartiesPage() {
     nationalId: "",
     notes: "",
     isActive: true,
+    jobTitle: "",
+    baseSalary: "",
+    commissionRate: "",
+    salaryPayDay: "",
+    hireDate: "",
+    terminationDate: "",
   });
 
   const resetForm = () => {
@@ -80,6 +92,12 @@ export default function PartiesPage() {
       nationalId: "",
       notes: "",
       isActive: true,
+      jobTitle: "",
+      baseSalary: "",
+      commissionRate: "",
+      salaryPayDay: "",
+      hireDate: "",
+      terminationDate: "",
     });
   };
 
@@ -98,6 +116,13 @@ export default function PartiesPage() {
       nationalId: p.nationalId ?? "",
       notes: p.notes ?? "",
       isActive: p.isActive,
+      jobTitle: p.jobTitle ?? "",
+      baseSalary: p.baseSalary != null ? String(p.baseSalary) : "",
+      commissionRate:
+        p.commissionRate != null ? String(p.commissionRate * 100) : "",
+      salaryPayDay: p.salaryPayDay != null ? String(p.salaryPayDay) : "",
+      hireDate: p.hireDate ? p.hireDate.slice(0, 10) : "",
+      terminationDate: p.terminationDate ? p.terminationDate.slice(0, 10) : "",
     });
     setShowForm(true);
   };
@@ -175,10 +200,31 @@ export default function PartiesPage() {
         ? `/api/accounting/parties/${editingId}`
         : "/api/accounting/parties";
       const method = editingId ? "PATCH" : "POST";
+
+      const payload: Record<string, unknown> = {
+        name: form.name,
+        type: form.type,
+        phone: form.phone,
+        email: form.email,
+        nationalId: form.nationalId,
+        notes: form.notes,
+        isActive: form.isActive,
+      };
+      if (form.type === "employee") {
+        payload.jobTitle = form.jobTitle || null;
+        payload.baseSalary = form.baseSalary === "" ? null : Number(form.baseSalary);
+        payload.commissionRate =
+          form.commissionRate === "" ? null : Number(form.commissionRate) / 100;
+        payload.salaryPayDay =
+          form.salaryPayDay === "" ? null : Number(form.salaryPayDay);
+        payload.hireDate = form.hireDate || null;
+        payload.terminationDate = form.terminationDate || null;
+      }
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const j = await res.json();
@@ -472,6 +518,109 @@ export default function PartiesPage() {
                   className="w-full border rounded-lg px-3 py-2 text-sm direction-ltr"
                 />
               </div>
+              {form.type === "employee" && (
+                <div className="bg-green-50/50 border border-green-200 rounded-xl p-4 space-y-3">
+                  <h4 className="text-sm font-bold text-green-800">
+                    بيانات الموظف
+                  </h4>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      المسمّى الوظيفي
+                    </label>
+                    <input
+                      type="text"
+                      value={form.jobTitle}
+                      onChange={(e) =>
+                        setForm({ ...form, jobTitle: e.target.value })
+                      }
+                      className="w-full border rounded-lg px-3 py-2 text-sm"
+                      placeholder="مثلاً: موظف استقبال"
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        الراتب الأساسي (د.أ)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.001"
+                        min="0"
+                        value={form.baseSalary}
+                        onChange={(e) =>
+                          setForm({ ...form, baseSalary: e.target.value })
+                        }
+                        className="w-full border rounded-lg px-3 py-2 text-sm"
+                        placeholder="380"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        نسبة العمولة (%)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={form.commissionRate}
+                        onChange={(e) =>
+                          setForm({ ...form, commissionRate: e.target.value })
+                        }
+                        className="w-full border rounded-lg px-3 py-2 text-sm"
+                        placeholder="5"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        يوم استحقاق الراتب
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="28"
+                        value={form.salaryPayDay}
+                        onChange={(e) =>
+                          setForm({ ...form, salaryPayDay: e.target.value })
+                        }
+                        className="w-full border rounded-lg px-3 py-2 text-sm"
+                        placeholder="1"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        تاريخ التعيين
+                      </label>
+                      <input
+                        type="date"
+                        value={form.hireDate}
+                        onChange={(e) =>
+                          setForm({ ...form, hireDate: e.target.value })
+                        }
+                        className="w-full border rounded-lg px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        تاريخ إنهاء الخدمة
+                      </label>
+                      <input
+                        type="date"
+                        value={form.terminationDate}
+                        onChange={(e) =>
+                          setForm({ ...form, terminationDate: e.target.value })
+                        }
+                        className="w-full border rounded-lg px-3 py-2 text-sm"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    العمولة تُحسب على إيرادات الإيجار الشهرية (حساب 4010).
+                  </p>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   ملاحظات
