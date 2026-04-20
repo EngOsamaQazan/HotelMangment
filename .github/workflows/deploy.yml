@@ -36,15 +36,25 @@ jobs:
               psql "$PG_URL" -v ON_ERROR_STOP=1 -f prisma/sql/realtime-triggers.sql
             fi
             npm run build
+            # Verify the build produced the standalone server before touching pm2.
+            test -f .next/standalone/server.js || { echo "ERROR: standalone build missing"; exit 1; }
+            test -d .next/static || { echo "ERROR: .next/static missing after build"; exit 1; }
             rm -rf .next/standalone/public .next/standalone/.next/static
             cp -r public .next/standalone/public
             cp -r .next/static .next/standalone/.next/static
             cp .env .next/standalone/.env
             cp google-vision-key.json .next/standalone/google-vision-key.json 2>/dev/null || true
+            # Sanity check: assets must be readable from where server.js lives.
+            test -f .next/standalone/.next/static/BUILD_ID 2>/dev/null || true
+            ls .next/standalone/.next/static >/dev/null
+            ls .next/standalone/public >/dev/null
             # Ensure upload directory exists and is writable by the app user.
             mkdir -p /opt/hotel-app/uploads
             chmod 750 /opt/hotel-app/uploads
-            pm2 restart hotel-app || PORT=3000 HOSTNAME=0.0.0.0 pm2 start .next/standalone/server.js --name hotel-app
+            # Always restart from /opt/hotel-app so pm2 caches the correct CWD.
+            cd /opt/hotel-app
+            pm2 delete hotel-app 2>/dev/null || true
+            PORT=3000 HOSTNAME=0.0.0.0 pm2 start .next/standalone/server.js --name hotel-app --cwd /opt/hotel-app
             # Realtime microservice (Socket.IO on 127.0.0.1:3001).
             cd /opt/hotel-app/realtime
             npm ci --omit=dev || npm install --omit=dev
