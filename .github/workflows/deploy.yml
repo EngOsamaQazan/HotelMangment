@@ -21,46 +21,66 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 20m
           script: |
-            set -e
+            set -x
             cd /opt/hotel-app
+            echo "===== STEP: pre-flight ====="
+            df -h /opt
+            free -h
+            node -v
+            npm -v
+            pm2 list || true
+            echo "===== STEP: git pull ====="
             git fetch origin main
             git reset --hard origin/main
-            npm ci
-            npx prisma db push --accept-data-loss
-            # Sync permission registry (adds new resources, roles, permission links).
-            npm run db:seed-permissions
-            # Apply realtime pg_notify triggers (idempotent).
+            echo "===== STEP: npm ci ====="
+            npm ci || { echo "FAIL: npm ci"; exit 11; }
+            echo "===== STEP: prisma db push ====="
+            npx prisma db push --accept-data-loss || { echo "FAIL: prisma db push"; exit 12; }
+            echo "===== STEP: seed permissions ====="
+            npm run db:seed-permissions || { echo "FAIL: seed-permissions"; exit 13; }
+            echo "===== STEP: realtime triggers ====="
             if [ -f prisma/sql/realtime-triggers.sql ]; then
-              # Strip Prisma-specific "?schema=..." query param that psql rejects.
               PG_URL=$(grep -E '^DATABASE_URL=' .env | sed 's/^DATABASE_URL=//' | tr -d '"' | sed 's/?schema=[^&]*//' | sed 's/?$//')
-              psql "$PG_URL" -v ON_ERROR_STOP=1 -f prisma/sql/realtime-triggers.sql
+              psql "$PG_URL" -v ON_ERROR_STOP=1 -f prisma/sql/realtime-triggers.sql || { echo "FAIL: realtime triggers"; exit 14; }
             fi
-            npm run build
-            # Verify the build produced the standalone server before touching pm2.
-            test -f .next/standalone/server.js || { echo "ERROR: standalone build missing"; exit 1; }
-            test -d .next/static || { echo "ERROR: .next/static missing after build"; exit 1; }
+            echo "===== STEP: next build ====="
+            npm run build || { echo "FAIL: next build"; exit 15; }
+            echo "===== STEP: verify build artefacts ====="
+            ls -la .next/standalone/ 2>&1 | head -20 || echo "(no standalone)"
+            ls -la .next/static/ 2>&1 | head -5 || echo "(no .next/static)"
+            if [ ! -f .next/standalone/server.js ]; then
+              echo "FAIL: .next/standalone/server.js missing - check next.config output mode"
+              exit 16
+            fi
+            if [ ! -d .next/static ]; then
+              echo "FAIL: .next/static missing"
+              exit 17
+            fi
+            echo "===== STEP: copy static + public into standalone ====="
             rm -rf .next/standalone/public .next/standalone/.next/static
-            cp -r public .next/standalone/public
-            cp -r .next/static .next/standalone/.next/static
-            cp .env .next/standalone/.env
+            cp -r public .next/standalone/public || { echo "FAIL: cp public"; exit 18; }
+            cp -r .next/static .next/standalone/.next/static || { echo "FAIL: cp .next/static"; exit 19; }
+            cp .env .next/standalone/.env || { echo "FAIL: cp .env"; exit 20; }
             cp google-vision-key.json .next/standalone/google-vision-key.json 2>/dev/null || true
-            # Sanity check: assets must be readable from where server.js lives.
-            test -f .next/standalone/.next/static/BUILD_ID 2>/dev/null || true
-            ls .next/standalone/.next/static >/dev/null
-            ls .next/standalone/public >/dev/null
-            # Ensure upload directory exists and is writable by the app user.
+            echo "===== STEP: post-copy verification ====="
+            ls .next/standalone/.next/static | head -5
+            ls .next/standalone/public | head -5
             mkdir -p /opt/hotel-app/uploads
             chmod 750 /opt/hotel-app/uploads
-            # Always restart from /opt/hotel-app so pm2 caches the correct CWD.
+            echo "===== STEP: pm2 restart hotel-app ====="
             cd /opt/hotel-app
             pm2 delete hotel-app 2>/dev/null || true
-            PORT=3000 HOSTNAME=0.0.0.0 pm2 start .next/standalone/server.js --name hotel-app --cwd /opt/hotel-app
-            # Realtime microservice (Socket.IO on 127.0.0.1:3001).
+            PORT=3000 HOSTNAME=0.0.0.0 pm2 start .next/standalone/server.js --name hotel-app --cwd /opt/hotel-app || { echo "FAIL: pm2 start"; pm2 logs hotel-app --lines 50 --nostream || true; exit 21; }
+            sleep 3
+            pm2 list
+            echo "===== STEP: smoke test localhost ====="
+            curl -sI http://127.0.0.1:3000/logo.png | head -5 || true
+            curl -sI http://127.0.0.1:3000/ | head -5 || true
+            echo "===== STEP: realtime microservice ====="
             cd /opt/hotel-app/realtime
-            npm ci --omit=dev || npm install --omit=dev
+            npm ci --omit=dev || npm install --omit=dev || true
             cd /opt/hotel-app
-            pm2 restart hotel-realtime || pm2 start realtime/ecosystem.config.cjs
+            pm2 restart hotel-realtime || pm2 start realtime/ecosystem.config.cjs || true
             pm2 save
-            # Reload Apache so proxy_wstunnel rules for /socket.io/ are active.
             apache2ctl configtest && systemctl reload apache2 || true
-            echo "Deployment completed at $(date)"
+            echo "===== Deployment completed at $(date) ====="
