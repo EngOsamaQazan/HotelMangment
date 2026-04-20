@@ -14,10 +14,30 @@ model User {
   username     String?  @unique
   passwordHash String   @map("password_hash")
   role         String   @default("receptionist")
+  avatarUrl    String?  @map("avatar_url")
   createdAt    DateTime @default(now()) @map("created_at")
 
   userRoles          UserRole[]
   permissionOverrides UserPermissionOverride[]
+
+  // ---- Tasks module ----
+  ownedBoards      TaskBoard[]        @relation("BoardOwner")
+  boardMemberships TaskBoardMember[]
+  createdTasks     Task[]             @relation("TaskCreator")
+  taskAssignments  TaskAssignee[]
+  taskAttachments  TaskAttachment[]   @relation("TaskAttachmentUploader")
+  taskComments     TaskComment[]
+  taskActivities   TaskActivity[]
+
+  // ---- Chat module ----
+  createdConversations ChatConversation[]        @relation("ConversationCreator")
+  chatParticipations   ChatParticipant[]
+  chatMessages         ChatMessage[]
+  chatReactions        ChatReaction[]
+  chatAttachments      ChatMessageAttachment[]   @relation("ChatAttachmentUploader")
+
+  // ---- Notifications ----
+  notifications Notification[]
 
   @@map("users")
 }
@@ -356,4 +376,309 @@ model UserPermissionOverride {
   @@unique([userId, permissionId])
   @@index([permissionId])
   @@map("user_permission_overrides")
+}
+
+// ============================================================================
+// Tasks Module (Kanban)
+// ============================================================================
+
+model TaskBoard {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String?
+  color       String?   // hex color for UI accent
+  ownerId     Int       @map("owner_id")
+  archivedAt  DateTime? @map("archived_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  owner    User              @relation("BoardOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members  TaskBoardMember[]
+  columns  TaskColumn[]
+  tasks    Task[]
+  labels   TaskLabel[]
+
+  @@index([ownerId])
+  @@index([archivedAt])
+  @@map("task_boards")
+}
+
+model TaskBoardMember {
+  id        Int      @id @default(autoincrement())
+  boardId   Int      @map("board_id")
+  userId    Int      @map("user_id")
+  role      String   @default("editor") // owner | editor | viewer
+  createdAt DateTime @default(now()) @map("created_at")
+
+  board TaskBoard @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  user  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([boardId, userId])
+  @@index([userId])
+  @@map("task_board_members")
+}
+
+model TaskColumn {
+  id        Int      @id @default(autoincrement())
+  boardId   Int      @map("board_id")
+  name      String
+  position  Int
+  wipLimit  Int?     @map("wip_limit")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  board TaskBoard @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  tasks Task[]
+
+  @@index([boardId, position])
+  @@map("task_columns")
+}
+
+model Task {
+  id           Int       @id @default(autoincrement())
+  boardId      Int       @map("board_id")
+  columnId     Int       @map("column_id")
+  title        String
+  description  String?
+  priority     String    @default("med") // low | med | high | urgent
+  dueAt        DateTime? @map("due_at")
+  startAt      DateTime? @map("start_at")
+  position     Int
+  createdById  Int       @map("created_by")
+  archivedAt   DateTime? @map("archived_at")
+  completedAt  DateTime? @map("completed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  board         TaskBoard           @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  column        TaskColumn          @relation(fields: [columnId], references: [id])
+  createdBy     User                @relation("TaskCreator", fields: [createdById], references: [id])
+  assignees     TaskAssignee[]
+  labels        TaskLabelOnTask[]
+  checklist     TaskChecklistItem[]
+  attachments   TaskAttachment[]
+  comments      TaskComment[]
+  activities    TaskActivity[]
+  conversations ChatConversation[]  @relation("TaskConversations")
+
+  @@index([boardId, columnId, position])
+  @@index([dueAt])
+  @@index([completedAt])
+  @@map("tasks")
+}
+
+model TaskAssignee {
+  id        Int      @id @default(autoincrement())
+  taskId    Int      @map("task_id")
+  userId    Int      @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([userId])
+  @@map("task_assignees")
+}
+
+model TaskLabel {
+  id      Int    @id @default(autoincrement())
+  boardId Int    @map("board_id")
+  name    String
+  color   String @default("#6b7280")
+
+  board TaskBoard         @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  tasks TaskLabelOnTask[]
+
+  @@index([boardId])
+  @@map("task_labels")
+}
+
+model TaskLabelOnTask {
+  taskId  Int @map("task_id")
+  labelId Int @map("label_id")
+
+  task  Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label TaskLabel @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, labelId])
+  @@index([labelId])
+  @@map("task_label_on_task")
+}
+
+model TaskChecklistItem {
+  id       Int     @id @default(autoincrement())
+  taskId   Int     @map("task_id")
+  text     String
+  done     Boolean @default(false)
+  position Int
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, position])
+  @@map("task_checklist_items")
+}
+
+model TaskAttachment {
+  id           Int      @id @default(autoincrement())
+  taskId       Int      @map("task_id")
+  fileName     String   @map("file_name")
+  mimeType     String   @map("mime_type")
+  size         Int
+  storagePath  String   @map("storage_path")
+  uploadedById Int      @map("uploaded_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  task       Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedBy User @relation("TaskAttachmentUploader", fields: [uploadedById], references: [id])
+
+  @@index([taskId])
+  @@map("task_attachments")
+}
+
+model TaskComment {
+  id        Int       @id @default(autoincrement())
+  taskId    Int       @map("task_id")
+  authorId  Int       @map("author_id")
+  body      String
+  createdAt DateTime  @default(now()) @map("created_at")
+  editedAt  DateTime? @map("edited_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id])
+
+  @@index([taskId, createdAt])
+  @@map("task_comments")
+}
+
+model TaskActivity {
+  id         Int      @id @default(autoincrement())
+  taskId     Int      @map("task_id")
+  actorId    Int      @map("actor_id")
+  type       String   // created | moved | assigned | unassigned | updated | completed | reopened | label_added | label_removed | attachment | commented
+  payloadJson Json?    @map("payload_json")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  task  Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([taskId, createdAt])
+  @@map("task_activities")
+}
+
+// ============================================================================
+// Chat Module
+// ============================================================================
+
+model ChatConversation {
+  id            Int       @id @default(autoincrement())
+  type          String    // dm | group | task
+  title         String?
+  taskId        Int?      @map("task_id")
+  createdById   Int       @map("created_by")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  lastMessageAt DateTime? @map("last_message_at")
+
+  task         Task?             @relation("TaskConversations", fields: [taskId], references: [id], onDelete: SetNull)
+  createdBy    User              @relation("ConversationCreator", fields: [createdById], references: [id])
+  participants ChatParticipant[]
+  messages     ChatMessage[]
+
+  @@index([taskId])
+  @@index([lastMessageAt])
+  @@map("chat_conversations")
+}
+
+model ChatParticipant {
+  id             Int       @id @default(autoincrement())
+  conversationId Int       @map("conversation_id")
+  userId         Int       @map("user_id")
+  role           String    @default("member") // admin | member
+  lastReadAt     DateTime? @map("last_read_at")
+  mutedUntil     DateTime? @map("muted_until")
+  joinedAt       DateTime  @default(now()) @map("joined_at")
+  leftAt         DateTime? @map("left_at")
+
+  conversation ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("chat_participants")
+}
+
+model ChatMessage {
+  id             Int       @id @default(autoincrement())
+  conversationId Int       @map("conversation_id")
+  senderId       Int       @map("sender_id")
+  body           String
+  replyToId      Int?      @map("reply_to_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  editedAt       DateTime? @map("edited_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  conversation ChatConversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User                    @relation(fields: [senderId], references: [id])
+  replyTo      ChatMessage?            @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies      ChatMessage[]           @relation("MessageReplies")
+  attachments  ChatMessageAttachment[]
+  reactions    ChatReaction[]
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@map("chat_messages")
+}
+
+model ChatMessageAttachment {
+  id           Int      @id @default(autoincrement())
+  messageId    Int      @map("message_id")
+  fileName     String   @map("file_name")
+  mimeType     String   @map("mime_type")
+  size         Int
+  storagePath  String   @map("storage_path")
+  uploadedById Int      @map("uploaded_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  message    ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  uploadedBy User        @relation("ChatAttachmentUploader", fields: [uploadedById], references: [id])
+
+  @@index([messageId])
+  @@map("chat_message_attachments")
+}
+
+model ChatReaction {
+  id        Int      @id @default(autoincrement())
+  messageId Int      @map("message_id")
+  userId    Int      @map("user_id")
+  emoji     String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+  @@map("chat_reactions")
+}
+
+// ============================================================================
+// Notifications
+// ============================================================================
+
+model Notification {
+  id          Int       @id @default(autoincrement())
+  userId      Int       @map("user_id")
+  type        String    // task.assigned | task.due | task.commented | chat.message | chat.mention | ...
+  title       String
+  body        String?
+  linkUrl     String?   @map("link_url")
+  payloadJson Json?     @map("payload_json")
+  readAt      DateTime? @map("read_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
 }

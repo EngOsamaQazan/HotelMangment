@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     // Node.js CommonJS scripts (run directly via node, allow require())
     "scripts/**/*.cjs",
     "scripts/**/*.js",
+    // Standalone realtime microservice (CommonJS node app, not Next.js).
+    "realtime/**",
   ]),
 ]);
 

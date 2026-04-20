@@ -27,12 +27,27 @@ jobs:
             git reset --hard origin/main
             npm ci
             npx prisma db push --accept-data-loss
+            # Apply realtime pg_notify triggers (idempotent).
+            if [ -f prisma/sql/realtime-triggers.sql ]; then
+              PG_URL=$(grep -E '^DATABASE_URL=' .env | sed 's/^DATABASE_URL=//' | tr -d '"')
+              psql "$PG_URL" -f prisma/sql/realtime-triggers.sql
+            fi
             npm run build
             rm -rf .next/standalone/public .next/standalone/.next/static
             cp -r public .next/standalone/public
             cp -r .next/static .next/standalone/.next/static
             cp .env .next/standalone/.env
             cp google-vision-key.json .next/standalone/google-vision-key.json 2>/dev/null || true
+            # Ensure upload directory exists and is writable by the app user.
+            mkdir -p /opt/hotel-app/uploads
+            chmod 750 /opt/hotel-app/uploads
             pm2 restart hotel-app || PORT=3000 HOSTNAME=0.0.0.0 pm2 start .next/standalone/server.js --name hotel-app
+            # Realtime microservice (Socket.IO on 127.0.0.1:3001).
+            cd /opt/hotel-app/realtime
+            npm ci --omit=dev || npm install --omit=dev
+            cd /opt/hotel-app
+            pm2 restart hotel-realtime || pm2 start realtime/ecosystem.config.cjs
             pm2 save
+            # Reload Apache so proxy_wstunnel rules for /socket.io/ are active.
+            apache2ctl configtest && systemctl reload apache2 || true
             echo "Deployment completed at $(date)"

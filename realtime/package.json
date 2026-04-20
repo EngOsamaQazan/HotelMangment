@@ -1,0 +1,18 @@
+{
+  "name": "hotel-app-realtime",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Socket.IO realtime service for hotel-app (chat, tasks, notifications).",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js"
+  },
+  "dependencies": {
+    "cookie": "^1.0.2",
+    "dotenv": "^17.4.2",
+    "next-auth": "^4.24.13",
+    "pg": "^8.13.1",
+    "socket.io": "^4.8.1"
+  }
+}

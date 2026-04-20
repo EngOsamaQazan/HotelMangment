@@ -20,6 +20,8 @@ import {
 import { signOut } from "next-auth/react";
 import { BrandLogo, BrandLogoInline } from "@/components/BrandLogo";
 import { usePermissions } from "@/lib/permissions/client";
+import { NotificationsBell } from "@/components/NotificationsBell";
+import { KanbanSquare, MessageSquare } from "lucide-react";
 
 interface NavItem {
   href: string;
@@ -36,6 +38,8 @@ const navItems: NavItem[] = [
   { href: "/guests", label: "النزلاء", icon: Users, permission: "guests:view" },
   { href: "/accounting", label: "المحاسبة", icon: Calculator, permission: "accounting:view" },
   { href: "/maintenance", label: "الصيانة", icon: Wrench, permission: "maintenance:view" },
+  { href: "/tasks", label: "المهام", icon: KanbanSquare, permission: "tasks.boards:view" },
+  { href: "/chat", label: "المحادثات", icon: MessageSquare, permission: "chat:view" },
   { href: "/reports/monthly", label: "التقرير الشهري", icon: BarChart3, permission: "reports.monthly:view" },
   { href: "/settings", label: "الإعدادات", icon: Settings, permission: "settings:view" },
 ];
@@ -80,7 +84,7 @@ export function Sidebar() {
           <Menu size={24} />
         </button>
         <BrandLogoInline />
-        <div className="w-10" />
+        <NotificationsBell iconClassName="text-white hover:bg-sidebar-hover" />
       </div>
 
       {/* Mobile Backdrop */}
