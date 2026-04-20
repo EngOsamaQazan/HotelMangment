@@ -24,11 +24,32 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 # -----------------------------------------------------------------------------
-# 1) Install Java 17 (CloudBeaver requirement)
+# 1) Install Java (17+) - CloudBeaver requirement
+#    Picks the newest available headless JRE from the distro repos.
+#    Tries 21 -> 17 -> default-jre (covers Debian 13, 12, Ubuntu 24/22/20).
 # -----------------------------------------------------------------------------
-log "Installing Java 17 + curl + tar..."
+log "Installing Java + curl + tar + apache2-utils..."
 apt-get update -qq
-apt-get install -y openjdk-17-jre-headless curl tar ca-certificates apache2-utils
+apt-get install -y curl tar ca-certificates apache2-utils
+
+JAVA_PKG=""
+for pkg in openjdk-21-jre-headless openjdk-17-jre-headless default-jre-headless; do
+  if apt-cache show "$pkg" >/dev/null 2>&1; then
+    JAVA_PKG="$pkg"
+    break
+  fi
+done
+
+if [[ -z "$JAVA_PKG" ]]; then
+  err "No suitable JRE package found in apt repositories."
+  exit 1
+fi
+
+log "Selected Java package: $JAVA_PKG"
+apt-get install -y "$JAVA_PKG"
+
+JAVA_VER="$(java -version 2>&1 | head -n1 || true)"
+log "Installed: $JAVA_VER"
 
 # -----------------------------------------------------------------------------
 # 2) Create dedicated system user
