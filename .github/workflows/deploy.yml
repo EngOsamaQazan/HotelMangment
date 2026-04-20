@@ -27,6 +27,8 @@ jobs:
             git reset --hard origin/main
             npm ci
             npx prisma db push --accept-data-loss
+            # Sync permission registry (adds new resources, roles, permission links).
+            npm run db:seed-permissions
             # Apply realtime pg_notify triggers (idempotent).
             if [ -f prisma/sql/realtime-triggers.sql ]; then
               # Strip Prisma-specific "?schema=..." query param that psql rejects.

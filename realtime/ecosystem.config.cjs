@@ -9,10 +9,10 @@ module.exports = {
         NODE_ENV: "production",
         REALTIME_PORT: 3001,
         REALTIME_HOST: "127.0.0.1",
+        // server.js uses REALTIME_ENV_FILE to locate the shared Next.js .env
+        // (DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL).
+        REALTIME_ENV_FILE: "/opt/hotel-app/.env",
       },
-      // dotenv inside the service still loads /opt/hotel-app/.env for
-      // DATABASE_URL and NEXTAUTH_SECRET (shared with the Next.js app).
-      env_file: "/opt/hotel-app/.env",
       instances: 1,
       exec_mode: "fork",
       max_memory_restart: "500M",
