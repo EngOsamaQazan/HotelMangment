@@ -1,36 +1,161 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Hotel App — نظام إدارة الفندق
 
-## Getting Started
+تطبيق Next.js 16 + TypeScript + Prisma + PostgreSQL لإدارة الحجوزات، الوحدات، المحاسبة، المهام والمحادثات.
 
-First, run the development server:
+---
+
+## المتطلبات
+
+| الأداة | الإصدار |
+|---|---|
+| Node.js | 20+ |
+| npm | 10+ |
+| PostgreSQL | 14+ (محلياً أو على السيرفر) |
+| Git | أي إصدار حديث |
+
+---
+
+## التشغيل المحلي — في 5 خطوات
+
+> التطبيق يعتمد على ملفات بيئة منفصلة: **محلياً** يقرأ `.env.local` (جهازك + قاعدة بيانات محلية)، و**على السيرفر** يقرأ `.env` (الإنتاج). هذا يضمن ألا تتلامس أبداً بيانات التطوير مع الإنتاج.
+>
+> 💡 **على Windows مع Laragon؟** راجع دليل [`docs/local-dev-laragon.md`](docs/local-dev-laragon.md) لتفاصيل إضافة PostgreSQL و Node.js عبر Laragon كبديل خفيف عن Docker.
+
+### 1) استنساخ المشروع وتثبيت الحزم
+
+```bash
+git clone https://github.com/EngOsamaQazan/HotelMangment.git hotel-app
+cd hotel-app
+npm install
+```
+
+### 2) إنشاء قاعدة بيانات محلية
+
+على جهازك (افترض Postgres مُشغَّل محلياً):
+
+```bash
+createdb fakher_hotel_dev
+# أو عبر psql:
+#   psql -U postgres -c "CREATE DATABASE fakher_hotel_dev;"
+```
+
+### 3) توليد ملف `.env.local` احترافي
+
+```bash
+npm run setup:env
+```
+
+السكريبت تفاعلي: يسألك عن اسم/منفذ/مستخدم قاعدة البيانات، ويولّد `NEXTAUTH_SECRET` عشوائياً آمناً، ثم يكتب `.env.local` في جذر المشروع.
+
+أو يدوياً:
+
+```bash
+cp .env.example .env.local
+# ثم عدّل القيم يدوياً
+```
+
+يمكنك التحقق من سلامة الإعداد في أي وقت بـ:
+
+```bash
+npm run env:check
+```
+
+### 4) تطبيق المخطط وتعبئة البيانات الأولية
+
+```bash
+npm run db:push              # تطبيق Prisma schema
+npm run db:seed              # إنشاء المستخدمين الأوليين + البيانات
+npm run db:seed-permissions  # مزامنة سجل الصلاحيات
+```
+
+### 5) تشغيل التطبيق
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+افتح <http://localhost:3000> وسجّل دخول بـ:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| الدور | البريد | كلمة المرور |
+|---|---|---|
+| مدير | `admin@fakher.jo` | `admin123` |
+| استقبال | `reception@fakher.jo` | `reception123` |
+| محاسب | `accountant@fakher.jo` | `accountant123` |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## بنية ملفات البيئة
 
-To learn more about Next.js, take a look at the following resources:
+| الملف | الغرض | يُرفع لـ Git؟ |
+|---|---|---|
+| `.env.example` | القالب الرسمي الموثّق لكل المتغيرات | ✅ نعم |
+| `.env.local` | إعداد جهاز المطوّر (محلياً فقط) | ❌ لا |
+| `.env.local.backup-*` | نسخ احتياطية يولّدها `setup:env` | ❌ لا |
+| `.env` | **على السيرفر فقط** — إعداد الإنتاج في `/opt/hotel-app/.env` | ❌ لا |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Next.js يحمّل الملفات بالترتيب التالي (الأعلى أولوية في الأسفل):
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **development:** `.env` → `.env.development` → `.env.local` → `.env.development.local`
+- **production:** `.env` → `.env.production` → `.env.local` → `.env.production.local`
 
-## Deploy on Vercel
+لذا محلياً يكفي `.env.local`، وعلى السيرفر يكفي `.env` (المنشور في `/opt/hotel-app/`).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## قراءة المتغيرات من الكود
+
+استخدم الوحدة الموحّدة `src/lib/env.ts` بدل `process.env` المباشر:
+
+```ts
+import { env } from "@/lib/env";
+
+console.log(env.NEXTAUTH_URL);      // آمن + مع validation
+if (env.isProduction) { /* … */ }
+```
+
+هذا يضمن رسائل خطأ واضحة إذا كان أي متغيّر مطلوب مفقوداً أو يحتوي قيمة نائبة.
+
+---
+
+## السكريبتات المتوفرة
+
+| الأمر | الوصف |
+|---|---|
+| `npm run dev` | تشغيل وضع التطوير |
+| `npm run build` | بناء إنتاجي (standalone) |
+| `npm run start` | تشغيل إنتاجي |
+| `npm run setup:env` | إنشاء `.env.local` تفاعلياً |
+| `npm run env:check` | التحقق من سلامة متغيرات البيئة |
+| `npm run db:push` | تطبيق مخطط Prisma |
+| `npm run db:seed` | تعبئة البيانات الأولية |
+| `npm run db:seed-permissions` | مزامنة سجل الصلاحيات |
+| `npm run db:reset` | حذف القاعدة وإعادة بنائها من الصفر |
+| `npm run check:permissions` | التحقق من تغطية الصلاحيات (CI guard) |
+
+---
+
+## النشر للإنتاج
+
+راجع التفاصيل الكاملة في [`docs/DEPLOY.md`](docs/DEPLOY.md).
+
+ملخّص: النشر تلقائي عبر GitHub Actions على أي push لـ `main`. ملف `.env` على السيرفر في `/opt/hotel-app/.env` لا يُلمس من قبل النشر الآلي — أنت تضبطه مرة واحدة يدوياً أو عند التبديل لقاعدة بيانات جديدة.
+
+---
+
+## البنية العامة
+
+- `src/app/` — مسارات Next.js (App Router)
+- `src/lib/` — الوحدات المشتركة (Prisma, env, permissions, …)
+- `src/components/` — مكونات الواجهة
+- `prisma/` — مخطط قاعدة البيانات + seeds
+- `realtime/` — خدمة Socket.IO منفصلة (منفذ 3001)
+- `bot/` — بوت مزامنة حجوزات Booking (اختياري)
+- `scripts/` — أدوات مساعدة للـ CLI
+- `deployment/` — ملفات Apache + سكريبتات النشر
+- `docs/` — الوثائق
+
+---
+
+## الصلاحيات
+
+هذا المشروع يستخدم نظام RBAC ديناميكي مدفوع بقاعدة البيانات. لا تُنشئ أي مسار API أو صفحة دون تسجيلها في `src/lib/permissions/registry.ts`. راجع [`AGENTS.md`](AGENTS.md) والمهارة `.cursor/skills/add-module-permissions/SKILL.md` للتفاصيل.

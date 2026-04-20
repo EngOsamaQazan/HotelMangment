@@ -53,13 +53,45 @@ cd hotel-app
 
 ### 3) إعداد متغيّرات البيئة
 
+> **ملاحظة مهمة:** المشروع يعتمد نمطاً احترافياً لفصل البيئات:
+> - على **جهاز المطوّر** يُستخدم `.env.local` مع قاعدة بيانات محلية (راجع [`../README.md`](../README.md)).
+> - على **السيرفر** يُستخدم `.env` في `/opt/hotel-app/.env` فقط، ويحوي إعداد الإنتاج.
+> - ملف النشر `deploy.yml` لا يلمس هذا الملف؛ تُعدّه يدوياً مرة واحدة.
+> - القالب المرجعي لكل المتغيرات موجود في [`.env.example`](../.env.example).
+
+انسخ القالب أو أنشئه مباشرةً:
+
 ```bash
+# توليد NEXTAUTH_SECRET عشوائي
+SECRET=$(openssl rand -base64 48)
+
 cat > /opt/hotel-app/.env <<EOF
+# Production environment for hotel.aqssat.co
+NODE_ENV=production
+
+# قاعدة البيانات الإنتاجية (Postgres محلي على السيرفر)
 DATABASE_URL="postgresql://fakher_user:FakherHotel2026Secure@127.0.0.1:5432/fakher_hotel?schema=public"
-NEXTAUTH_SECRET="$(openssl rand -base64 32)"
-NEXTAUTH_URL="https://hotel.aqssat.co"
+
+# NextAuth
+NEXTAUTH_SECRET=${SECRET}
+NEXTAUTH_URL=https://hotel.aqssat.co
+
+# Public
+NEXT_PUBLIC_SITE_URL=https://hotel.aqssat.co
+
+# Realtime (Socket.IO)
+REALTIME_PORT=3001
+REALTIME_HOST=127.0.0.1
 EOF
+
 chmod 600 /opt/hotel-app/.env
+```
+
+للتحقق من الإعداد قبل البناء:
+
+```bash
+cd /opt/hotel-app
+npm run env:check
 ```
 
 ### 4) بناء التطبيق وتشغيله أول مرة
