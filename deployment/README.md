@@ -7,7 +7,7 @@ deployment/
 ├── apache/                  # ✅ المستخدم حالياً على السيرفر الإنتاجي
 │   ├── hotel.aqssat.co-le-ssl.conf
 │   └── README.md
-├── cloudbeaver/             # 🛢️ واجهة ويب لإدارة قاعدة البيانات (بدون Docker)
+├── pgweb/                   # 🛢️ واجهة ويب لإدارة قاعدة البيانات (بدون Docker)
 │   ├── install.sh
 │   ├── db.hotel.aqssat.co.conf
 │   └── README.md
@@ -18,5 +18,5 @@ deployment/
 الإعداد الفعلي للإنتاج يستخدم **Apache + PM2** (بدون Docker). راجع الدليل الكامل:
 [`../docs/DEPLOY.md`](../docs/DEPLOY.md)
 
-لإعداد واجهة إدارة قاعدة البيانات (CloudBeaver) راجع:
-[`./cloudbeaver/README.md`](./cloudbeaver/README.md)
+لإعداد واجهة إدارة قاعدة البيانات (pgweb) راجع:
+[`./pgweb/README.md`](./pgweb/README.md)
