@@ -50,6 +50,8 @@ export function Sidebar() {
   const closeMobile = useCallback(() => setMobileOpen(false), []);
 
   useEffect(() => {
+    // Intentional: close the mobile sidebar when user navigates to a new route.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMobileOpen((prev) => (prev ? false : prev));
   }, [pathname]);
 
