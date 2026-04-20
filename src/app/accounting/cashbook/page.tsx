@@ -2,6 +2,9 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { Pagination, usePaginatedSlice } from "@/components/Pagination";
+
+const PAGE_SIZE = 20;
 import {
   Wallet,
   Landmark,
@@ -142,6 +145,7 @@ export default function CashbookPage() {
   const [error, setError] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [page, setPage] = useState(1);
 
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -225,6 +229,11 @@ export default function CashbookPage() {
     refresh();
   }, [refresh]);
 
+  // Reset to the first ledger page when the account tab or date range changes.
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab, dateFrom, dateTo]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
@@ -275,6 +284,10 @@ export default function CashbookPage() {
 
   const activeMeta = ACCOUNT_META[activeTab];
   const rows = ledger?.rows ?? [];
+  const pagedRows = usePaginatedSlice(rows, page, PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const isFirstPage = page === 1;
+  const isLastPage = page === totalPages;
 
   return (
     <div className="space-y-6">
@@ -472,7 +485,7 @@ export default function CashbookPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {ledger && ledger.openingBalance !== 0 && (
+                {ledger && ledger.openingBalance !== 0 && isFirstPage && (
                   <tr className="bg-amber-50/50 text-amber-900 text-xs">
                     <td className="px-4 py-2 font-medium">
                       {dateFrom ? formatDate(dateFrom) : "—"}
@@ -487,7 +500,7 @@ export default function CashbookPage() {
                     </td>
                   </tr>
                 )}
-                {rows.map((r) => (
+                {pagedRows.map((r) => (
                   <tr
                     key={r.id}
                     className={cn(
@@ -544,7 +557,7 @@ export default function CashbookPage() {
                     </td>
                   </tr>
                 ))}
-                {ledger && (
+                {ledger && isLastPage && (
                   <tr className="bg-gray-100 font-bold text-gray-800 text-sm">
                     <td className="px-4 py-3" colSpan={4}>
                       الإجمالي
@@ -562,6 +575,16 @@ export default function CashbookPage() {
                 )}
               </tbody>
             </table>
+            {rows.length > 0 && (
+              <div className="px-4 py-3 border-t border-gold/20">
+                <Pagination
+                  page={page}
+                  pageSize={PAGE_SIZE}
+                  total={rows.length}
+                  onChange={setPage}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>

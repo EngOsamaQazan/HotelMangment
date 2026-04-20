@@ -479,19 +479,24 @@ export default function PayrollPage() {
 
       <style jsx global>{`
         @media print {
-          body * {
-            visibility: hidden;
-          }
-          .print\\:block,
-          .print\\:block * {
-            visibility: visible;
-          }
-          .print\\:block {
-            position: absolute;
-            inset: 0;
-          }
           .no-print {
             display: none !important;
+          }
+          body {
+            background: white !important;
+          }
+          /* Preserve emerald/gold brand colors in the printed PDF */
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          @page {
+            margin: 12mm;
+            size: A4;
+          }
+          main {
+            margin-right: 0 !important;
+            padding: 0 !important;
           }
         }
       `}</style>

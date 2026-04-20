@@ -5,6 +5,8 @@ import { AppShell } from "@/components/AppShell";
 import { AuthProvider } from "@/components/AuthProvider";
 import { BFCacheBuster } from "@/components/BFCacheBuster";
 import { PermissionsProvider } from "@/lib/permissions/client";
+import { RealtimeProvider } from "@/lib/realtime/client";
+import { Toaster } from "sonner";
 
 const tajawal = Tajawal({
   subsets: ["arabic", "latin"],
@@ -69,8 +71,20 @@ export default function RootLayout({
       <body className="font-[family-name:var(--font-tajawal)] antialiased">
         <AuthProvider>
           <PermissionsProvider>
-            <BFCacheBuster />
-            <AppShell>{children}</AppShell>
+            <RealtimeProvider>
+              <BFCacheBuster />
+              <AppShell>{children}</AppShell>
+              <Toaster
+                position="top-center"
+                richColors
+                dir="rtl"
+                toastOptions={{
+                  style: {
+                    fontFamily: "var(--font-tajawal)",
+                  },
+                }}
+              />
+            </RealtimeProvider>
           </PermissionsProvider>
         </AuthProvider>
       </body>

@@ -15,6 +15,9 @@ import {
   Hash,
 } from "lucide-react";
 import { cn, formatDate, formatAmount, statusLabels } from "@/lib/utils";
+import { Pagination, usePaginatedSlice } from "@/components/Pagination";
+
+const PAGE_SIZE = 20;
 
 type MaintenanceStatus = "all" | "pending" | "in_progress" | "completed";
 
@@ -85,6 +88,7 @@ export default function MaintenancePage() {
   const [units, setUnits] = useState<UnitOption[]>([]);
   const [editRecord, setEditRecord] = useState<MaintenanceRecord | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
 
   const fetchRecords = useCallback(async () => {
     setLoading(true);
@@ -106,6 +110,13 @@ export default function MaintenancePage() {
   useEffect(() => {
     fetchRecords();
   }, [fetchRecords]);
+
+  // Reset pagination whenever the status filter changes.
+  useEffect(() => {
+    setPage(1);
+  }, [filterStatus]);
+
+  const pagedRecords = usePaginatedSlice(records, page, PAGE_SIZE);
 
   useEffect(() => {
     fetch("/api/units")
@@ -253,7 +264,7 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {records.map((record) => {
+                {pagedRecords.map((record) => {
                   const badge =
                     statusBadgeConfig[record.status] ||
                     statusBadgeConfig.pending;
@@ -328,7 +339,7 @@ export default function MaintenancePage() {
 
           {/* Mobile Cards */}
           <div className="md:hidden divide-y divide-gray-100">
-            {records.map((record) => {
+            {pagedRecords.map((record) => {
               const badge =
                 statusBadgeConfig[record.status] ||
                 statusBadgeConfig.pending;
@@ -366,6 +377,14 @@ export default function MaintenancePage() {
                 </div>
               );
             })}
+          </div>
+          <div className="px-4 py-3 border-t border-gold/20">
+            <Pagination
+              page={page}
+              pageSize={PAGE_SIZE}
+              total={records.length}
+              onChange={setPage}
+            />
           </div>
           </>
         )}

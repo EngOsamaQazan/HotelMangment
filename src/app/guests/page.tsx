@@ -2,6 +2,9 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Search, Users, Loader2 } from "lucide-react";
+import { Pagination, usePaginatedSlice } from "@/components/Pagination";
+
+const PAGE_SIZE = 20;
 
 interface GuestData {
   id: number;
@@ -25,11 +28,20 @@ export default function GuestsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
     return () => clearTimeout(timer);
   }, [search]);
+
+  // Reset to first page when the search query changes so the user always sees
+  // matches from the top.
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
+
+  const pagedGuests = usePaginatedSlice(guests, page, PAGE_SIZE);
 
   const fetchGuests = useCallback(async () => {
     setLoading(true);
@@ -118,7 +130,7 @@ export default function GuestsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {guests.map((g) => (
+                  {pagedGuests.map((g) => (
                     <tr
                       key={g.id}
                       className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
@@ -146,7 +158,7 @@ export default function GuestsPage() {
 
             {/* Mobile Cards */}
             <div className="md:hidden divide-y divide-gray-100">
-              {guests.map((g) => (
+              {pagedGuests.map((g) => (
                 <div key={g.id} className="p-4 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-gray-800">{g.fullName}</span>
@@ -166,11 +178,15 @@ export default function GuestsPage() {
         )}
       </div>
 
-      {/* Count */}
+      {/* Pagination */}
       {!loading && guests.length > 0 && (
-        <p className="text-sm text-gray-500 text-center">
-          إجمالي النزلاء: {guests.length}
-        </p>
+        <Pagination
+          page={page}
+          pageSize={PAGE_SIZE}
+          total={guests.length}
+          onChange={setPage}
+          className="pt-2"
+        />
       )}
     </div>
   );

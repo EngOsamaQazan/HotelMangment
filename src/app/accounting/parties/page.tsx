@@ -16,6 +16,9 @@ import {
   Trash2,
 } from "lucide-react";
 import { cn, formatAmount } from "@/lib/utils";
+import { Pagination, usePaginatedSlice } from "@/components/Pagination";
+
+const PAGE_SIZE = 20;
 
 interface Party {
   id: number;
@@ -62,6 +65,7 @@ export default function PartiesPage() {
   const [error, setError] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string>("employee");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -179,6 +183,13 @@ export default function PartiesPage() {
   useEffect(() => {
     fetchParties();
   }, [fetchParties]);
+
+  // Return to the first page whenever filter/search inputs change.
+  useEffect(() => {
+    setPage(1);
+  }, [typeFilter, search]);
+
+  const pagedParties = usePaginatedSlice(parties, page, PAGE_SIZE);
 
   useEffect(() => {
     const editIdParam = searchParams.get("edit");
@@ -323,7 +334,7 @@ export default function PartiesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {parties.map((p) => {
+                {pagedParties.map((p) => {
                   const balance = p.balance ?? 0;
                   return (
                     <tr key={p.id} className="hover:bg-gray-50/50">
@@ -422,6 +433,14 @@ export default function PartiesPage() {
                 })}
               </tbody>
             </table>
+          </div>
+          <div className="px-4 py-3 border-t border-gold/20">
+            <Pagination
+              page={page}
+              pageSize={PAGE_SIZE}
+              total={parties.length}
+              onChange={setPage}
+            />
           </div>
         </div>
       )}

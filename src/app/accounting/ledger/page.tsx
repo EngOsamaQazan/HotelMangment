@@ -11,6 +11,9 @@ import {
   Printer,
 } from "lucide-react";
 import { formatAmount, formatDate } from "@/lib/utils";
+import { Pagination, usePaginatedSlice } from "@/components/Pagination";
+
+const PAGE_SIZE = 20;
 
 interface Account {
   id: number;
@@ -55,6 +58,18 @@ export default function LedgerPage() {
   const [data, setData] = useState<LedgerData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+
+  // Reset pagination when account or date range changes.
+  useEffect(() => {
+    setPage(1);
+  }, [accountId, from, to]);
+
+  const pagedRows = usePaginatedSlice(data?.rows ?? [], page, PAGE_SIZE);
+  const totalRows = data?.rows.length ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+  const isFirstPage = page === 1;
+  const isLastPage = page >= totalPages;
 
   useEffect(() => {
     fetch("/api/accounting/accounts")
@@ -206,7 +221,7 @@ export default function LedgerPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {from && (
+                    {from && isFirstPage && (
                       <tr className="bg-blue-50/40 font-medium">
                         <td className="px-4 py-3" colSpan={6}>
                           رصيد أول المدة
@@ -216,7 +231,7 @@ export default function LedgerPage() {
                         </td>
                       </tr>
                     )}
-                    {data.rows.map((r) => (
+                    {pagedRows.map((r) => (
                       <tr key={r.id} className="hover:bg-gray-50/50">
                         <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
                           {formatDate(r.date)}
@@ -261,23 +276,35 @@ export default function LedgerPage() {
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot>
-                    <tr className="bg-gray-100 font-bold">
-                      <td className="px-4 py-3" colSpan={4}>
-                        الإجمالي
-                      </td>
-                      <td className="px-4 py-3 text-green-700">
-                        {formatAmount(data.totalDebit)}
-                      </td>
-                      <td className="px-4 py-3 text-red-700">
-                        {formatAmount(data.totalCredit)}
-                      </td>
-                      <td className="px-4 py-3 text-primary">
-                        {formatAmount(data.closingBalance)}
-                      </td>
-                    </tr>
-                  </tfoot>
+                  {isLastPage && (
+                    <tfoot>
+                      <tr className="bg-gray-100 font-bold">
+                        <td className="px-4 py-3" colSpan={4}>
+                          الإجمالي
+                        </td>
+                        <td className="px-4 py-3 text-green-700">
+                          {formatAmount(data.totalDebit)}
+                        </td>
+                        <td className="px-4 py-3 text-red-700">
+                          {formatAmount(data.totalCredit)}
+                        </td>
+                        <td className="px-4 py-3 text-primary">
+                          {formatAmount(data.closingBalance)}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
+              </div>
+            )}
+            {data.rows.length > 0 && (
+              <div className="px-4 py-3 border-t border-gold/20">
+                <Pagination
+                  page={page}
+                  pageSize={PAGE_SIZE}
+                  total={data.rows.length}
+                  onChange={setPage}
+                />
               </div>
             )}
           </div>

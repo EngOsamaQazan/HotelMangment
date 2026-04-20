@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 type Size = "sm" | "md" | "lg" | "xl";
@@ -66,13 +65,11 @@ export function BrandLogo({
       aria-label="فندق المفرق"
     >
       <div className={cn("relative", s.box)}>
-        <Image
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
           src="/logo.png"
           alt="فندق المفرق"
-          fill
-          priority
-          sizes="(max-width: 640px) 160px, 256px"
-          className="object-contain"
+          className="absolute inset-0 w-full h-full object-contain"
           style={
             variant === "onLight"
               ? { filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.15))" }
@@ -116,12 +113,11 @@ export function BrandLogoInline({
       aria-label="فندق المفرق"
     >
       <div className="relative w-16 h-8">
-        <Image
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
           src="/logo.png"
           alt="فندق المفرق"
-          fill
-          sizes="64px"
-          className="object-contain"
+          className="absolute inset-0 w-full h-full object-contain"
         />
       </div>
       <span

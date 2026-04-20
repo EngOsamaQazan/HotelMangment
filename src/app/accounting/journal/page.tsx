@@ -14,6 +14,9 @@ import {
   Search,
 } from "lucide-react";
 import { cn, formatAmount, formatDate } from "@/lib/utils";
+import { Pagination, usePaginatedSlice } from "@/components/Pagination";
+
+const PAGE_SIZE = 20;
 
 interface Account {
   id: number;
@@ -92,6 +95,7 @@ export default function JournalPage() {
   const [dateTo, setDateTo] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -125,6 +129,13 @@ export default function JournalPage() {
   useEffect(() => {
     fetchEntries();
   }, [fetchEntries]);
+
+  // Any filter change should bring the user back to the first page.
+  useEffect(() => {
+    setPage(1);
+  }, [dateFrom, dateTo, sourceFilter, search]);
+
+  const pagedEntries = usePaginatedSlice(entries, page, PAGE_SIZE);
 
   useEffect(() => {
     if (showForm) {
@@ -304,7 +315,7 @@ export default function JournalPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {entries.map((e) => (
+                {pagedEntries.map((e) => (
                   <tr
                     key={e.id}
                     className={cn(
@@ -352,6 +363,14 @@ export default function JournalPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="px-4 py-3 border-t border-gold/20">
+            <Pagination
+              page={page}
+              pageSize={PAGE_SIZE}
+              total={entries.length}
+              onChange={setPage}
+            />
           </div>
         </div>
       )}
