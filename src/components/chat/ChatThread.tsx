@@ -214,7 +214,7 @@ export function ChatThread({ conversationId }: Props) {
       setMessages((prev) =>
         prev.map((m) => {
           if (m.id !== p.messageId) return m;
-          const next = m.reactions.filter(
+          const next = (m.reactions ?? []).filter(
             (r) => !(r.userId === p.userId && r.emoji === p.emoji),
           );
           if (p.op === "add") {
@@ -581,7 +581,7 @@ function MessageBubble({
 
   const reactionGroups = useMemo(() => {
     const map = new Map<string, { count: number; mine: boolean }>();
-    for (const r of message.reactions) {
+    for (const r of message.reactions ?? []) {
       const cur = map.get(r.emoji) ?? { count: 0, mine: false };
       cur.count += 1;
       if (r.userId === myId) cur.mine = true;

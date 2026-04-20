@@ -58,6 +58,16 @@ export async function PATCH(
       data: { body: text.trim(), editedAt: new Date() },
       include: {
         sender: { select: { id: true, name: true, email: true } },
+        attachments: true,
+        reactions: { select: { userId: true, emoji: true } },
+        replyTo: {
+          select: {
+            id: true,
+            body: true,
+            deletedAt: true,
+            sender: { select: { id: true, name: true } },
+          },
+        },
       },
     });
     return NextResponse.json(updated);

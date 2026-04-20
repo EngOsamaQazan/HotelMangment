@@ -37,28 +37,50 @@ const SESSION_COOKIE_NAMES = [
   "next-auth.session-token",
 ];
 
+const DEBUG_AUTH = process.env.REALTIME_DEBUG_AUTH === "1";
+
 async function verifySessionFromCookie(rawCookie) {
-  if (!rawCookie) return null;
+  if (!rawCookie) {
+    if (DEBUG_AUTH) console.warn("[realtime] auth: no cookie header");
+    return null;
+  }
   const cookies = parseCookie(rawCookie);
+  if (DEBUG_AUTH) {
+    console.warn(
+      "[realtime] auth: cookie names =",
+      Object.keys(cookies).join(","),
+    );
+  }
   for (const name of SESSION_COOKIE_NAMES) {
     const token = cookies[name];
     if (!token) continue;
+    // next-auth v4 uses decode({ token, secret }); v5 uses salt.
+    // Try without salt first (v4 prod default), then with salt (v5 forward-compat).
+    let payload = null;
     try {
-      const decoded = await decode({
-        token,
-        secret: NEXTAUTH_SECRET,
-        salt: name,
-      });
-      // Older next-auth versions don't use salt; fall back:
-      const payload =
-        decoded ||
-        (await decode({ token, secret: NEXTAUTH_SECRET }).catch(() => null));
-      if (payload && (payload.sub || payload.id)) {
-        const userId = Number(payload.sub || payload.id);
-        if (Number.isFinite(userId)) return { userId };
+      payload = await decode({ token, secret: NEXTAUTH_SECRET });
+    } catch (e) {
+      if (DEBUG_AUTH)
+        console.warn(`[realtime] auth: decode(${name}) v4 failed:`, e.message);
+    }
+    if (!payload) {
+      try {
+        payload = await decode({ token, secret: NEXTAUTH_SECRET, salt: name });
+      } catch (e) {
+        if (DEBUG_AUTH)
+          console.warn(
+            `[realtime] auth: decode(${name}) v5 failed:`,
+            e.message,
+          );
       }
-    } catch {
-      // try next name
+    }
+    if (payload && (payload.sub || payload.id)) {
+      const userId = Number(payload.sub || payload.id);
+      if (Number.isFinite(userId)) return { userId };
+      if (DEBUG_AUTH)
+        console.warn("[realtime] auth: payload has non-numeric id", payload);
+    } else if (DEBUG_AUTH) {
+      console.warn(`[realtime] auth: ${name} decoded to empty payload`);
     }
   }
   return null;

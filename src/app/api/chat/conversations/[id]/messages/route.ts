@@ -144,6 +144,7 @@ export async function POST(
         include: {
           sender: { select: { id: true, name: true, email: true } },
           attachments: true,
+          reactions: { select: { userId: true, emoji: true } },
           replyTo: {
             select: {
               id: true,
