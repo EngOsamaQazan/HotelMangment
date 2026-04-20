@@ -4,13 +4,13 @@ import path from "path";
 import { randomBytes } from "crypto";
 
 /**
- * File storage root. Defaults to `/opt/hotel-app/uploads` in production and
- * `<cwd>/uploads` in development. Overridable via UPLOADS_DIR env var.
+ * File storage root. Defaults to `/opt/mafhotel.com/shared/uploads` in
+ * production and `<cwd>/uploads` in development. Overridable via UPLOADS_DIR.
  */
 export const UPLOADS_DIR =
   process.env.UPLOADS_DIR ||
   (process.env.NODE_ENV === "production"
-    ? "/opt/hotel-app/uploads"
+    ? "/opt/mafhotel.com/shared/uploads"
     : path.join(process.cwd(), "uploads"));
 
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20 MB

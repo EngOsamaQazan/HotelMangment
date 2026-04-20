@@ -32,7 +32,7 @@ function required(name: string, value: string | undefined): string {
     throw new Error(
       `[env] المتغيّر المطلوب ${name} غير مُعرَّف.\n` +
         `   • محلياً: شغّل "npm run setup:env" أو أضفه إلى .env.local\n` +
-        `   • على السيرفر: أضفه إلى /opt/hotel-app/.env`,
+        `   • على السيرفر: أضفه إلى /opt/mafhotel.com/shared/.env`,
     );
   }
   return v;
@@ -120,7 +120,7 @@ export const env = {
     return optional(
       process.env.NEXT_PUBLIC_SITE_URL,
       MODE === "production"
-        ? "https://hotel.aqssat.co"
+        ? "https://mafhotel.com"
         : "http://localhost:3000",
     );
   },

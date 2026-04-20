@@ -1,4 +1,4 @@
-name: Deploy to Production
+name: Deploy to mafhotel.com
 
 on:
   push:
@@ -9,78 +9,164 @@ concurrency:
   group: deploy-production
   cancel-in-progress: false
 
+env:
+  NODE_VERSION: "24.15.0"
+
 jobs:
   deploy:
+    name: Build & Deploy
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
+      # ───── 1. Checkout ─────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          command_timeout: 20m
-          script: |
-            set -x
-            cd /opt/hotel-app
-            echo "===== STEP: pre-flight ====="
-            df -h /opt
-            free -h
-            node -v
-            npm -v
-            pm2 list || true
-            echo "===== STEP: git pull ====="
-            git fetch origin main
-            git reset --hard origin/main
-            echo "===== STEP: npm ci ====="
-            npm ci || { echo "FAIL: npm ci"; exit 11; }
-            echo "===== STEP: prisma db push ====="
-            npx prisma db push --accept-data-loss || { echo "FAIL: prisma db push"; exit 12; }
-            echo "===== STEP: seed permissions ====="
-            npm run db:seed-permissions || { echo "FAIL: seed-permissions"; exit 13; }
-            echo "===== STEP: realtime triggers ====="
-            if [ -f prisma/sql/realtime-triggers.sql ]; then
-              PG_URL=$(grep -E '^DATABASE_URL=' .env | sed 's/^DATABASE_URL=//' | tr -d '"' | sed 's/?schema=[^&]*//' | sed 's/?$//')
-              psql "$PG_URL" -v ON_ERROR_STOP=1 -f prisma/sql/realtime-triggers.sql || { echo "FAIL: realtime triggers"; exit 14; }
+          fetch-depth: 1
+
+      # ───── 2. Setup Node ───────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      # ───── 3. Install & build on runner (fast CI) ─────────────
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund --prefer-offline
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Type-check & build
+        env:
+          NEXTAUTH_SECRET: build-time-placeholder-unused-at-runtime
+          NEXTAUTH_URL: https://mafhotel.com
+          NEXT_PUBLIC_SITE_URL: https://mafhotel.com
+          DATABASE_URL: postgresql://build:build@localhost:5432/build
+          SKIP_ENV_VALIDATION: "1"
+        run: npm run build
+
+      - name: Realtime install
+        working-directory: realtime
+        run: npm install --no-audit --no-fund
+
+      # ───── 4. Package release artifact ─────────────────────────
+      - name: Package release
+        id: package
+        run: |
+          TS=$(date +%Y%m%d-%H%M%S)
+          echo "ts=$TS" >> $GITHUB_OUTPUT
+          echo "release=/opt/mafhotel.com/releases/$TS" >> $GITHUB_OUTPUT
+          # Trim heavy dev-only files before rsync
+          rm -rf .git docs .github \
+                 .next/cache \
+                 bot tools deployment deploy \
+                 node_modules/.cache
+
+      # ───── 5. Prepare SSH ──────────────────────────────────────
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      # ───── 6. rsync code to new release directory ─────────────
+      - name: rsync → server
+        env:
+          REMOTE: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
+          RELEASE: ${{ steps.package.outputs.release }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "$REMOTE" "mkdir -p $RELEASE"
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.next/cache' \
+            --exclude='node_modules/.cache' \
+            ./ "$REMOTE:$RELEASE/"
+
+      # ───── 7. Activate release on server ──────────────────────
+      - name: Activate release (atomic)
+        env:
+          REMOTE: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          RELEASE: ${{ steps.package.outputs.release }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "$REMOTE" bash -s << 'ENDSSH'
+            set -euo pipefail
+            export NVM_DIR="$HOME/.nvm"
+            source "$NVM_DIR/nvm.sh"
+
+            RELEASE="${{ steps.package.outputs.release }}"
+            DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
+
+            echo "==> [1/6] link shared/.env + uploads into release"
+            ln -sfn "$DEPLOY_PATH/shared/.env"     "$RELEASE/.env"
+            ln -sfn "$DEPLOY_PATH/shared/uploads"  "$RELEASE/uploads"
+
+            echo "==> [2/6] install prod node_modules (safe because we already rsynced built .next)"
+            cd "$RELEASE"
+            npm ci --omit=dev --no-audit --no-fund
+
+            echo "==> [3/6] prisma db push (schema sync)"
+            set -a; source "$DEPLOY_PATH/shared/.env"; set +a
+            npx prisma db push --skip-generate --accept-data-loss
+
+            echo "==> [4/6] copy public + static into .next/standalone"
+            if [ -d .next/standalone ]; then
+              [ -d public ]        && cp -rn public        .next/standalone/          || true
+              [ -d .next/static ]  && cp -rn .next/static  .next/standalone/.next/    || true
             fi
-            echo "===== STEP: next build ====="
-            npm run build || { echo "FAIL: next build"; exit 15; }
-            echo "===== STEP: verify build artefacts ====="
-            ls -la .next/standalone/ 2>&1 | head -20 || echo "(no standalone)"
-            ls -la .next/static/ 2>&1 | head -5 || echo "(no .next/static)"
-            if [ ! -f .next/standalone/server.js ]; then
-              echo "FAIL: .next/standalone/server.js missing - check next.config output mode"
-              exit 16
-            fi
-            if [ ! -d .next/static ]; then
-              echo "FAIL: .next/static missing"
-              exit 17
-            fi
-            echo "===== STEP: copy static + public into standalone ====="
-            rm -rf .next/standalone/public .next/standalone/.next/static
-            cp -r public .next/standalone/public || { echo "FAIL: cp public"; exit 18; }
-            cp -r .next/static .next/standalone/.next/static || { echo "FAIL: cp .next/static"; exit 19; }
-            cp .env .next/standalone/.env || { echo "FAIL: cp .env"; exit 20; }
-            cp google-vision-key.json .next/standalone/google-vision-key.json 2>/dev/null || true
-            echo "===== STEP: post-copy verification ====="
-            ls .next/standalone/.next/static | head -5
-            ls .next/standalone/public | head -5
-            mkdir -p /opt/hotel-app/uploads
-            chmod 750 /opt/hotel-app/uploads
-            echo "===== STEP: pm2 restart hotel-app ====="
-            cd /opt/hotel-app
-            pm2 delete hotel-app 2>/dev/null || true
-            PORT=3000 HOSTNAME=0.0.0.0 pm2 start .next/standalone/server.js --name hotel-app --cwd /opt/hotel-app || { echo "FAIL: pm2 start"; pm2 logs hotel-app --lines 50 --nostream || true; exit 21; }
+
+            echo "==> [5/6] atomic symlink swap: current -> $RELEASE"
+            ln -sfn "$RELEASE" "$DEPLOY_PATH/current.new"
+            mv -Tf "$DEPLOY_PATH/current.new" "$DEPLOY_PATH/current"
+
+            echo "==> [6/6] restart services"
+            sudo /bin/systemctl restart mafhotel-app.service
+            sudo /bin/systemctl restart mafhotel-realtime.service
+
+            echo "==> Cleanup: keep last 5 releases"
+            ls -1dt "$DEPLOY_PATH"/releases/*/ | tail -n +6 | xargs -r rm -rf
+            ls -1dt "$DEPLOY_PATH"/releases/ | sed 's/^/  /'
+          ENDSSH
+
+      # ───── 8. Health check ─────────────────────────────────────
+      - name: Health check
+        run: |
+          for i in 1 2 3 4 5 6 7 8 9 10; do
             sleep 3
-            pm2 list
-            echo "===== STEP: smoke test localhost ====="
-            curl -sI http://127.0.0.1:3000/logo.png | head -5 || true
-            curl -sI http://127.0.0.1:3000/ | head -5 || true
-            echo "===== STEP: realtime microservice ====="
-            cd /opt/hotel-app/realtime
-            npm ci --omit=dev || npm install --omit=dev || true
-            cd /opt/hotel-app
-            pm2 restart hotel-realtime || pm2 start realtime/ecosystem.config.cjs || true
-            pm2 save
-            apache2ctl configtest && systemctl reload apache2 || true
-            echo "===== Deployment completed at $(date) ====="
+            code=$(curl -sko /dev/null -w "%{http_code}" -m 8 https://mafhotel.com/login || echo 000)
+            echo "attempt $i: HTTP $code"
+            if [ "$code" = "200" ]; then
+              echo "✅ deployment healthy"
+              exit 0
+            fi
+          done
+          echo "❌ health check failed after 30s"
+          exit 1
+
+      # ───── 9. Cleanup on failure (rollback) ────────────────────
+      - name: Rollback on failure
+        if: failure() && steps.package.outputs.release
+        env:
+          REMOTE: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "$REMOTE" bash -s << 'ENDSSH'
+            set -euo pipefail
+            DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
+            # Find previous release and roll back
+            PREV=$(ls -1dt "$DEPLOY_PATH"/releases/*/ | sed -n '2p')
+            if [ -n "$PREV" ]; then
+              echo "rolling back to $PREV"
+              ln -sfn "$PREV" "$DEPLOY_PATH/current.new"
+              mv -Tf "$DEPLOY_PATH/current.new" "$DEPLOY_PATH/current"
+              sudo /bin/systemctl restart mafhotel-app.service
+              sudo /bin/systemctl restart mafhotel-realtime.service
+            fi
+          ENDSSH

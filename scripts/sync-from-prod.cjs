@@ -40,7 +40,10 @@ const os = require("os");
 const path = require("path");
 
 const ROOT = path.resolve(__dirname, "..");
-const LOCAL_ENV = path.join(ROOT, ".env.local");
+// يُفضِّل .env.local (أسلوب Next.js) ثم يرجع إلى .env (أسلوب Tayseer).
+const LOCAL_ENV = fs.existsSync(path.join(ROOT, ".env.local"))
+  ? path.join(ROOT, ".env.local")
+  : path.join(ROOT, ".env");
 const TIMESTAMP = new Date().toISOString().replace(/[:.]/g, "-");
 const LOCAL_DUMP = path.join(os.tmpdir(), `hotel-app-prod-${TIMESTAMP}.dump`);
 const REMOTE_DUMP = `/tmp/hotel-app-prod-${TIMESTAMP}.dump`;

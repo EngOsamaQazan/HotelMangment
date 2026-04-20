@@ -3,7 +3,7 @@
 const path = require("path");
 // Load the main app's .env file. The realtime microservice lives in a sub-
 // directory so dotenv's default cwd resolution doesn't find it. Support both
-// REALTIME_ENV_FILE override and the standard /opt/hotel-app layout.
+// REALTIME_ENV_FILE override and the standard /opt/mafhotel.com layout.
 const ENV_PATH =
   process.env.REALTIME_ENV_FILE || path.resolve(__dirname, "../../.env");
 require("dotenv").config({ path: ENV_PATH });

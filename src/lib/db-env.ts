@@ -12,7 +12,7 @@ export function databaseConfigurationError(): NextResponse | null {
     return NextResponse.json(
       {
         error:
-          "لم يُضبط DATABASE_URL. شغّل \"npm run setup:env\" محلياً، أو أضف القيمة إلى /opt/hotel-app/.env على السيرفر.",
+          "لم يُضبط DATABASE_URL. شغّل \"npm run setup:env\" محلياً، أو أضف القيمة إلى /opt/mafhotel.com/shared/.env على السيرفر.",
       },
       { status: 503 },
     );

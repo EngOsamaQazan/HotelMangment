@@ -65,5 +65,7 @@ import-guests-preview.json
 
 # DB backups / one-off dumps
 backups/
+backup/
 *.sql
+*.dump
 !prisma/**/*.sql
