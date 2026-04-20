@@ -50,8 +50,8 @@ export function Sidebar() {
   const closeMobile = useCallback(() => setMobileOpen(false), []);
 
   useEffect(() => {
-    closeMobile();
-  }, [pathname, closeMobile]);
+    setMobileOpen((prev) => (prev ? false : prev));
+  }, [pathname]);
 
   useEffect(() => {
     if (mobileOpen) {

@@ -362,7 +362,7 @@ function extractFromText(text: string) {
 }
 
 function cleanArabicName(name: string): string {
-  let clean = name
+  const clean = name
     .replace(/^(الدسم|الأسم|الاسم|الإسم)\s+/i, "")
     .replace(/\s+$/, "")
     .trim();
