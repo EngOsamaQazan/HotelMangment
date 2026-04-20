@@ -2,6 +2,7 @@
 
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
@@ -55,6 +56,21 @@ export default function BoardPage({
   const [labelFilter, setLabelFilter] = useState<number | "all">("all");
   const [tab, setTab] = useState<"board" | "members" | "labels">("board");
   const refetchTimeout = useRef<number | null>(null);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Deep-link: ?task=<id> opens the drawer for that card (used from chat banner).
+  useEffect(() => {
+    const raw = searchParams.get("task");
+    if (!raw) return;
+    const id = Number(raw);
+    if (!Number.isFinite(id)) return;
+    setOpenCardId(id);
+    // Strip the query so refreshing/back doesn't reopen unexpectedly.
+    router.replace(pathname, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   useBoardRoom(boardId);
 

@@ -153,6 +153,47 @@ export async function POST(request: Request) {
           { status: 400 },
         );
       }
+      // Reuse any existing task conversation for this task (prevent duplicates).
+      const existing = await prisma.chatConversation.findFirst({
+        where: { type: "task", taskId: taskId as number },
+        include: {
+          participants: {
+            include: {
+              user: { select: { id: true, name: true, email: true } },
+            },
+          },
+          task: { select: { id: true, title: true, boardId: true } },
+        },
+        orderBy: { id: "asc" },
+      });
+      if (existing) {
+        // Ensure caller is a participant; add missing requested users too.
+        const existingUserIds = new Set(existing.participants.map((p) => p.userId));
+        const toAdd = [userId, ...ids].filter((u) => !existingUserIds.has(u));
+        if (toAdd.length > 0) {
+          await prisma.chatParticipant.createMany({
+            data: toAdd.map((uid) => ({
+              conversationId: existing.id,
+              userId: uid,
+              role: uid === userId ? "admin" : "member",
+            })),
+            skipDuplicates: true,
+          });
+          const refreshed = await prisma.chatConversation.findUniqueOrThrow({
+            where: { id: existing.id },
+            include: {
+              participants: {
+                include: {
+                  user: { select: { id: true, name: true, email: true } },
+                },
+              },
+              task: { select: { id: true, title: true, boardId: true } },
+            },
+          });
+          return NextResponse.json(refreshed);
+        }
+        return NextResponse.json(existing);
+      }
     }
 
     const conv = await prisma.$transaction(async (tx) => {

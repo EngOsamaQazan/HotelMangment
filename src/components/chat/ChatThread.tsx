@@ -15,6 +15,8 @@ import {
   ChevronRight,
   MoreVertical,
   Trash2,
+  KanbanSquare,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
@@ -421,15 +423,31 @@ export function ChatThread({ conversationId }: Props) {
             مشارك
           </p>
         </div>
-        {conversation?.type === "task" && conversation.task && (
+      </div>
+
+      {/* Task context banner — only for task-scoped conversations */}
+      {conversation?.type === "task" && conversation.task && (
+        <div className="px-4 py-2.5 bg-gradient-to-l from-primary/5 via-primary/10 to-primary/5 border-b border-primary/20 flex items-center gap-3 shrink-0">
+          <span className="shrink-0 w-8 h-8 rounded-lg bg-white border border-primary/20 flex items-center justify-center text-primary">
+            <KanbanSquare size={16} />
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] uppercase tracking-wider text-primary/70 font-bold">
+              محادثة مهمة
+            </p>
+            <p className="text-sm font-semibold text-gray-800 truncate">
+              {conversation.task.title}
+            </p>
+          </div>
           <Link
             href={`/tasks/${conversation.task.boardId}?task=${conversation.taskId}`}
-            className="text-xs text-primary hover:underline flex items-center gap-1"
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary-dark transition-colors"
           >
-            فتح المهمة
+            <ExternalLink size={12} />
+            <span>فتح البطاقة</span>
           </Link>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   X,
   Loader2,
@@ -62,6 +63,8 @@ export function CardDrawer({
   const [tab, setTab] = useState<Tab>("details");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [openingChat, setOpeningChat] = useState(false);
+  const router = useRouter();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -132,6 +135,8 @@ export function CardDrawer({
   }, [cardId, onClose, onChanged]);
 
   const openTaskChat = useCallback(async () => {
+    if (openingChat) return;
+    setOpeningChat(true);
     try {
       const res = await fetch("/api/chat/conversations", {
         method: "POST",
@@ -147,11 +152,13 @@ export function CardDrawer({
         throw new Error(err.error || "فشل فتح المحادثة");
       }
       const conv = await res.json();
-      window.location.href = `/chat/${conv.id}`;
+      router.push(`/chat/${conv.id}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "فشل فتح المحادثة");
+    } finally {
+      setOpeningChat(false);
     }
-  }, [cardId, card?.assignees]);
+  }, [cardId, card?.assignees, openingChat, router]);
 
   return (
     <div
@@ -167,13 +174,19 @@ export function CardDrawer({
               {card ? `${card.board.name} • ${card.column.name}` : "..."}
             </p>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={openTaskChat}
-              title="محادثة البطاقة"
-              className="p-1.5 rounded-lg hover:bg-white text-primary transition-colors"
+              disabled={openingChat}
+              title="فتح محادثة البطاقة"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-medium text-xs transition-colors disabled:opacity-60"
             >
-              <MessageCircle size={18} />
+              {openingChat ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <MessageCircle size={14} />
+              )}
+              <span className="hidden sm:inline">محادثة</span>
             </button>
             <button
               onClick={del}
