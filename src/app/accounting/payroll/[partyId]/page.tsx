@@ -13,6 +13,7 @@ import {
   Wallet,
   Banknote,
   Calculator,
+  AlertTriangle,
 } from "lucide-react";
 import { cn, formatAmount, formatDate } from "@/lib/utils";
 
@@ -212,13 +213,67 @@ export default function PayrollPage() {
               </div>
             </div>
             <div className="text-right text-sm">
-              <p className="text-green-100">فندق فاخر الأصيل</p>
+              <p className="text-green-100">فندق المفرق</p>
               <p className="text-green-100">
                 تاريخ الإصدار: {formatDate(new Date().toISOString())}
               </p>
             </div>
           </div>
         </div>
+
+        {(() => {
+          const today = new Date();
+          const monthEnd = new Date(Date.UTC(year, month, 0));
+          const isFuture =
+            today.getFullYear() < year ||
+            (today.getFullYear() === year && today.getMonth() + 1 < month);
+          const isCurrentMonth =
+            today.getFullYear() === year && today.getMonth() + 1 === month;
+          if (isFuture) {
+            return (
+              <div className="mx-6 mt-4 p-4 bg-red-50 border-2 border-red-300 rounded-xl flex items-start gap-3">
+                <AlertTriangle size={22} className="text-red-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-red-800 text-sm">
+                    شهر مستقبلي — السليب غير مؤهل للإصدار
+                  </p>
+                  <p className="text-xs text-red-700 mt-1">
+                    شهر {ARABIC_MONTHS[month - 1]} {year} لم يبدأ بعد. يمكنك
+                    عرض التقديرات لكن لا يُنصح بالاعتماد قبل حلوله.
+                  </p>
+                </div>
+              </div>
+            );
+          }
+          if (isCurrentMonth && today < monthEnd) {
+            const daysLeft = Math.ceil(
+              (monthEnd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+            );
+            return (
+              <div className="mx-6 mt-4 p-4 bg-amber-50 border-2 border-amber-300 rounded-xl flex items-start gap-3">
+                <AlertTriangle size={22} className="text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-amber-800 text-sm">
+                    تنبيه: الشهر لم ينتهِ بعد
+                  </p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    تاريخ الإصدار أقل من نهاية شهر {ARABIC_MONTHS[month - 1]}{" "}
+                    {year} (متبقّي {daysLeft} يوم). القيم المعروضة مبنيّة على
+                    الإيرادات المسجّلة حتى هذه اللحظة وقد ترتفع العمولة مع
+                    إضافة حجوزات جديدة قبل نهاية الشهر.
+                    {data.party.salaryPayDay != null && (
+                      <span className="block mt-1">
+                        الراتب يُصرف في اليوم {data.party.salaryPayDay} من الشهر
+                        التالي.
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            );
+          }
+          return null;
+        })()}
 
         <div className="p-6 space-y-6">
           {/* Employee info */}
