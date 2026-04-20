@@ -29,8 +29,9 @@ jobs:
             npx prisma db push --accept-data-loss
             # Apply realtime pg_notify triggers (idempotent).
             if [ -f prisma/sql/realtime-triggers.sql ]; then
-              PG_URL=$(grep -E '^DATABASE_URL=' .env | sed 's/^DATABASE_URL=//' | tr -d '"')
-              psql "$PG_URL" -f prisma/sql/realtime-triggers.sql
+              # Strip Prisma-specific "?schema=..." query param that psql rejects.
+              PG_URL=$(grep -E '^DATABASE_URL=' .env | sed 's/^DATABASE_URL=//' | tr -d '"' | sed 's/?schema=[^&]*//' | sed 's/?$//')
+              psql "$PG_URL" -v ON_ERROR_STOP=1 -f prisma/sql/realtime-triggers.sql
             fi
             npm run build
             rm -rf .next/standalone/public .next/standalone/.next/static
