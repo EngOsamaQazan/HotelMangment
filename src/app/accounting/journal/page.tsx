@@ -49,6 +49,7 @@ interface JournalEntry {
   description: string;
   source: string;
   status: string;
+  voidedAt: string | null;
   totalDebit: number;
   totalCredit: number;
   lines: JournalLine[];
@@ -315,12 +316,14 @@ export default function JournalPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {pagedEntries.map((e) => (
+                {pagedEntries.map((e) => {
+                  const isVoided = Boolean(e.voidedAt) || e.status === "void";
+                  return (
                   <tr
                     key={e.id}
                     className={cn(
                       "hover:bg-gray-50/50",
-                      e.status === "void" && "opacity-60 line-through"
+                      isVoided && "opacity-60 line-through"
                     )}
                   >
                     <td className="px-4 py-3 font-mono text-primary">
@@ -343,12 +346,12 @@ export default function JournalPage() {
                       <span
                         className={cn(
                           "inline-block px-2.5 py-1 text-xs font-medium rounded-full",
-                          e.status === "posted"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
+                          isVoided
+                            ? "bg-red-100 text-red-700"
+                            : "bg-green-100 text-green-700"
                         )}
                       >
-                        {e.status === "posted" ? "مرحّل" : "ملغي"}
+                        {isVoided ? "معكوس" : "مرحّل"}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -360,18 +363,21 @@ export default function JournalPage() {
                       </Link>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
           {/* Mobile card list */}
           <div className="md:hidden divide-y divide-gray-100">
-            {pagedEntries.map((e) => (
+            {pagedEntries.map((e) => {
+              const isVoided = Boolean(e.voidedAt) || e.status === "void";
+              return (
               <div
                 key={e.id}
                 className={cn(
                   "p-3 space-y-2",
-                  e.status === "void" && "opacity-60",
+                  isVoided && "opacity-60",
                 )}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -383,18 +389,18 @@ export default function JournalPage() {
                       <span
                         className={cn(
                           "inline-block px-2 py-0.5 text-[10px] font-medium rounded-full",
-                          e.status === "posted"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700",
+                          isVoided
+                            ? "bg-red-100 text-red-700"
+                            : "bg-green-100 text-green-700",
                         )}
                       >
-                        {e.status === "posted" ? "مرحّل" : "ملغي"}
+                        {isVoided ? "معكوس" : "مرحّل"}
                       </span>
                     </div>
                     <p
                       className={cn(
                         "text-sm text-gray-800 mt-1 break-words",
-                        e.status === "void" && "line-through",
+                        isVoided && "line-through",
                       )}
                     >
                       {e.description}
@@ -420,7 +426,8 @@ export default function JournalPage() {
                   </Link>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
           <div className="px-4 py-3 border-t border-gold/20">
             <Pagination

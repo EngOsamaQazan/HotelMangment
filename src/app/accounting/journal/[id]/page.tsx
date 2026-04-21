@@ -132,7 +132,7 @@ export default function JournalDetailPage() {
           >
             <Printer size={16} /> طباعة
           </button>
-          {entry.status === "posted" && (
+          {entry.status === "posted" && !entry.voidedAt && entry.source !== "reversal" && (
             <button
               onClick={handleVoid}
               disabled={voiding}
@@ -167,12 +167,16 @@ export default function JournalDetailPage() {
           <span
             className={cn(
               "inline-block px-3 py-1 text-sm font-medium rounded-full",
-              entry.status === "posted"
-                ? "bg-green-100 text-green-700"
-                : "bg-red-100 text-red-700"
+              entry.voidedAt || entry.status !== "posted"
+                ? "bg-red-100 text-red-700"
+                : "bg-green-100 text-green-700"
             )}
           >
-            {entry.status === "posted" ? "مرحّل" : "ملغي"}
+            {entry.voidedAt
+              ? "معكوس"
+              : entry.status === "posted"
+                ? "مرحّل"
+                : "ملغي"}
           </span>
         </div>
         <div className="pt-2">
@@ -183,7 +187,24 @@ export default function JournalDetailPage() {
         </div>
         {entry.voidReason && (
           <div className="bg-red-50 border border-red-200 p-3 rounded-lg text-sm text-red-700">
-            <strong>سبب الإلغاء:</strong> {entry.voidReason}
+            <strong>سبب العكس:</strong> {entry.voidReason}
+          </div>
+        )}
+        {entry.reversedBy && entry.reversedBy.length > 0 && (
+          <div className="bg-orange-50 border border-orange-200 p-3 rounded-lg text-sm text-orange-800">
+            تمّ عكس هذا القيد بالقيد{" "}
+            {entry.reversedBy.map((r, idx) => (
+              <span key={r.id}>
+                <Link
+                  href={`/accounting/journal/${r.id}`}
+                  className="font-mono underline"
+                >
+                  {r.entryNumber}
+                </Link>
+                {idx < entry.reversedBy!.length - 1 ? "، " : ""}
+              </span>
+            ))}
+            . القيد الأصلي وقيد العكس معاً يلغيان بعضهما في الدفتر.
           </div>
         )}
         {entry.reversalOf && (

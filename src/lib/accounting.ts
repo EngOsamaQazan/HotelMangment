@@ -177,6 +177,20 @@ export async function postEntry(
   return { id: entry.id, entryNumber: entry.entryNumber };
 }
 
+/**
+ * Void an existing journal entry by creating an opposing **reversal** entry.
+ *
+ * Accounting convention (GAAP/IFRS): a posted journal entry must never be
+ * "unposted" or deleted. To undo its effect we post a second, equal-and-opposite
+ * entry. Both the original and the reversal stay with `status = 'posted'` so
+ * they appear together in the ledger and mathematically cancel out. The
+ * original carries `voidedAt / voidedById / voidReason` as a **metadata flag**
+ * for display/audit — NOT as a filter criterion for balance computation.
+ *
+ * This avoids the double-subtraction bug that would arise if the balance
+ * query excluded the original (status='void') while including the reversal
+ * (status='posted'), which would remove the amount twice.
+ */
 export async function voidEntry(
   tx: Tx,
   entryId: number,
@@ -188,8 +202,14 @@ export async function voidEntry(
     include: { lines: true },
   });
   if (!original) throw new AccountingError("القيد غير موجود");
-  if (original.status === "void") {
-    throw new AccountingError("القيد ملغي مسبقاً");
+  if (original.voidedAt) {
+    throw new AccountingError("القيد معكوس مسبقاً");
+  }
+  if (original.status !== "posted") {
+    throw new AccountingError("لا يمكن عكس قيد غير مُرحَّل");
+  }
+  if (original.source === "reversal") {
+    throw new AccountingError("لا يمكن عكس قيد عكسي");
   }
 
   await ensurePeriodOpen(tx, original.date);
@@ -225,10 +245,11 @@ export async function voidEntry(
     },
   });
 
+  // Keep original status as "posted" — the reversal cancels it mathematically.
+  // Only stamp the audit metadata so the UI can render a strike-through marker.
   await tx.journalEntry.update({
     where: { id: entryId },
     data: {
-      status: "void",
       voidedAt: new Date(),
       voidedById: voidedById ?? null,
       voidReason: reason,
