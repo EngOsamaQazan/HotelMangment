@@ -15,6 +15,14 @@ import {
   UserPlus,
   AlertTriangle,
   CalendarPlus,
+  LogIn,
+  LogOut,
+  Ban,
+  UserX,
+  RotateCcw,
+  History,
+  CheckCircle2,
+  Clock,
 } from "lucide-react";
 import { NumberInput } from "@/components/ui/NumberInput";
 import { CountrySelect } from "@/components/ui/CountrySelect";
@@ -62,7 +70,38 @@ interface ReservationData {
   createdAt: string;
   unit: Unit;
   guests: GuestData[];
+
+  // Operational timestamps
+  actualCheckInAt: string | null;
+  actualCheckOutAt: string | null;
+  noShow: boolean;
+  noShowAt: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+  statusLogs?: StatusLogEntry[];
 }
+
+interface StatusLogEntry {
+  id: number;
+  fromStatus: string;
+  toStatus: string;
+  action: string;
+  reason: string | null;
+  at: string;
+  actor: { id: number; name: string; email: string } | null;
+}
+
+const STATUS_LOG_ACTION_LABELS: Record<string, string> = {
+  check_in: "تسجيل دخول",
+  check_out: "تسجيل مغادرة",
+  cancel: "إلغاء",
+  no_show: "عدم حضور",
+  reopen: "إعادة فتح",
+  extend: "تمديد",
+  edit: "تعديل مالي",
+  auto_activate: "تفعيل تلقائي",
+  auto_complete: "إنهاء تلقائي",
+};
 
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-green-100 text-green-800",
@@ -131,9 +170,27 @@ export default function ReservationDetailClient({ id }: { id: string }) {
   const [unitPrice, setUnitPrice] = useState("");
   const [paidAmount, setPaidAmount] = useState("0");
   const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [status, setStatus] = useState("active");
   const [notes, setNotes] = useState("");
   const [guests, setGuests] = useState<GuestData[]>([]);
+
+  // Status-change action state ------------------------------------------
+  // All reservation state transitions go through dedicated action
+  // endpoints (check-in / check-out / cancel / no-show / reopen) — never
+  // through the edit form. These modals collect the reason / confirmation
+  // required by each action and submit to the matching API.
+  const [actionBusy, setActionBusy] = useState<null | string>(null);
+  const [actionError, setActionError] = useState("");
+  const [showCheckinModal, setShowCheckinModal] = useState(false);
+  const [checkinNote, setCheckinNote] = useState("");
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [checkoutNote, setCheckoutNote] = useState("");
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [showNoShowModal, setShowNoShowModal] = useState(false);
+  const [noShowReason, setNoShowReason] = useState("");
+  const [noShowKeepCharge, setNoShowKeepCharge] = useState(false);
+  const [showReopenModal, setShowReopenModal] = useState(false);
+  const [reopenReason, setReopenReason] = useState("");
 
   const fetchReservation = useCallback(async () => {
     setLoading(true);
@@ -167,7 +224,6 @@ export default function ReservationDetailClient({ id }: { id: string }) {
     setUnitPrice(String(r.unitPrice));
     setPaidAmount(String(r.paidAmount));
     setPaymentMethod(r.paymentMethod || "cash");
-    setStatus(r.status);
     setNotes(r.notes || "");
     setGuests(
       r.guests.length > 0
@@ -251,7 +307,6 @@ export default function ReservationDetailClient({ id }: { id: string }) {
         paidAmount: paidAmount || "0",
         paymentMethod,
         numGuests,
-        status,
         notes: notes.trim() || null,
         guests: guests
           .filter((g) => g.fullName.trim() || g.idNumber.trim())
@@ -341,6 +396,115 @@ export default function ReservationDetailClient({ id }: { id: string }) {
     }
   };
 
+  /**
+   * Generic wrapper for the five status-change endpoints. Keeps the
+   * error / busy / modal-dismissal logic in one place so individual
+   * handlers stay declarative.
+   */
+  const performStatusAction = useCallback(
+    async (
+      action:
+        | "checkin"
+        | "checkout"
+        | "cancel"
+        | "no-show"
+        | "reopen",
+      body: Record<string, unknown>,
+      onSuccess?: () => void,
+    ) => {
+      setActionBusy(action);
+      setActionError("");
+      try {
+        const res = await fetch(
+          `/api/reservations/${id}/${action}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          },
+        );
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || "تعذّر تنفيذ الإجراء");
+        }
+        // Reload full reservation + audit log.
+        await fetchReservation();
+        onSuccess?.();
+      } catch (err) {
+        setActionError(
+          err instanceof Error ? err.message : "حدث خطأ غير متوقع",
+        );
+      } finally {
+        setActionBusy(null);
+      }
+    },
+    [id, fetchReservation],
+  );
+
+  const handleCheckin = () =>
+    performStatusAction(
+      "checkin",
+      { note: checkinNote.trim() || undefined },
+      () => {
+        setShowCheckinModal(false);
+        setCheckinNote("");
+      },
+    );
+
+  const handleCheckout = () =>
+    performStatusAction(
+      "checkout",
+      { note: checkoutNote.trim() || undefined },
+      () => {
+        setShowCheckoutModal(false);
+        setCheckoutNote("");
+      },
+    );
+
+  const handleCancelReservation = () => {
+    if (!cancelReason.trim()) {
+      setActionError("يرجى إدخال سبب الإلغاء");
+      return;
+    }
+    return performStatusAction(
+      "cancel",
+      { reason: cancelReason.trim() },
+      () => {
+        setShowCancelModal(false);
+        setCancelReason("");
+      },
+    );
+  };
+
+  const handleNoShow = () =>
+    performStatusAction(
+      "no-show",
+      {
+        reason: noShowReason.trim() || undefined,
+        keepCharge: noShowKeepCharge,
+      },
+      () => {
+        setShowNoShowModal(false);
+        setNoShowReason("");
+        setNoShowKeepCharge(false);
+      },
+    );
+
+  const handleReopen = () => {
+    if (!reopenReason.trim()) {
+      setActionError("يرجى إدخال سبب إعادة الفتح");
+      return;
+    }
+    return performStatusAction(
+      "reopen",
+      { reason: reopenReason.trim() },
+      () => {
+        setShowReopenModal(false);
+        setReopenReason("");
+      },
+    );
+  };
+
   const handleDelete = async () => {
     setDeleting(true);
     try {
@@ -405,13 +569,83 @@ export default function ReservationDetailClient({ id }: { id: string }) {
             {statusLabels[reservation.status] || reservation.status}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {!editing && (
             <>
+              {/* ===== Front-desk lifecycle actions ===== */}
+              {/* Each button is a single, auditable transition. No silent
+                  status flips — every click writes a row to the audit log. */}
+              {reservation.status === "upcoming" && (
+                <>
+                  <button
+                    onClick={() => {
+                      setActionError("");
+                      setShowCheckinModal(true);
+                    }}
+                    className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                    title="تسجيل حضور الضيف"
+                  >
+                    <LogIn size={16} />
+                    تسجيل دخول
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActionError("");
+                      setShowNoShowModal(true);
+                    }}
+                    className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                    title="الضيف لم يحضر"
+                  >
+                    <UserX size={16} />
+                    عدم حضور
+                  </button>
+                </>
+              )}
+              {reservation.status === "active" && (
+                <button
+                  onClick={() => {
+                    setActionError("");
+                    setShowCheckoutModal(true);
+                  }}
+                  className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                  title="تسجيل مغادرة الضيف"
+                >
+                  <LogOut size={16} />
+                  تسجيل مغادرة
+                </button>
+              )}
+              {(reservation.status === "upcoming" ||
+                reservation.status === "active") && (
+                <button
+                  onClick={() => {
+                    setActionError("");
+                    setShowCancelModal(true);
+                  }}
+                  className="flex items-center gap-2 bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                  title="إلغاء الحجز"
+                >
+                  <Ban size={16} />
+                  إلغاء
+                </button>
+              )}
+              {reservation.status === "completed" && (
+                <button
+                  onClick={() => {
+                    setActionError("");
+                    setShowReopenModal(true);
+                  }}
+                  className="flex items-center gap-2 bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                  title="إعادة فتح الحجز (يتطلب صلاحية مدير)"
+                >
+                  <RotateCcw size={16} />
+                  إعادة فتح
+                </button>
+              )}
+
               {canExtendReservation(reservation) && (
                 <button
                   onClick={openExtendModal}
-                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                  className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
                   title={
                     reservation.status === "completed"
                       ? "إعادة تفعيل وتمديد حجز انتهى اليوم"
@@ -449,6 +683,12 @@ export default function ReservationDetailClient({ id }: { id: string }) {
           )}
         </div>
       </div>
+
+      {actionError && !editing && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+          {actionError}
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
@@ -491,6 +731,183 @@ export default function ReservationDetailClient({ id }: { id: string }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Check-in modal */}
+      {showCheckinModal && (
+        <ActionModal
+          icon={<LogIn className="text-emerald-600" size={20} />}
+          iconBg="bg-emerald-100"
+          title={`تسجيل دخول — حجز #${reservation.id}`}
+          description="سيتم تحديث حالة الحجز إلى «ساري» وتحويل الوحدة إلى «مشغولة»، مع تسجيل الإجراء في السجل الرسمي."
+          confirmLabel="تأكيد الحضور"
+          confirmClass="bg-emerald-600 hover:bg-emerald-700"
+          busy={actionBusy === "checkin"}
+          error={actionError}
+          onConfirm={handleCheckin}
+          onClose={() => {
+            if (actionBusy) return;
+            setShowCheckinModal(false);
+            setCheckinNote("");
+            setActionError("");
+          }}
+        >
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            ملاحظة (اختياري)
+          </label>
+          <textarea
+            value={checkinNote}
+            onChange={(e) => setCheckinNote(e.target.value)}
+            rows={2}
+            placeholder="مثل: تأخر الضيف ٣ ساعات، عنده مرافق إضافي..."
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm resize-none"
+          />
+        </ActionModal>
+      )}
+
+      {/* Check-out modal */}
+      {showCheckoutModal && (
+        <ActionModal
+          icon={<LogOut className="text-indigo-600" size={20} />}
+          iconBg="bg-indigo-100"
+          title={`تسجيل مغادرة — حجز #${reservation.id}`}
+          description="سيتم تحديث حالة الحجز إلى «منتهي» وإرسال الوحدة إلى الصيانة لتنظيفها."
+          confirmLabel="تأكيد المغادرة"
+          confirmClass="bg-indigo-600 hover:bg-indigo-700"
+          busy={actionBusy === "checkout"}
+          error={actionError}
+          onConfirm={handleCheckout}
+          onClose={() => {
+            if (actionBusy) return;
+            setShowCheckoutModal(false);
+            setCheckoutNote("");
+            setActionError("");
+          }}
+        >
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            ملاحظة (اختياري)
+          </label>
+          <textarea
+            value={checkoutNote}
+            onChange={(e) => setCheckoutNote(e.target.value)}
+            rows={2}
+            placeholder="مثل: تمت تسوية المتبقي نقداً، لم يعد مفاتيح إضافية..."
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm resize-none"
+          />
+        </ActionModal>
+      )}
+
+      {/* Cancel modal */}
+      {showCancelModal && (
+        <ActionModal
+          icon={<Ban className="text-rose-600" size={20} />}
+          iconBg="bg-rose-100"
+          title={`إلغاء حجز #${reservation.id}`}
+          description="سيتم إلغاء الحجز وعكس قيوده المحاسبية (قيد عكسي مرتبط بالقيد الأصلي)."
+          confirmLabel="تأكيد الإلغاء"
+          confirmClass="bg-rose-600 hover:bg-rose-700"
+          busy={actionBusy === "cancel"}
+          error={actionError}
+          onConfirm={handleCancelReservation}
+          onClose={() => {
+            if (actionBusy) return;
+            setShowCancelModal(false);
+            setCancelReason("");
+            setActionError("");
+          }}
+        >
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            سبب الإلغاء <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            rows={3}
+            placeholder="مثل: طلب الضيف الإلغاء، تعارض في التواريخ..."
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm resize-none"
+          />
+        </ActionModal>
+      )}
+
+      {/* No-show modal */}
+      {showNoShowModal && (
+        <ActionModal
+          icon={<UserX className="text-orange-600" size={20} />}
+          iconBg="bg-orange-100"
+          title={`تسجيل عدم حضور — حجز #${reservation.id}`}
+          description="هذا الخيار متاح فقط قبل تسجيل الدخول. سيتم إلغاء الحجز مع الإشارة إلى عدم الحضور في السجل."
+          confirmLabel="تسجيل عدم الحضور"
+          confirmClass="bg-orange-600 hover:bg-orange-700"
+          busy={actionBusy === "no-show"}
+          error={actionError}
+          onConfirm={handleNoShow}
+          onClose={() => {
+            if (actionBusy) return;
+            setShowNoShowModal(false);
+            setNoShowReason("");
+            setNoShowKeepCharge(false);
+            setActionError("");
+          }}
+        >
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            ملاحظة (اختياري)
+          </label>
+          <textarea
+            value={noShowReason}
+            onChange={(e) => setNoShowReason(e.target.value)}
+            rows={2}
+            placeholder="مثل: اتصلنا ولم يرد، إلغاء متأخر..."
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm resize-none"
+          />
+          <label className="flex items-start gap-2 mt-3 text-xs text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={noShowKeepCharge}
+              onChange={(e) => setNoShowKeepCharge(e.target.checked)}
+              className="mt-0.5 accent-orange-600"
+            />
+            <span>
+              الإبقاء على قيمة الحجز محاسبياً (عربون غير مستردّ) — بدون
+              تفعيل هذا الخيار سيتم عكس القيود بالكامل.
+            </span>
+          </label>
+        </ActionModal>
+      )}
+
+      {/* Reopen modal (manager only) */}
+      {showReopenModal && (
+        <ActionModal
+          icon={<RotateCcw className="text-slate-600" size={20} />}
+          iconBg="bg-slate-100"
+          title={`إعادة فتح حجز #${reservation.id}`}
+          description="إجراء محجوز للمدير. سيتم إرجاع الحجز إلى «ساري» وإرجاع الوحدة إلى «مشغولة». يُكتب السبب في السجل."
+          confirmLabel="تأكيد إعادة الفتح"
+          confirmClass="bg-slate-700 hover:bg-slate-800"
+          busy={actionBusy === "reopen"}
+          error={actionError}
+          onConfirm={handleReopen}
+          onClose={() => {
+            if (actionBusy) return;
+            setShowReopenModal(false);
+            setReopenReason("");
+            setActionError("");
+          }}
+        >
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            سبب إعادة الفتح <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            value={reopenReason}
+            onChange={(e) => setReopenReason(e.target.value)}
+            rows={3}
+            placeholder="مثل: تم إنهاء الحجز عن طريق الخطأ، الضيف ما زال في الغرفة..."
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm resize-none"
+          />
+          <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-2">
+            ملاحظة: سيظل القيد المحاسبي للحجز كما هو. إذا احتجت إضافة
+            ليالٍ جديدة استخدم «تمديد الحجز» بعد إعادة الفتح.
+          </p>
+        </ActionModal>
       )}
 
       {/* Extend reservation modal */}
@@ -876,16 +1293,21 @@ export default function ReservationDetailClient({ id }: { id: string }) {
                 <label className="block text-sm font-medium text-gray-600 mb-1.5">
                   حالة الحجز
                 </label>
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
-                >
-                  <option value="upcoming">قادم</option>
-                  <option value="active">ساري</option>
-                  <option value="completed">منتهي</option>
-                  <option value="cancelled">ملغي</option>
-                </select>
+                <div className="w-full px-4 py-2.5 border border-dashed border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-500 flex items-center justify-between">
+                  <span>
+                    {statusLabels[reservation?.status || "active"] ||
+                      reservation?.status}
+                  </span>
+                  <span className="text-[11px] text-gray-400">
+                    تُحدَّد تلقائياً حسب إجراءات الاستقبال
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-500 mt-1">
+                  الحالة لا تُعدَّل من شاشة التعديل — استخدم أزرار
+                  «تسجيل دخول / مغادرة / إلغاء / عدم حضور» أعلى الصفحة
+                  لضمان تسجيل إجراءات الموظف في السجل الرسمي (IFRS /
+                  ISO 27001).
+                </p>
               </div>
             </div>
           </div>
@@ -1009,6 +1431,9 @@ export default function ReservationDetailClient({ id }: { id: string }) {
       ) : (
         /* ===== VIEW MODE ===== */
         <div className="space-y-6">
+          {/* ===== Front-desk state summary ===== */}
+          <FrontDeskSummary reservation={reservation} />
+
           {/* بيانات الحجز الأساسية */}
           <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
@@ -1160,6 +1585,9 @@ export default function ReservationDetailClient({ id }: { id: string }) {
               </p>
             </div>
           )}
+
+          {/* ===== Audit log / status timeline ===== */}
+          <StatusTimeline logs={reservation.statusLogs ?? []} />
         </div>
       )}
     </div>
@@ -1190,6 +1618,311 @@ function FinanceCard({
     <div className="bg-gray-50 rounded-lg p-4 text-center">
       <p className="text-xs text-gray-500 mb-1">{label}</p>
       <p className={cn("text-lg", color, bold && "font-bold")}>{value}</p>
+    </div>
+  );
+}
+
+/** Generic confirm modal used by the 5 status-change actions. */
+function ActionModal({
+  icon,
+  iconBg,
+  title,
+  description,
+  confirmLabel,
+  confirmClass,
+  busy,
+  error,
+  onConfirm,
+  onClose,
+  children,
+}: {
+  icon: React.ReactNode;
+  iconBg: string;
+  title: string;
+  description: string;
+  confirmLabel: string;
+  confirmClass: string;
+  busy: boolean;
+  error: string;
+  onConfirm: () => void;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-xl shadow-xl p-5 sm:p-6 max-w-lg w-full space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className={cn("p-2 rounded-full", iconBg)}>{icon}</div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-800">{title}</h3>
+              <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                {description}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-50"
+            aria-label="إغلاق"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs">
+            {error}
+          </div>
+        )}
+
+        <div>{children}</div>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 text-white py-2.5 rounded-lg transition-colors font-medium disabled:opacity-50",
+              confirmClass,
+            )}
+          >
+            {busy ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <CheckCircle2 size={16} />
+            )}
+            {busy ? "جارٍ..." : confirmLabel}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="flex-1 py-2.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors font-medium disabled:opacity-50"
+          >
+            إلغاء
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** At-a-glance panel showing arrival / departure / no-show status. */
+function FrontDeskSummary({ reservation }: { reservation: ReservationData }) {
+  const fmtDT = (iso: string | null) => {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toLocaleString("ar", {
+      dateStyle: "short",
+      timeStyle: "short",
+    });
+  };
+
+  const arrival = fmtDT(reservation.actualCheckInAt);
+  const departure = fmtDT(reservation.actualCheckOutAt);
+  const noShowTs = fmtDT(reservation.noShowAt);
+  const cancelledTs = fmtDT(reservation.cancelledAt);
+
+  const scheduledCheckIn = new Date(reservation.checkIn);
+  const scheduledOk = !Number.isNaN(scheduledCheckIn.getTime());
+  const isLate =
+    scheduledOk &&
+    arrival &&
+    new Date(reservation.actualCheckInAt as string).getTime() >
+      scheduledCheckIn.getTime();
+
+  return (
+    <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 p-5">
+      <h2 className="text-base font-bold text-gray-700 mb-3 flex items-center gap-2">
+        <div className="w-1 h-5 bg-primary rounded-full" />
+        حالة الاستقبال
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <StatusTile
+          title="وصول الضيف"
+          status={
+            reservation.noShow
+              ? "missed"
+              : arrival
+                ? "done"
+                : reservation.status === "cancelled"
+                  ? "cancelled"
+                  : "pending"
+          }
+          main={
+            reservation.noShow
+              ? "لم يحضر"
+              : arrival || "لم يُسجَّل بعد"
+          }
+          sub={
+            reservation.noShow
+              ? noShowTs
+                ? `سُجّل في ${noShowTs}`
+                : null
+              : arrival
+                ? isLate
+                  ? "تأخر عن الموعد المحدد"
+                  : "في الموعد"
+                : `الموعد المقرر: ${scheduledCheckIn.toLocaleString("ar", { dateStyle: "short", timeStyle: "short" })}`
+          }
+        />
+        <StatusTile
+          title="مغادرة الضيف"
+          status={
+            reservation.status === "completed" && departure
+              ? "done"
+              : reservation.status === "active"
+                ? "pending"
+                : reservation.status === "cancelled"
+                  ? "cancelled"
+                  : "idle"
+          }
+          main={
+            departure ||
+            (reservation.status === "active"
+              ? "قيد الإقامة"
+              : reservation.status === "cancelled"
+                ? "—"
+                : "لم تُسجَّل بعد")
+          }
+          sub={
+            reservation.status === "completed" && departure
+              ? "تم تسجيل الخروج"
+              : reservation.status === "active"
+                ? `الخروج المقرر: ${new Date(reservation.checkOut).toLocaleString("ar", { dateStyle: "short", timeStyle: "short" })}`
+                : null
+          }
+        />
+        <StatusTile
+          title="حالة الحجز"
+          status={reservationStatusTone(reservation.status)}
+          main={statusLabels[reservation.status] || reservation.status}
+          sub={
+            reservation.status === "cancelled" && reservation.cancellationReason
+              ? `السبب: ${reservation.cancellationReason}${cancelledTs ? ` • ${cancelledTs}` : ""}`
+              : null
+          }
+        />
+      </div>
+    </div>
+  );
+}
+
+function reservationStatusTone(
+  status: string,
+): "done" | "pending" | "cancelled" | "idle" | "missed" {
+  switch (status) {
+    case "active":
+      return "done";
+    case "upcoming":
+      return "pending";
+    case "completed":
+      return "idle";
+    case "cancelled":
+      return "cancelled";
+    default:
+      return "idle";
+  }
+}
+
+function StatusTile({
+  title,
+  status,
+  main,
+  sub,
+}: {
+  title: string;
+  status: "done" | "pending" | "cancelled" | "idle" | "missed";
+  main: string;
+  sub: string | null;
+}) {
+  const palette: Record<typeof status, string> = {
+    done: "bg-emerald-50 border-emerald-200 text-emerald-800",
+    pending: "bg-blue-50 border-blue-200 text-blue-800",
+    cancelled: "bg-rose-50 border-rose-200 text-rose-800",
+    missed: "bg-orange-50 border-orange-200 text-orange-800",
+    idle: "bg-gray-50 border-gray-200 text-gray-700",
+  };
+  return (
+    <div className={cn("rounded-lg border px-4 py-3", palette[status])}>
+      <p className="text-[11px] font-semibold uppercase tracking-wide opacity-70">
+        {title}
+      </p>
+      <p className="text-sm font-bold mt-1 truncate" title={main}>
+        {main}
+      </p>
+      {sub && <p className="text-[11px] opacity-80 mt-1">{sub}</p>}
+    </div>
+  );
+}
+
+/** Chronological audit trail of every status change. */
+function StatusTimeline({ logs }: { logs: StatusLogEntry[] }) {
+  if (!logs.length) {
+    return (
+      <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 p-6">
+        <h2 className="text-lg font-bold text-gray-700 mb-3 flex items-center gap-2">
+          <div className="w-1 h-6 bg-primary rounded-full" />
+          <History size={18} />
+          سجل الإجراءات
+        </h2>
+        <p className="text-sm text-gray-500">لا توجد إجراءات مسجّلة بعد.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 p-6">
+      <h2 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+        <div className="w-1 h-6 bg-primary rounded-full" />
+        <History size={18} />
+        سجل الإجراءات ({logs.length})
+      </h2>
+      <ol className="relative border-r-2 border-gray-100 pr-5 space-y-4">
+        {logs.map((log) => {
+          const ts = new Date(log.at);
+          return (
+            <li key={log.id} className="relative">
+              <span className="absolute -right-[29px] top-1 w-4 h-4 rounded-full bg-primary/90 border-4 border-white shadow" />
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-800">
+                    {STATUS_LOG_ACTION_LABELS[log.action] || log.action}
+                    {log.fromStatus !== log.toStatus && (
+                      <span className="text-xs font-normal text-gray-500 mr-2">
+                        {statusLabels[log.fromStatus] || log.fromStatus} →{" "}
+                        <span className="font-medium text-gray-700">
+                          {statusLabels[log.toStatus] || log.toStatus}
+                        </span>
+                      </span>
+                    )}
+                  </p>
+                  {log.reason && (
+                    <p className="text-xs text-gray-600 mt-1 whitespace-pre-wrap leading-relaxed">
+                      {log.reason}
+                    </p>
+                  )}
+                  <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
+                    <Clock size={11} />
+                    {Number.isNaN(ts.getTime())
+                      ? log.at
+                      : ts.toLocaleString("ar", {
+                          dateStyle: "short",
+                          timeStyle: "short",
+                        })}
+                    {log.actor ? ` • ${log.actor.name}` : " • النظام"}
+                  </p>
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }

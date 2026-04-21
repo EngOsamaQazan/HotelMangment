@@ -22,6 +22,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { logStatusTransition } from "@/lib/reservations/statusLog";
 
 export interface SweepResult {
   activated: number;
@@ -59,6 +60,14 @@ export async function sweepReservations(now: Date = new Date()): Promise<SweepRe
           where: { id: r.id },
           data: { status: "completed" },
         });
+        await logStatusTransition(tx, {
+          reservationId: r.id,
+          fromStatus: "upcoming",
+          toStatus: "completed",
+          action: "auto_complete",
+          reason: "الحجز انتهى وقته قبل أن يُسجّل دخوله — إنهاء تلقائي",
+          actorUserId: null,
+        });
       });
       result.completed += 1;
       continue;
@@ -80,6 +89,14 @@ export async function sweepReservations(now: Date = new Date()): Promise<SweepRe
         });
         result.unitsToOccupied += 1;
       }
+      await logStatusTransition(tx, {
+        reservationId: r.id,
+        fromStatus: "upcoming",
+        toStatus: "active",
+        action: "auto_activate",
+        reason: "وصل تاريخ الدخول — تفعيل تلقائي",
+        actorUserId: null,
+      });
     });
     result.activated += 1;
   }
@@ -98,9 +115,19 @@ export async function sweepReservations(now: Date = new Date()): Promise<SweepRe
   const unitIdsAffected = new Set<number>();
 
   for (const r of toComplete) {
-    await prisma.reservation.update({
-      where: { id: r.id },
-      data: { status: "completed" },
+    await prisma.$transaction(async (tx) => {
+      await tx.reservation.update({
+        where: { id: r.id },
+        data: { status: "completed" },
+      });
+      await logStatusTransition(tx, {
+        reservationId: r.id,
+        fromStatus: "active",
+        toStatus: "completed",
+        action: "auto_complete",
+        reason: "انتهى تاريخ الخروج — إنهاء تلقائي",
+        actorUserId: null,
+      });
     });
     result.completed += 1;
     unitIdsAffected.add(r.unitId);
@@ -140,6 +167,14 @@ export async function sweepReservations(now: Date = new Date()): Promise<SweepRe
         await tx.unit.update({
           where: { id: unitId },
           data: { status: "occupied" },
+        });
+        await logStatusTransition(tx, {
+          reservationId: startingNow.id,
+          fromStatus: "upcoming",
+          toStatus: "active",
+          action: "auto_activate",
+          reason: "الوحدة أصبحت شاغرة ويوجد حجز بدأ وقته — تفعيل تلقائي",
+          actorUserId: null,
         });
       });
       result.activated += 1;

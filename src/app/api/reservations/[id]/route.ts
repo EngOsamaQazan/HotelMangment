@@ -8,6 +8,7 @@ import {
 } from "@/lib/reservations/accounting";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 import { maybeSweepLazy } from "@/lib/reservations/sweeper";
+import { logStatusTransition } from "@/lib/reservations/statusLog";
 
 export async function GET(
   request: Request,
@@ -29,6 +30,12 @@ export async function GET(
         unit: true,
         guests: { orderBy: { guestOrder: "asc" } },
         transactions: { orderBy: { date: "desc" } },
+        statusLogs: {
+          orderBy: { at: "desc" },
+          include: {
+            actor: { select: { id: true, name: true, email: true } },
+          },
+        },
       },
     });
 
@@ -53,7 +60,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requirePermission("reservations:edit");
+    const session = await requirePermission("reservations:edit");
+    const actorUserId = Number((session.user as { id?: string | number }).id);
     const { id } = await params;
     const reservationId = parseInt(id);
 
@@ -85,13 +93,18 @@ export async function PUT(
       paymentMethod,
       numGuests,
       notes,
-      status,
       guests,
     } = body;
 
     // `numNights` is intentionally NOT accepted here. Adding nights must
     // go through POST /api/reservations/[id]/extend so the ledger gets a
     // separate extension entry instead of mutating the original booking.
+    //
+    // `status` is NOT accepted here either — the status machine is driven
+    // by explicit actions (check-in / check-out / cancel / no-show / reopen)
+    // that live in dedicated endpoints and write to the audit log. Silently
+    // flipping a reservation to "active" or "completed" from an edit form
+    // would bypass the whole audit/financial workflow.
 
     const needsLedgerRepost = hasFinancialImpact({
       existing: {
@@ -131,7 +144,6 @@ export async function PUT(
       if (paymentMethod !== undefined) updateData.paymentMethod = paymentMethod;
       if (numGuests !== undefined) updateData.numGuests = numGuests;
       if (notes !== undefined) updateData.notes = notes;
-      if (status !== undefined) updateData.status = status;
 
       if (totalAmount !== undefined || paidAmount !== undefined) {
         const total = totalAmount !== undefined ? parseFloat(totalAmount) : Number(existing.totalAmount);
@@ -167,34 +179,16 @@ export async function PUT(
           paidAmount: Number(updated.paidAmount),
           paymentMethod: updated.paymentMethod,
         });
-      }
 
-      if (status === "completed" || status === "cancelled") {
-        // If no other active reservation is using the unit, move it to
-        // maintenance (so housekeeping can clean it). A manual `cancelled`
-        // transition still goes through maintenance so the operator has a
-        // clear signal the room needs checking.
-        const otherActive = await tx.reservation.count({
-          where: {
-            unitId: existing.unitId,
-            status: "active",
-            id: { not: reservationId },
-          },
-        });
-        if (otherActive === 0) {
-          const nextStatus = status === "cancelled" ? "available" : "maintenance";
-          await tx.unit.update({
-            where: { id: existing.unitId },
-            data: { status: nextStatus },
-          });
-        }
-      }
-
-      // Promoted from upcoming → active manually? Make sure the unit reflects it.
-      if (status === "active" && existing.status === "upcoming") {
-        await tx.unit.update({
-          where: { id: existing.unitId },
-          data: { status: "occupied" },
+        // Leave an audit breadcrumb whenever a financial repost happens,
+        // even though the reservation status itself did not change.
+        await logStatusTransition(tx, {
+          reservationId,
+          fromStatus: existing.status,
+          toStatus: existing.status,
+          action: "edit",
+          reason: "تعديل يؤثر على القيود المحاسبية — عكس القيود القديمة وترحيل أخرى جديدة",
+          actorUserId: Number.isFinite(actorUserId) ? actorUserId : null,
         });
       }
 

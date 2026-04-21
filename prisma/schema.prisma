@@ -17,27 +17,30 @@ model User {
   avatarUrl    String?  @map("avatar_url")
   createdAt    DateTime @default(now()) @map("created_at")
 
-  userRoles          UserRole[]
+  userRoles           UserRole[]
   permissionOverrides UserPermissionOverride[]
 
   // ---- Tasks module ----
-  ownedBoards      TaskBoard[]        @relation("BoardOwner")
+  ownedBoards      TaskBoard[]       @relation("BoardOwner")
   boardMemberships TaskBoardMember[]
-  createdTasks     Task[]             @relation("TaskCreator")
+  createdTasks     Task[]            @relation("TaskCreator")
   taskAssignments  TaskAssignee[]
-  taskAttachments  TaskAttachment[]   @relation("TaskAttachmentUploader")
+  taskAttachments  TaskAttachment[]  @relation("TaskAttachmentUploader")
   taskComments     TaskComment[]
   taskActivities   TaskActivity[]
 
   // ---- Chat module ----
-  createdConversations ChatConversation[]        @relation("ConversationCreator")
+  createdConversations ChatConversation[]      @relation("ConversationCreator")
   chatParticipations   ChatParticipant[]
   chatMessages         ChatMessage[]
   chatReactions        ChatReaction[]
-  chatAttachments      ChatMessageAttachment[]   @relation("ChatAttachmentUploader")
+  chatAttachments      ChatMessageAttachment[] @relation("ChatAttachmentUploader")
 
   // ---- Notifications ----
   notifications Notification[]
+
+  // ---- Reservation audit ----
+  reservationStatusLogs ReservationStatusLog[]
 
   @@map("users")
 }
@@ -45,7 +48,7 @@ model User {
 model Unit {
   id              Int     @id @default(autoincrement())
   unitNumber      String  @unique @map("unit_number")
-  unitType        String  @map("unit_type")                 // DEPRECATED: kept for backward-compat with /api/units?type=room|apartment; will be removed in Phase 3 after UI migration.
+  unitType        String  @map("unit_type") // DEPRECATED: kept for backward-compat with /api/units?type=room|apartment; will be removed in Phase 3 after UI migration.
   unitTypeId      Int?    @map("unit_type_id")
   status          String  @default("available")
   floor           Int     @default(1)
@@ -68,30 +71,30 @@ model Unit {
 // ============================================================================
 
 model UnitType {
-  id             Int      @id @default(autoincrement())
-  code           String   @unique
-  nameAr         String   @map("name_ar")
-  nameEn         String   @map("name_en")
-  category       String                                 // apartment | hotel_room | suite | studio
-  descriptionAr  String?  @map("description_ar")
-  descriptionEn  String?  @map("description_en")
+  id            Int     @id @default(autoincrement())
+  code          String  @unique
+  nameAr        String  @map("name_ar")
+  nameEn        String  @map("name_en")
+  category      String // apartment | hotel_room | suite | studio
+  descriptionAr String? @map("description_ar")
+  descriptionEn String? @map("description_en")
 
-  maxAdults      Int      @default(2) @map("max_adults")
-  maxChildren    Int      @default(0) @map("max_children")
-  maxOccupancy   Int      @map("max_occupancy")
+  maxAdults    Int @default(2) @map("max_adults")
+  maxChildren  Int @default(0) @map("max_children")
+  maxOccupancy Int @map("max_occupancy")
 
-  sizeSqm        Float?   @map("size_sqm")
-  hasKitchen     Boolean  @default(false) @map("has_kitchen")
-  hasBalcony     Boolean  @default(false) @map("has_balcony")
-  smokingAllowed Boolean  @default(false) @map("smoking_allowed")
-  view           String?                                 // sea | city | garden | street | none
+  sizeSqm        Float?  @map("size_sqm")
+  hasKitchen     Boolean @default(false) @map("has_kitchen")
+  hasBalcony     Boolean @default(false) @map("has_balcony")
+  smokingAllowed Boolean @default(false) @map("smoking_allowed")
+  view           String? // sea | city | garden | street | none
 
-  bookingRoomId  String?  @unique @map("booking_room_id")
-  channelSync    Boolean  @default(false) @map("channel_sync")
+  bookingRoomId String? @unique @map("booking_room_id")
+  channelSync   Boolean @default(false) @map("channel_sync")
 
-  isActive       Boolean  @default(true) @map("is_active")
-  sortOrder      Int      @default(0) @map("sort_order")
-  createdAt      DateTime @default(now()) @map("created_at")
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
 
   rooms     UnitTypeRoom[]
   amenities UnitTypeAmenity[]
@@ -109,7 +112,7 @@ model UnitTypeRoom {
   unitTypeId Int    @map("unit_type_id")
   nameAr     String @map("name_ar")
   nameEn     String @map("name_en")
-  kind       String                                     // bedroom | living_room | studio | bathroom
+  kind       String // bedroom | living_room | studio | bathroom
   position   Int    @default(0)
 
   unitType UnitType      @relation(fields: [unitTypeId], references: [id], onDelete: Cascade)
@@ -122,7 +125,7 @@ model UnitTypeRoom {
 model UnitTypeBed {
   id             Int     @id @default(autoincrement())
   roomId         Int     @map("room_id")
-  bedType        String  @map("bed_type")               // single | double | queen | king | sofa_bed | bunk_bed | crib | arabic_floor_seating
+  bedType        String  @map("bed_type") // single | double | queen | king | sofa_bed | bunk_bed | crib | arabic_floor_seating
   count          Int     @default(1)
   combinable     Boolean @default(false)
   combinesToType String? @map("combines_to_type")
@@ -141,7 +144,7 @@ model Amenity {
   nameAr   String  @map("name_ar")
   nameEn   String  @map("name_en")
   icon     String?
-  category String  @default("general")                  // general | bathroom | kitchen | entertainment | outdoor
+  category String  @default("general") // general | bathroom | kitchen | entertainment | outdoor
 
   unitTypes UnitTypeAmenity[]
 
@@ -177,42 +180,84 @@ model UnitTypePhoto {
 }
 
 model Reservation {
-  id            Int      @id @default(autoincrement())
-  unitId        Int      @map("unit_id")
-  guestName     String   @map("guest_name")
-  guestIdNumber String?  @map("guest_id_number")
-  nationality   String?
-  phone         String?
-  numNights     Int      @map("num_nights")
-  stayType      String   @default("daily") @map("stay_type")
-  checkIn       DateTime @map("check_in")
-  checkOut      DateTime @map("check_out")
-  unitPrice     Float    @map("unit_price")
-  totalAmount   Float    @map("total_amount")
-  paidAmount    Float    @default(0) @map("paid_amount")
-  remaining     Float    @default(0)
-  paymentMethod String?  @map("payment_method")
-  status        String   @default("active")
-  groupId       String?  @map("group_id")
-  numGuests     Int      @default(1) @map("num_guests")
-  notes         String?
-  bedSetupRequested String? @map("bed_setup_requested") // default | combined | separated (null = no preference)
-  createdAt     DateTime @default(now()) @map("created_at")
+  id                Int      @id @default(autoincrement())
+  unitId            Int      @map("unit_id")
+  guestName         String   @map("guest_name")
+  guestIdNumber     String?  @map("guest_id_number")
+  nationality       String?
+  phone             String?
+  numNights         Int      @map("num_nights")
+  stayType          String   @default("daily") @map("stay_type")
+  checkIn           DateTime @map("check_in") // scheduled check-in
+  checkOut          DateTime @map("check_out") // scheduled check-out
+  unitPrice         Float    @map("unit_price")
+  totalAmount       Float    @map("total_amount")
+  paidAmount        Float    @default(0) @map("paid_amount")
+  remaining         Float    @default(0)
+  paymentMethod     String?  @map("payment_method")
+  status            String   @default("active")
+  groupId           String?  @map("group_id")
+  numGuests         Int      @default(1) @map("num_guests")
+  notes             String?
+  bedSetupRequested String?  @map("bed_setup_requested") // default | combined | separated (null = no preference)
+  createdAt         DateTime @default(now()) @map("created_at")
 
-  unit         Unit          @relation(fields: [unitId], references: [id])
+  // ---- Hotel-desk operational timestamps ----
+  // Captured by front-desk actions (Check-In / Check-Out buttons). These are
+  // distinct from `checkIn` / `checkOut`, which remain the *scheduled* window.
+  actualCheckInAt  DateTime? @map("actual_check_in_at")
+  actualCheckOutAt DateTime? @map("actual_check_out_at")
+  checkedInById    Int?      @map("checked_in_by")
+  checkedOutById   Int?      @map("checked_out_by")
+
+  // ---- No-show / cancellation metadata ----
+  noShow             Boolean   @default(false) @map("no_show")
+  noShowAt           DateTime? @map("no_show_at")
+  cancellationReason String?   @map("cancellation_reason")
+  cancelledAt        DateTime? @map("cancelled_at")
+  cancelledById      Int?      @map("cancelled_by")
+
+  unit         Unit                   @relation(fields: [unitId], references: [id])
   guests       Guest[]
   transactions Transaction[]
+  statusLogs   ReservationStatusLog[]
 
+  @@index([status])
+  @@index([actualCheckInAt])
   @@map("reservations")
 }
 
+/// Append-only audit trail of every reservation state transition.
+/// Consumed by the reservation detail UI and by audit/export reports.
+/// Never mutated after insert.
+model ReservationStatusLog {
+  id            Int      @id @default(autoincrement())
+  reservationId Int      @map("reservation_id")
+  fromStatus    String   @map("from_status")
+  toStatus      String   @map("to_status")
+  /// One of:
+  ///   check_in | check_out | cancel | no_show | reopen | extend
+  ///   auto_activate | auto_complete | edit  (edit = financial repost)
+  action        String
+  reason        String?
+  actorUserId   Int?     @map("actor_user_id")
+  at            DateTime @default(now())
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  actor       User?       @relation(fields: [actorUserId], references: [id])
+
+  @@index([reservationId, at])
+  @@index([action, at])
+  @@map("reservation_status_logs")
+}
+
 model Guest {
-  id            Int    @id @default(autoincrement())
-  reservationId Int    @map("reservation_id")
-  guestOrder    Int    @map("guest_order")
-  fullName      String @map("full_name")
-  idNumber      String @map("id_number")
-  nationality   String @default("")
+  id            Int     @id @default(autoincrement())
+  reservationId Int     @map("reservation_id")
+  guestOrder    Int     @map("guest_order")
+  fullName      String  @map("full_name")
+  idNumber      String  @map("id_number")
+  nationality   String  @default("")
   idDocImage    String? @map("id_doc_image")
   notes         String?
 
@@ -235,8 +280,8 @@ model SeasonalPrice {
   aptWeekly   Float    @map("apt_weekly")
   aptMonthly  Float    @map("apt_monthly")
 
-  seasonId    Int?     @map("season_id")
-  season      Season?  @relation(fields: [seasonId], references: [id])
+  seasonId Int?    @map("season_id")
+  season   Season? @relation(fields: [seasonId], references: [id])
 
   @@map("seasonal_prices")
 }
@@ -268,11 +313,11 @@ model UnitTypePrice {
   weekly     Float @default(0)
   monthly    Float @default(0)
 
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt       @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   unitType UnitType @relation(fields: [unitTypeId], references: [id], onDelete: Cascade)
-  season   Season   @relation(fields: [seasonId],   references: [id], onDelete: Cascade)
+  season   Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
 
   @@unique([unitTypeId, seasonId])
   @@index([seasonId])
@@ -320,22 +365,22 @@ model Account {
   id            Int      @id @default(autoincrement())
   code          String   @unique
   name          String
-  type          String   // asset | liability | equity | revenue | expense
-  subtype       String?  // cash | bank | ar | ap | capital | drawing | ...
+  type          String // asset | liability | equity | revenue | expense
+  subtype       String? // cash | bank | ar | ap | capital | drawing | ...
   normalBalance String   @map("normal_balance") // debit | credit
   parentId      Int?     @map("parent_id")
   isSystem      Boolean  @default(false) @map("is_system")
-  isActive      Boolean  @default(true)  @map("is_active")
+  isActive      Boolean  @default(true) @map("is_active")
   description   String?
   createdAt     DateTime @default(now()) @map("created_at")
 
-  parent    Account?  @relation("AccountTree", fields: [parentId], references: [id])
-  children  Account[] @relation("AccountTree")
+  parent    Account?      @relation("AccountTree", fields: [parentId], references: [id])
+  children  Account[]     @relation("AccountTree")
   lines     JournalLine[]
-  partiesAR Party[]   @relation("ARAccount")
-  partiesAP Party[]   @relation("APAccount")
-  partiesEq Party[]   @relation("EquityAccount")
-  partiesDr Party[]   @relation("DrawAccount")
+  partiesAR Party[]       @relation("ARAccount")
+  partiesAP Party[]       @relation("APAccount")
+  partiesEq Party[]       @relation("EquityAccount")
+  partiesDr Party[]       @relation("DrawAccount")
 
   @@index([type])
   @@index([parentId])
@@ -346,7 +391,7 @@ model Party {
   id              Int       @id @default(autoincrement())
   code            String?   @unique
   name            String
-  type            String    // guest | partner | supplier | employee | lender | other
+  type            String // guest | partner | supplier | employee | lender | other
   phone           String?
   email           String?
   nationalId      String?   @map("national_id")
@@ -361,18 +406,18 @@ model Party {
 
   // ---- Employee-specific fields (used when type = 'employee') ----
   baseSalary      Float?    @map("base_salary")
-  commissionRate  Float?    @map("commission_rate")    // e.g. 0.05 = 5% of rental revenue
-  salaryPayDay    Int?      @map("salary_pay_day")     // day of month (1-28) when salary is due
+  commissionRate  Float?    @map("commission_rate") // e.g. 0.05 = 5% of rental revenue
+  salaryPayDay    Int?      @map("salary_pay_day") // day of month (1-28) when salary is due
   hireDate        DateTime? @map("hire_date")
   terminationDate DateTime? @map("termination_date")
   jobTitle        String?   @map("job_title")
 
-  createdAt       DateTime  @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
-  arAccount     Account?      @relation("ARAccount",     fields: [arAccountId],     references: [id])
-  apAccount     Account?      @relation("APAccount",     fields: [apAccountId],     references: [id])
+  arAccount     Account?      @relation("ARAccount", fields: [arAccountId], references: [id])
+  apAccount     Account?      @relation("APAccount", fields: [apAccountId], references: [id])
   equityAccount Account?      @relation("EquityAccount", fields: [equityAccountId], references: [id])
-  drawAccount   Account?      @relation("DrawAccount",   fields: [drawAccountId],   references: [id])
+  drawAccount   Account?      @relation("DrawAccount", fields: [drawAccountId], references: [id])
   lines         JournalLine[]
 
   @@index([type])
@@ -386,7 +431,7 @@ model JournalEntry {
   date         DateTime
   description  String
   reference    String?
-  source       String    // manual | reservation | payment | expense | salary | opening | reversal
+  source       String // manual | reservation | payment | expense | salary | opening | reversal
   sourceRefId  Int?      @map("source_ref_id")
   status       String    @default("posted") // draft | posted | void
   totalDebit   Float     @map("total_debit")
@@ -398,9 +443,9 @@ model JournalEntry {
   voidReason   String?   @map("void_reason")
   reversalOfId Int?      @map("reversal_of_id")
 
-  lines        JournalLine[]
-  reversalOf   JournalEntry?  @relation("Reversal", fields: [reversalOfId], references: [id])
-  reversedBy   JournalEntry[] @relation("Reversal")
+  lines      JournalLine[]
+  reversalOf JournalEntry?  @relation("Reversal", fields: [reversalOfId], references: [id])
+  reversedBy JournalEntry[] @relation("Reversal")
 
   @@index([date])
   @@index([source, sourceRefId])
@@ -469,13 +514,13 @@ model Resource {
 }
 
 model Permission {
-  id          Int      @id @default(autoincrement())
-  key         String   @unique
-  resourceId  Int      @map("resource_id")
-  action      String
-  label       String
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id         Int      @id @default(autoincrement())
+  key        String   @unique
+  resourceId Int      @map("resource_id")
+  action     String
+  label      String
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
 
   resource        Resource                 @relation(fields: [resourceId], references: [id], onDelete: Cascade)
   rolePermissions RolePermission[]
@@ -532,7 +577,7 @@ model UserPermissionOverride {
   id           Int      @id @default(autoincrement())
   userId       Int      @map("user_id")
   permissionId Int      @map("permission_id")
-  effect       String   // allow | deny
+  effect       String // allow | deny
   createdAt    DateTime @default(now()) @map("created_at")
 
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -551,17 +596,17 @@ model TaskBoard {
   id          Int       @id @default(autoincrement())
   name        String
   description String?
-  color       String?   // hex color for UI accent
+  color       String? // hex color for UI accent
   ownerId     Int       @map("owner_id")
   archivedAt  DateTime? @map("archived_at")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
 
-  owner    User              @relation("BoardOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  members  TaskBoardMember[]
-  columns  TaskColumn[]
-  tasks    Task[]
-  labels   TaskLabel[]
+  owner   User              @relation("BoardOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members TaskBoardMember[]
+  columns TaskColumn[]
+  tasks   Task[]
+  labels  TaskLabel[]
 
   @@index([ownerId])
   @@index([archivedAt])
@@ -719,12 +764,12 @@ model TaskComment {
 }
 
 model TaskActivity {
-  id         Int      @id @default(autoincrement())
-  taskId     Int      @map("task_id")
-  actorId    Int      @map("actor_id")
-  type       String   // created | moved | assigned | unassigned | updated | completed | reopened | label_added | label_removed | attachment | commented
+  id          Int      @id @default(autoincrement())
+  taskId      Int      @map("task_id")
+  actorId     Int      @map("actor_id")
+  type        String // created | moved | assigned | unassigned | updated | completed | reopened | label_added | label_removed | attachment | commented
   payloadJson Json?    @map("payload_json")
-  createdAt  DateTime @default(now()) @map("created_at")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   task  Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
   actor User @relation(fields: [actorId], references: [id])
@@ -739,7 +784,7 @@ model TaskActivity {
 
 model ChatConversation {
   id            Int       @id @default(autoincrement())
-  type          String    // dm | group | task
+  type          String // dm | group | task
   title         String?
   taskId        Int?      @map("task_id")
   createdById   Int       @map("created_by")
@@ -835,7 +880,7 @@ model ChatReaction {
 model Notification {
   id          Int       @id @default(autoincrement())
   userId      Int       @map("user_id")
-  type        String    // task.assigned | task.due | task.commented | chat.message | chat.mention | ...
+  type        String // task.assigned | task.due | task.commented | chat.message | chat.mention | ...
   title       String
   body        String?
   linkUrl     String?   @map("link_url")
@@ -861,17 +906,17 @@ model Notification {
 
 /// Encrypted login credentials for Booking.com Extranet. One row per account.
 model BookingCredential {
-  id              Int       @id @default(autoincrement())
-  label           String    // e.g. "Main property"
-  email           String
-  passwordEnc     String    @map("password_enc")        // base64(iv|tag|ciphertext)
-  twoFaSecretEnc  String?   @map("two_fa_secret_enc")   // optional TOTP secret (encrypted)
-  propertyId      String?   @map("property_id")          // Booking property id (digits)
-  lastLoginAt     DateTime? @map("last_login_at")
-  lastLoginOk     Boolean?  @map("last_login_ok")
-  isActive        Boolean   @default(true) @map("is_active")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt      @map("updated_at")
+  id             Int       @id @default(autoincrement())
+  label          String // e.g. "Main property"
+  email          String
+  passwordEnc    String    @map("password_enc") // base64(iv|tag|ciphertext)
+  twoFaSecretEnc String?   @map("two_fa_secret_enc") // optional TOTP secret (encrypted)
+  propertyId     String?   @map("property_id") // Booking property id (digits)
+  lastLoginAt    DateTime? @map("last_login_at")
+  lastLoginOk    Boolean?  @map("last_login_ok")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   @@index([isActive])
   @@map("booking_credentials")
@@ -880,15 +925,15 @@ model BookingCredential {
 /// Maps a local Unit (or UnitType) to its Booking.com room type/id.
 /// We support two granularities: unitId (specific room) and unitTypeId (group).
 model BookingPropertyMap {
-  id                Int      @id @default(autoincrement())
-  unitId            Int?     @unique @map("unit_id")
-  unitTypeId        Int?     @unique @map("unit_type_id")
-  extranetRoomId    String   @map("extranet_room_id")
-  extranetRoomName  String?  @map("extranet_room_name")
-  extranetRoomCode  String?  @map("extranet_room_code")
-  lastSyncedAt      DateTime? @map("last_synced_at")
-  notes             String?
-  createdAt         DateTime @default(now()) @map("created_at")
+  id               Int       @id @default(autoincrement())
+  unitId           Int?      @unique @map("unit_id")
+  unitTypeId       Int?      @unique @map("unit_type_id")
+  extranetRoomId   String    @map("extranet_room_id")
+  extranetRoomName String?   @map("extranet_room_name")
+  extranetRoomCode String?   @map("extranet_room_code")
+  lastSyncedAt     DateTime? @map("last_synced_at")
+  notes            String?
+  createdAt        DateTime  @default(now()) @map("created_at")
 
   @@index([unitId])
   @@index([unitTypeId])
@@ -897,18 +942,18 @@ model BookingPropertyMap {
 
 /// A unit of work for the bot. The web API enqueues jobs; the bot polls & runs.
 model BookingSyncJob {
-  id            Int       @id @default(autoincrement())
-  type          String    // login_check | push_prices | push_availability | pull_reservations
-  status        String    @default("pending") // pending | running | done | failed | cancelled
-  scheduledAt   DateTime  @default(now()) @map("scheduled_at")
-  startedAt     DateTime? @map("started_at")
-  finishedAt    DateTime? @map("finished_at")
-  attempts      Int       @default(0)
-  payloadJson   Json?     @map("payload_json")   // e.g. { seasonId, unitTypeIds, fromDate, toDate }
-  resultJson    Json?     @map("result_json")    // summary counts, timing
-  error         String?
-  createdBy     Int?      @map("created_by")
-  createdAt     DateTime  @default(now()) @map("created_at")
+  id          Int       @id @default(autoincrement())
+  type        String // login_check | push_prices | push_availability | pull_reservations
+  status      String    @default("pending") // pending | running | done | failed | cancelled
+  scheduledAt DateTime  @default(now()) @map("scheduled_at")
+  startedAt   DateTime? @map("started_at")
+  finishedAt  DateTime? @map("finished_at")
+  attempts    Int       @default(0)
+  payloadJson Json?     @map("payload_json") // e.g. { seasonId, unitTypeIds, fromDate, toDate }
+  resultJson  Json?     @map("result_json") // summary counts, timing
+  error       String?
+  createdBy   Int?      @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
 
   logs BookingSyncLog[]
 
@@ -919,12 +964,12 @@ model BookingSyncJob {
 
 /// Append-only log stream for a job. Bot writes, UI reads.
 model BookingSyncLog {
-  id        Int      @id @default(autoincrement())
-  jobId     Int      @map("job_id")
-  ts        DateTime @default(now())
-  level     String   @default("info") // info | warn | error
-  message   String
-  metaJson  Json?    @map("meta_json")
+  id       Int      @id @default(autoincrement())
+  jobId    Int      @map("job_id")
+  ts       DateTime @default(now())
+  level    String   @default("info") // info | warn | error
+  message  String
+  metaJson Json?    @map("meta_json")
 
   job BookingSyncJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
@@ -935,23 +980,23 @@ model BookingSyncLog {
 /// Inbox for reservations pulled from Booking before they are imported into
 /// our own Reservation table (giving a human the chance to confirm mapping).
 model BookingInboxReservation {
-  id              Int       @id @default(autoincrement())
-  externalId      String    @unique @map("external_id")       // Booking reservation number
-  guestName       String    @map("guest_name")
-  guestEmail      String?   @map("guest_email")
-  guestPhone      String?   @map("guest_phone")
-  checkIn         DateTime  @map("check_in")
-  checkOut        DateTime  @map("check_out")
-  extranetRoomId  String?   @map("extranet_room_id")
-  mappedUnitId    Int?      @map("mapped_unit_id")
-  numGuests       Int       @default(1) @map("num_guests")
-  totalAmount     Float     @default(0) @map("total_amount")
-  currency        String    @default("JOD")
-  status          String    @default("new") // new | imported | ignored | conflict
-  rawJson         Json?     @map("raw_json")
-  localReservationId Int?   @map("local_reservation_id")
-  importedAt      DateTime? @map("imported_at")
-  createdAt       DateTime  @default(now()) @map("created_at")
+  id                 Int       @id @default(autoincrement())
+  externalId         String    @unique @map("external_id") // Booking reservation number
+  guestName          String    @map("guest_name")
+  guestEmail         String?   @map("guest_email")
+  guestPhone         String?   @map("guest_phone")
+  checkIn            DateTime  @map("check_in")
+  checkOut           DateTime  @map("check_out")
+  extranetRoomId     String?   @map("extranet_room_id")
+  mappedUnitId       Int?      @map("mapped_unit_id")
+  numGuests          Int       @default(1) @map("num_guests")
+  totalAmount        Float     @default(0) @map("total_amount")
+  currency           String    @default("JOD")
+  status             String    @default("new") // new | imported | ignored | conflict
+  rawJson            Json?     @map("raw_json")
+  localReservationId Int?      @map("local_reservation_id")
+  importedAt         DateTime? @map("imported_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
 
   @@index([status, createdAt])
   @@index([checkIn, checkOut])

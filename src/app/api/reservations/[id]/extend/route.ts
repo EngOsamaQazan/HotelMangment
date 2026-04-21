@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { AccountingError, ACCOUNT_CODES, cashAccountCodeFromMethod } from "@/lib/accounting";
 import { postExtensionEntries } from "@/lib/reservations/accounting";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
+import { logStatusTransition } from "@/lib/reservations/statusLog";
 
 /**
  * Extend an existing reservation by N additional nights (or weeks/months,
@@ -24,7 +25,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requirePermission("reservations:edit");
+    const session = await requirePermission("reservations:extend");
+    const actorUserId = Number((session.user as { id?: string | number }).id);
     const { id } = await params;
     const reservationId = parseInt(id);
     if (Number.isNaN(reservationId)) {
@@ -191,6 +193,19 @@ export async function POST(
         addedAmount,
         addedPaid,
         paymentMethod,
+      });
+
+      await logStatusTransition(tx, {
+        reservationId,
+        fromStatus: existing.status,
+        toStatus: isCompletedToday ? "active" : existing.status,
+        action: "extend",
+        reason: `+${additionalNights} ${
+          stayType === "monthly" ? "شهر" : stayType === "weekly" ? "أسبوع" : "ليلة"
+        }، مبلغ إضافي ${addedAmount.toFixed(2)}${
+          body.note ? " — " + String(body.note).slice(0, 200) : ""
+        }`,
+        actorUserId: Number.isFinite(actorUserId) ? actorUserId : null,
       });
 
       return tx.reservation.findUnique({
