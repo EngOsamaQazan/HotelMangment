@@ -12,6 +12,7 @@ import {
   Printer,
 } from "lucide-react";
 import { cn, formatAmount, formatDate } from "@/lib/utils";
+import { Can } from "@/components/Can";
 
 interface Line {
   id: number;
@@ -133,18 +134,20 @@ export default function JournalDetailPage() {
             <Printer size={16} /> طباعة
           </button>
           {entry.status === "posted" && !entry.voidedAt && entry.source !== "reversal" && (
-            <button
-              onClick={handleVoid}
-              disabled={voiding}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50"
-            >
-              {voiding ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <RotateCcw size={16} />
-              )}
-              عكس القيد
-            </button>
+            <Can permission="accounting.journal:void">
+              <button
+                onClick={handleVoid}
+                disabled={voiding}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50"
+              >
+                {voiding ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <RotateCcw size={16} />
+                )}
+                عكس القيد
+              </button>
+            </Can>
           )}
         </div>
       </div>

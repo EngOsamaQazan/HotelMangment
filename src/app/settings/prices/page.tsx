@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Can } from "@/components/Can";
+import { usePermissions } from "@/lib/permissions/client";
 
 interface UnitTypeLite {
   id: number;
@@ -65,6 +66,8 @@ export default function PricesPage() {
   const [draft, setDraft] = useState<Draft>({});
   const [saving, setSaving] = useState(false);
   const [showNew, setShowNew] = useState(false);
+  const { can } = usePermissions();
+  const canEditPrices = can("settings.prices:edit");
   const [newForm, setNewForm] = useState({
     nameAr: "",
     nameEn: "",
@@ -387,7 +390,9 @@ export default function PricesPage() {
                                     step="0.01"
                                     value={edits[f] ?? row[f]}
                                     onChange={(e) => handleDraft(row.id, f, e.target.value)}
-                                    className="w-24 border border-transparent hover:border-gray-200 focus:border-primary rounded px-2 py-1 text-sm text-center text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary/20 bg-transparent"
+                                    disabled={!canEditPrices}
+                                    readOnly={!canEditPrices}
+                                    className="w-24 border border-transparent hover:border-gray-200 focus:border-primary rounded px-2 py-1 text-sm text-center text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary/20 bg-transparent disabled:bg-gray-50 disabled:cursor-not-allowed"
                                   />
                                 </td>
                               ))}

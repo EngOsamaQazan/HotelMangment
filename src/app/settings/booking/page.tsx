@@ -484,13 +484,13 @@ function MappingTab() {
       <div className="flex items-center justify-between">
         <h2 className="font-bold text-gray-800">ربط الوحدات المحلية مع غرف Booking</h2>
         <div className="flex gap-2">
-          <button
-            onClick={addRow}
-            className="flex items-center gap-1 px-3 py-2 border border-primary text-primary rounded-lg text-sm hover:bg-gold-soft"
-          >
-            <Plus size={14} /> سطر جديد
-          </button>
           <Can permission="settings.booking:map">
+            <button
+              onClick={addRow}
+              className="flex items-center gap-1 px-3 py-2 border border-primary text-primary rounded-lg text-sm hover:bg-gold-soft"
+            >
+              <Plus size={14} /> سطر جديد
+            </button>
             <button
               onClick={save}
               disabled={saving}
@@ -587,12 +587,14 @@ function MappingTab() {
                     />
                   </td>
                   <td className="px-2 py-2">
-                    <button
-                      onClick={() => removeRow(i)}
-                      className="p-1.5 text-red-500 hover:bg-red-50 rounded"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <Can permission="settings.booking:map">
+                      <button
+                        onClick={() => removeRow(i)}
+                        className="p-1.5 text-red-500 hover:bg-red-50 rounded"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </Can>
                   </td>
                 </tr>
               ))}
@@ -740,12 +742,14 @@ function JobsTab() {
                   </td>
                   <td className="px-3 py-2">
                     {j.status === "pending" && (
-                      <button
-                        onClick={() => cancel(j.id)}
-                        className="text-xs text-red-500 hover:underline"
-                      >
-                        إلغاء
-                      </button>
+                      <Can permission="settings.booking:trigger">
+                        <button
+                          onClick={() => cancel(j.id)}
+                          className="text-xs text-red-500 hover:underline"
+                        >
+                          إلغاء
+                        </button>
+                      </Can>
                     )}
                   </td>
                 </tr>

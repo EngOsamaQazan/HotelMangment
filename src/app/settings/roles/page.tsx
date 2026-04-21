@@ -12,6 +12,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Lock,
+  RefreshCw,
 } from "lucide-react";
 import { usePermissions } from "@/lib/permissions/client";
 
@@ -74,10 +75,15 @@ export default function RolesPage() {
     name: "",
     description: "",
   });
+  const [syncing, setSyncing] = useState(false);
+  const [showSyncConfirm, setShowSyncConfirm] = useState(false);
 
   const canEdit = can("settings.roles:edit");
   const canCreate = can("settings.roles:create");
   const canDelete = can("settings.roles:delete");
+  // Either the granular `:sync` grant (post-bootstrap) or the generic
+  // `:edit` grant is enough — mirrors the server-side guard.
+  const canSync = can("settings.roles:sync") || can("settings.roles:edit");
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -198,6 +204,37 @@ export default function RolesPage() {
     }
   };
 
+  // Pushes the in-code registry into the DB so any newly-added modules /
+  // actions (e.g. `reservations:extend`) show up in the permissions tree
+  // without needing shell access on the server.
+  const syncPermissions = async () => {
+    setSyncing(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch("/api/permissions/sync", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "فشل تحديث الصلاحيات");
+      const parts = [
+        `${data.permissionsUpserted ?? 0} صلاحية`,
+        `${data.resourcesUpserted ?? 0} قسم`,
+      ];
+      if (data.permissionsDeactivated) {
+        parts.push(`${data.permissionsDeactivated} معطّلة`);
+      }
+      setSuccess(`✅ تمت المزامنة: ${parts.join(" · ")}`);
+      setShowSyncConfirm(false);
+      await refetch();
+      await loadData();
+      if (selectedRoleId) await loadRoleDetail(selectedRoleId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "فشل تحديث الصلاحيات");
+    } finally {
+      setSyncing(false);
+      setTimeout(() => setSuccess(null), 5000);
+    }
+  };
+
   const deleteRole = async (role: Role) => {
     if (role.isSystem) return;
     if (!confirm(`هل أنت متأكد من حذف الدور "${role.name}"؟`)) return;
@@ -240,15 +277,32 @@ export default function RolesPage() {
             <p className="text-sm text-gray-500">تحكّم في من يستطيع الوصول إلى كل قسم في النظام</p>
           </div>
         </div>
-        {canCreate && (
-          <button
-            onClick={() => setShowCreate(true)}
-            className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90"
-          >
-            <Plus className="w-4 h-4" />
-            دور جديد
-          </button>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {canSync && (
+            <button
+              onClick={() => setShowSyncConfirm(true)}
+              disabled={syncing}
+              title="يسحب أي صلاحيات/أقسام جديدة من الكود إلى قاعدة البيانات"
+              className="border border-primary/40 text-primary bg-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/5 disabled:opacity-60"
+            >
+              {syncing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              تحديث الصلاحيات
+            </button>
+          )}
+          {canCreate && (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90"
+            >
+              <Plus className="w-4 h-4" />
+              دور جديد
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -471,6 +525,74 @@ export default function RolesPage() {
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                 إنشاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sync confirmation modal */}
+      {showSyncConfirm && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl sm:max-w-md w-full p-5 sm:p-6 space-y-4 max-h-[95vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <RefreshCw className="w-5 h-5 text-primary" />
+                تحديث الصلاحيات من الكود
+              </h3>
+              <button
+                onClick={() => !syncing && setShowSyncConfirm(false)}
+                disabled={syncing}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="text-sm text-gray-600 space-y-2 leading-relaxed">
+              <p>
+                هذا الإجراء يُزامن قائمة الصلاحيات والأقسام من سجلّ الكود
+                <code className="mx-1 bg-gray-100 px-1.5 py-0.5 rounded text-xs">
+                  registry.ts
+                </code>
+                إلى قاعدة البيانات.
+              </p>
+              <ul className="list-disc pr-5 space-y-1 text-xs text-gray-500">
+                <li>
+                  الصلاحيات الجديدة (مثل «تمديد حجز») راح تظهر في شجرة
+                  الصلاحيات مباشرةً.
+                </li>
+                <li>
+                  الصلاحيات اللي حُذفت من الكود راح تتعطّل (لن تُحذف — يتم
+                  إبقاء السجل للمراجعة).
+                </li>
+                <li>
+                  صلاحيات أدوار النظام (مثل «مدير») راح تُعاد تعيينها من
+                  الإعدادات الافتراضية. الأدوار المخصّصة لن تتأثر.
+                </li>
+              </ul>
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+                ⚠️ تنبيه: إذا عدّلت صلاحيات دور «مدير» يدوياً من هذه الشاشة،
+                فسيُعاد ضبطها للإعداد الافتراضي عند المزامنة.
+              </p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setShowSyncConfirm(false)}
+                disabled={syncing}
+                className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-60"
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={syncPermissions}
+                disabled={syncing}
+                className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 disabled:opacity-60"
+              >
+                {syncing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                {syncing ? "جاري المزامنة..." : "تأكيد التحديث"}
               </button>
             </div>
           </div>

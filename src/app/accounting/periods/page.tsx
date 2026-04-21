@@ -10,6 +10,7 @@ import {
   Archive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Can } from "@/components/Can";
 
 interface Period {
   id: number;
@@ -153,13 +154,15 @@ export default function PeriodsPage() {
             <div key={year} className="bg-card-bg rounded-xl shadow-sm p-3 sm:p-5">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                 <h2 className="text-base sm:text-lg font-bold text-gray-800">عام {year}</h2>
-                <button
-                  onClick={() => closeYear(year)}
-                  disabled={busy}
-                  className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50 w-full sm:w-auto"
-                >
-                  <Archive size={16} /> إقفال السنة
-                </button>
+                <Can permission="accounting.periods:close">
+                  <button
+                    onClick={() => closeYear(year)}
+                    disabled={busy}
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50 w-full sm:w-auto"
+                  >
+                    <Archive size={16} /> إقفال السنة
+                  </button>
+                </Can>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                 {byYear[year]
@@ -188,21 +191,25 @@ export default function PeriodsPage() {
                         {p.status === "open" ? "مفتوحة" : "مقفلة"}
                       </div>
                       {p.status === "open" ? (
-                        <button
-                          onClick={() => act(p.year, p.month, "close")}
-                          disabled={busy}
-                          className="inline-flex items-center gap-1 text-xs text-red-700 hover:underline"
-                        >
-                          <Lock size={12} /> إقفال
-                        </button>
+                        <Can permission="accounting.periods:close">
+                          <button
+                            onClick={() => act(p.year, p.month, "close")}
+                            disabled={busy}
+                            className="inline-flex items-center gap-1 text-xs text-red-700 hover:underline"
+                          >
+                            <Lock size={12} /> إقفال
+                          </button>
+                        </Can>
                       ) : (
-                        <button
-                          onClick={() => act(p.year, p.month, "open")}
-                          disabled={busy}
-                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                        >
-                          <Unlock size={12} /> إعادة فتح
-                        </button>
+                        <Can permission="accounting.periods:open">
+                          <button
+                            onClick={() => act(p.year, p.month, "open")}
+                            disabled={busy}
+                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                          >
+                            <Unlock size={12} /> إعادة فتح
+                          </button>
+                        </Can>
                       )}
                     </div>
                   ))}

@@ -13,6 +13,7 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { cn, formatDate, formatAmount } from "@/lib/utils";
+import { Can } from "@/components/Can";
 
 interface Reservation {
   id: number;
@@ -151,13 +152,15 @@ export default function MonthlyReportPage() {
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 no-print">
         <h1 className="text-xl sm:text-2xl font-bold text-primary">التقرير الشهري</h1>
-        <button
-          onClick={() => window.print()}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium w-full sm:w-auto"
-        >
-          <Printer size={18} />
-          طباعة التقرير
-        </button>
+        <Can permission="reports.monthly:export">
+          <button
+            onClick={() => window.print()}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium w-full sm:w-auto"
+          >
+            <Printer size={18} />
+            طباعة التقرير
+          </button>
+        </Can>
       </div>
 
       {/* Month/Year Selector */}

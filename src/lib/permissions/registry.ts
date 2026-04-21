@@ -215,6 +215,19 @@ export const RESOURCES: ResourceDef[] = [
     sortOrder: 70,
   },
   {
+    key: "profile",
+    label: "الملف الشخصي",
+    category: "general",
+    actions: ["view", "edit"],
+    routes: [
+      "/profile",
+      "/api/me",
+      "/api/me/avatar",
+      "/api/me/password",
+    ],
+    sortOrder: 75,
+  },
+  {
     key: "files",
     label: "الملفات المرفقة",
     category: "general",
@@ -306,7 +319,10 @@ export const RESOURCES: ResourceDef[] = [
     category: "accounting",
     actions: ACTIONS,
     routes: ["/accounting/periods", "/api/accounting/periods"],
-    extraActions: [{ key: "close", label: "إقفال الفترة" }],
+    extraActions: [
+      { key: "close", label: "إقفال الفترة" },
+      { key: "open", label: "إعادة فتح الفترة" },
+    ],
     sortOrder: 160,
   },
   {
@@ -382,9 +398,13 @@ export const RESOURCES: ResourceDef[] = [
       "/api/roles/[id]",
       "/api/roles/[id]/permissions",
       "/api/permissions",
+      "/api/permissions/sync",
       "/api/users/[id]/roles",
       "/api/users/[id]/overrides",
       "/api/me/permissions",
+    ],
+    extraActions: [
+      { key: "sync", label: "تحديث الصلاحيات من الكود" },
     ],
     sortOrder: 320,
   },
@@ -553,6 +573,8 @@ export const DEFAULT_ROLES: RolePreset[] = [
       "notifications:view",
       "files:view",
       "chat.users:view",
+      "profile:view",
+      "profile:edit",
     ],
   },
   {
@@ -588,6 +610,8 @@ export const DEFAULT_ROLES: RolePreset[] = [
       "notifications:view",
       "files:view",
       "chat.users:view",
+      "profile:view",
+      "profile:edit",
     ],
   },
   {
@@ -611,6 +635,8 @@ export const DEFAULT_ROLES: RolePreset[] = [
       "notifications:view",
       "files:view",
       "chat.users:view",
+      "profile:view",
+      "profile:edit",
     ],
   },
 ];

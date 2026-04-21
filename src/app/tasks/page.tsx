@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TaskBoardLite, UserLite } from "@/lib/collab/types";
+import { Can } from "@/components/Can";
 
 const PALETTE = [
   "#1e3a8a",
@@ -86,13 +87,15 @@ export default function TasksBoardsPage() {
             نظّم فريقك بطريقة كانبان مع تعيين، أولويات، وتواريخ استحقاق.
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium w-full sm:w-auto justify-center"
-        >
-          <Plus size={18} />
-          لوحة جديدة
-        </button>
+        <Can permission="tasks.boards:create">
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium w-full sm:w-auto justify-center"
+          >
+            <Plus size={18} />
+            لوحة جديدة
+          </button>
+        </Can>
       </div>
 
       <div className="relative max-w-md">
@@ -122,12 +125,14 @@ export default function TasksBoardsPage() {
               : "لا نتائج مطابقة"}
           </p>
           {boards.length === 0 && (
-            <button
-              onClick={() => setShowForm(true)}
-              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm"
-            >
-              ابدأ بإنشاء لوحة
-            </button>
+            <Can permission="tasks.boards:create">
+              <button
+                onClick={() => setShowForm(true)}
+                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm"
+              >
+                ابدأ بإنشاء لوحة
+              </button>
+            </Can>
           )}
         </div>
       ) : (

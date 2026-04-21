@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { cn, formatAmount } from "@/lib/utils";
 import { Pagination, usePaginatedSlice } from "@/components/Pagination";
+import { Can } from "@/components/Can";
 
 const PAGE_SIZE = 20;
 
@@ -259,13 +260,15 @@ export default function PartiesPage() {
             الأطراف
           </h1>
         </div>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm font-medium w-full sm:w-auto justify-center"
-        >
-          <Plus size={18} />
-          إضافة طرف
-        </button>
+        <Can permission="accounting.parties:create">
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm font-medium w-full sm:w-auto justify-center"
+          >
+            <Plus size={18} />
+            إضافة طرف
+          </button>
+        </Can>
       </div>
 
       <div className="bg-card-bg rounded-xl p-3 sm:p-4 shadow-sm space-y-3">
@@ -406,26 +409,30 @@ export default function PartiesPage() {
                           >
                             <Eye size={14} /> كشف
                           </Link>
-                          <button
-                            onClick={() => openEdit(p)}
-                            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
-                            title="تعديل"
-                          >
-                            <Pencil size={14} /> تعديل
-                          </button>
-                          <button
-                            onClick={() => handleDelete(p)}
-                            disabled={deletingId === p.id}
-                            className="inline-flex items-center gap-1 text-xs text-red-600 hover:underline disabled:opacity-50"
-                            title="حذف"
-                          >
-                            {deletingId === p.id ? (
-                              <Loader2 size={14} className="animate-spin" />
-                            ) : (
-                              <Trash2 size={14} />
-                            )}
-                            حذف
-                          </button>
+                          <Can permission="accounting.parties:edit">
+                            <button
+                              onClick={() => openEdit(p)}
+                              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                              title="تعديل"
+                            >
+                              <Pencil size={14} /> تعديل
+                            </button>
+                          </Can>
+                          <Can permission="accounting.parties:delete">
+                            <button
+                              onClick={() => handleDelete(p)}
+                              disabled={deletingId === p.id}
+                              className="inline-flex items-center gap-1 text-xs text-red-600 hover:underline disabled:opacity-50"
+                              title="حذف"
+                            >
+                              {deletingId === p.id ? (
+                                <Loader2 size={14} className="animate-spin" />
+                              ) : (
+                                <Trash2 size={14} />
+                              )}
+                              حذف
+                            </button>
+                          </Can>
                         </div>
                       </td>
                     </tr>
@@ -500,24 +507,28 @@ export default function PartiesPage() {
                     >
                       <Eye size={13} /> كشف
                     </Link>
-                    <button
-                      onClick={() => openEdit(p)}
-                      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
-                    >
-                      <Pencil size={13} /> تعديل
-                    </button>
-                    <button
-                      onClick={() => handleDelete(p)}
-                      disabled={deletingId === p.id}
-                      className="inline-flex items-center gap-1 text-xs text-red-600 hover:underline disabled:opacity-50"
-                    >
-                      {deletingId === p.id ? (
-                        <Loader2 size={13} className="animate-spin" />
-                      ) : (
-                        <Trash2 size={13} />
-                      )}
-                      حذف
-                    </button>
+                    <Can permission="accounting.parties:edit">
+                      <button
+                        onClick={() => openEdit(p)}
+                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                      >
+                        <Pencil size={13} /> تعديل
+                      </button>
+                    </Can>
+                    <Can permission="accounting.parties:delete">
+                      <button
+                        onClick={() => handleDelete(p)}
+                        disabled={deletingId === p.id}
+                        className="inline-flex items-center gap-1 text-xs text-red-600 hover:underline disabled:opacity-50"
+                      >
+                        {deletingId === p.id ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={13} />
+                        )}
+                        حذف
+                      </button>
+                    </Can>
                   </div>
                 </div>
               );

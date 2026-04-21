@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 import {
   ArrowRight,
   CalendarCheck,
@@ -14,6 +15,7 @@ import {
   Users as UsersIcon,
   History,
 } from "lucide-react";
+import { ForbiddenCard } from "@/components/ForbiddenCard";
 import {
   cn,
   stayTypeLabels,
@@ -28,6 +30,7 @@ import {
   isSpanBlocked,
 } from "@/components/ui/BookedDatePicker";
 import { BedIcon } from "@/components/unit-types/shared";
+import { usePermissions } from "@/lib/permissions/client";
 
 interface UnitTypeBed {
   id: number;
@@ -87,6 +90,8 @@ interface GuestEntry {
 
 export default function NewReservationPage() {
   const router = useRouter();
+  const { can, isLoading: permsLoading } = usePermissions();
+  const canCreate = can("reservations:create");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -323,17 +328,30 @@ export default function NewReservationPage() {
     return true;
   };
 
+  const reportError = (msg: string) => {
+    setError(msg);
+    toast.error(msg);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setTouched({ unitId: true, guestName: true, checkIn: true, unitPrice: true });
 
+    if (!canCreate) {
+      reportError("ليس لديك صلاحية إنشاء حجز جديد");
+      return;
+    }
+
     if (!validate()) {
-      setError("يرجى تعبئة جميع الحقول المطلوبة");
+      reportError("يرجى تعبئة جميع الحقول المطلوبة");
       return;
     }
 
     if (rangeConflict) {
-      setError(
+      reportError(
         `الفترة المحدّدة تتعارض مع حجز آخر على نفس الوحدة${
           rangeConflict.guestName ? ` (${rangeConflict.guestName})` : ""
         } — الرجاء اختيار تاريخ آخر.`,
@@ -394,7 +412,7 @@ export default function NewReservationPage() {
 
       router.push("/reservations");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "حدث خطأ غير متوقع");
+      reportError(err instanceof Error ? err.message : "حدث خطأ غير متوقع");
     } finally {
       setSubmitting(false);
     }
@@ -402,6 +420,27 @@ export default function NewReservationPage() {
 
   const stayLabel =
     stayType === "monthly" ? "شهر" : stayType === "weekly" ? "أسبوع" : "ليلة";
+
+  // Hard-gate the page: if the user lacks `reservations:create`, don't even
+  // render the form — the API will 403 anyway, and letting them fill dozens
+  // of fields just to fail at the end is a terrible UX. Wait until the
+  // permissions context resolved (`permsLoading` flips false) so we don't
+  // flash this card during the initial SSR/hydration tick.
+  if (!permsLoading && !canCreate) {
+    return (
+      <ForbiddenCard
+        title="لا تملك صلاحية إنشاء حجز جديد"
+        description={
+          <>
+            تم حجب هذه الصفحة عنك لأنك لا تملك صلاحية «الحجوزات — إنشاء».
+            راجع مدير النظام لمنحك الصلاحية، أو عُد إلى قائمة الحجوزات.
+          </>
+        }
+        backHref="/reservations"
+        backLabel="العودة إلى الحجوزات"
+      />
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">

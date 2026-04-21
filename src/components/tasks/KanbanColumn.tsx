@@ -8,6 +8,7 @@ import type { TaskCard, TaskColumn as TaskColumnT } from "@/lib/collab/types";
 import { TaskCardView } from "./TaskCardView";
 import { NewCardForm } from "./NewCardForm";
 import { cn } from "@/lib/utils";
+import { usePermissions } from "@/lib/permissions/client";
 
 interface Props {
   boardId: number;
@@ -32,6 +33,11 @@ export function KanbanColumn({
   const [menu, setMenu] = useState(false);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(column.name);
+  const { can } = usePermissions();
+  const canCreateCard = can("tasks.cards:create");
+  const canEditBoard = can("tasks.boards:edit");
+  const canDeleteBoard = can("tasks.boards:delete");
+  const showMenu = (!!onRename && canEditBoard) || (!!onDelete && canDeleteBoard);
 
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${column.id}`,
@@ -74,14 +80,16 @@ export function KanbanColumn({
           </h3>
         )}
         <div className="flex items-center gap-1 relative">
-          <button
-            onClick={() => setAdding(true)}
-            className="p-1 rounded hover:bg-white text-gray-500 hover:text-primary transition-colors"
-            title="إضافة بطاقة"
-          >
-            <Plus size={16} />
-          </button>
-          {(onRename || onDelete) && (
+          {canCreateCard && (
+            <button
+              onClick={() => setAdding(true)}
+              className="p-1 rounded hover:bg-white text-gray-500 hover:text-primary transition-colors"
+              title="إضافة بطاقة"
+            >
+              <Plus size={16} />
+            </button>
+          )}
+          {showMenu && (
             <button
               onClick={() => setMenu((m) => !m)}
               className="p-1 rounded hover:bg-white text-gray-500"
@@ -91,7 +99,7 @@ export function KanbanColumn({
           )}
           {menu && (
             <div className="absolute top-full end-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-md z-10 min-w-[140px] py-1">
-              {onRename && (
+              {onRename && canEditBoard && (
                 <button
                   onClick={() => {
                     setEditing(true);
@@ -102,7 +110,7 @@ export function KanbanColumn({
                   إعادة تسمية
                 </button>
               )}
-              {onDelete && (
+              {onDelete && canDeleteBoard && (
                 <button
                   onClick={() => {
                     setMenu(false);
@@ -146,7 +154,7 @@ export function KanbanColumn({
           />
         )}
       </div>
-      {!adding && (
+      {!adding && canCreateCard && (
         <button
           onClick={() => setAdding(true)}
           className="px-3 py-2 text-xs text-gray-500 hover:bg-gray-200 transition-colors flex items-center gap-1 border-t border-gray-200"

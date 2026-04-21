@@ -15,6 +15,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn, formatDate, formatAmount, statusLabels } from "@/lib/utils";
+import { Can } from "@/components/Can";
 
 interface DashboardData {
   stats: {
@@ -214,20 +215,24 @@ export default function DashboardPage() {
 
       {/* Quick Actions */}
       <div className="flex flex-col sm:flex-row gap-3">
-        <Link
-          href="/reservations/new"
-          className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors shadow-sm border border-gold/30"
-        >
-          <Plus size={18} />
-          <span>حجز جديد</span>
-        </Link>
-        <Link
-          href="/rooms"
-          className="flex items-center gap-2 px-5 py-2.5 bg-card-bg text-primary rounded-lg hover:bg-gold-soft transition-colors shadow-sm border border-gold/40"
-        >
-          <LayoutGrid size={18} />
-          <span>حالة الغرف</span>
-        </Link>
+        <Can permission="reservations:create">
+          <Link
+            href="/reservations/new"
+            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors shadow-sm border border-gold/30"
+          >
+            <Plus size={18} />
+            <span>حجز جديد</span>
+          </Link>
+        </Can>
+        <Can permission="rooms:view">
+          <Link
+            href="/rooms"
+            className="flex items-center gap-2 px-5 py-2.5 bg-card-bg text-primary rounded-lg hover:bg-gold-soft transition-colors shadow-sm border border-gold/40"
+          >
+            <LayoutGrid size={18} />
+            <span>حالة الغرف</span>
+          </Link>
+        </Can>
       </div>
 
       {/* Two Column Grid */}

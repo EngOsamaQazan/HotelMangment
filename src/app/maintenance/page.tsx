@@ -209,13 +209,15 @@ export default function MaintenancePage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <h1 className="text-xl sm:text-2xl font-bold text-primary">سجل الصيانة</h1>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium w-full sm:w-auto justify-center"
-        >
-          <Plus size={18} />
-          طلب صيانة جديد
-        </button>
+        <Can permission="maintenance:create">
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium w-full sm:w-auto justify-center"
+          >
+            <Plus size={18} />
+            طلب صيانة جديد
+          </button>
+        </Can>
       </div>
 
       {/* Status Filter */}
@@ -347,12 +349,14 @@ export default function MaintenancePage() {
                         />
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => setEditRecord(record)}
-                          className="text-primary-light hover:text-primary text-xs font-medium hover:underline"
-                        >
-                          تعديل
-                        </button>
+                        <Can permission="maintenance:edit">
+                          <button
+                            onClick={() => setEditRecord(record)}
+                            className="text-primary-light hover:text-primary text-xs font-medium hover:underline"
+                          >
+                            تعديل
+                          </button>
+                        </Can>
                       </td>
                     </tr>
                   );
@@ -396,12 +400,14 @@ export default function MaintenancePage() {
                     record={record}
                     onConvert={() => setConvertRecord(record)}
                   />
-                  <button
-                    onClick={() => setEditRecord(record)}
-                    className="text-primary text-xs font-medium hover:underline"
-                  >
-                    تعديل
-                  </button>
+                  <Can permission="maintenance:edit">
+                    <button
+                      onClick={() => setEditRecord(record)}
+                      className="text-primary text-xs font-medium hover:underline"
+                    >
+                      تعديل
+                    </button>
+                  </Can>
                 </div>
               );
             })}

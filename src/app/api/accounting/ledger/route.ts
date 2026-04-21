@@ -109,6 +109,10 @@ export async function GET(request: Request) {
       { debit: 0, credit: 0 }
     );
 
+    // Display rows newest-first. Running balances were computed chronologically
+    // (ascending) so each row's balance is correct; we only flip the order.
+    rows.reverse();
+
     return NextResponse.json({
       account,
       openingBalance: Math.round(openingBalance * 100) / 100,

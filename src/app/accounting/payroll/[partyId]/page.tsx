@@ -16,6 +16,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { cn, formatAmount, formatDate } from "@/lib/utils";
+import { Can } from "@/components/Can";
 
 interface PayrollData {
   party: {
@@ -456,18 +457,20 @@ export default function PayrollPage() {
           </div>
         </div>
 
-        <button
-          onClick={handlePost}
-          disabled={posting || data.net <= 0}
-          className="w-full flex items-center justify-center gap-2 py-3 bg-primary text-gold rounded-lg hover:bg-primary-dark font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed border border-gold/40 shadow-md transition-colors"
-        >
-          {posting ? (
-            <Loader2 size={18} className="animate-spin" />
-          ) : (
-            <CheckCircle size={18} />
-          )}
-          تسجيل واعتماد — {formatAmount(data.net)} د.أ
-        </button>
+        <Can permission="accounting.parties:edit">
+          <button
+            onClick={handlePost}
+            disabled={posting || data.net <= 0}
+            className="w-full flex items-center justify-center gap-2 py-3 bg-primary text-gold rounded-lg hover:bg-primary-dark font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed border border-gold/40 shadow-md transition-colors"
+          >
+            {posting ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <CheckCircle size={18} />
+            )}
+            تسجيل واعتماد — {formatAmount(data.net)} د.أ
+          </button>
+        </Can>
 
         {postResult && (
           <div className="p-3 bg-gold-soft border border-gold/40 rounded-lg text-sm text-primary flex items-center gap-2">

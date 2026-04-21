@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { NumberInput } from "@/components/ui/NumberInput";
 import { CountrySelect } from "@/components/ui/CountrySelect";
+import { Can } from "@/components/Can";
 import {
   cn,
   formatDate,
@@ -668,108 +669,126 @@ export default function ReservationDetailClient({ id }: { id: string }) {
                   status flips — every click writes a row to the audit log. */}
               {reservation.status === "upcoming" && (
                 <>
-                  <button
-                    onClick={() => {
-                      setActionError("");
-                      setShowCheckinModal(true);
-                    }}
-                    className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-                    title="تسجيل حضور الضيف"
-                  >
-                    <LogIn size={16} />
-                    تسجيل دخول
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActionError("");
-                      setShowNoShowModal(true);
-                    }}
-                    className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-                    title="الضيف لم يحضر"
-                  >
-                    <UserX size={16} />
-                    عدم حضور
-                  </button>
+                  <Can permission="reservations:checkin">
+                    <button
+                      onClick={() => {
+                        setActionError("");
+                        setShowCheckinModal(true);
+                      }}
+                      className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                      title="تسجيل حضور الضيف"
+                    >
+                      <LogIn size={16} />
+                      تسجيل دخول
+                    </button>
+                  </Can>
+                  <Can permission="reservations:noshow">
+                    <button
+                      onClick={() => {
+                        setActionError("");
+                        setShowNoShowModal(true);
+                      }}
+                      className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                      title="الضيف لم يحضر"
+                    >
+                      <UserX size={16} />
+                      عدم حضور
+                    </button>
+                  </Can>
                 </>
               )}
               {reservation.status === "active" && (
-                <button
-                  onClick={() => {
-                    setActionError("");
-                    setShowCheckoutModal(true);
-                  }}
-                  className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-                  title="تسجيل مغادرة الضيف"
-                >
-                  <LogOut size={16} />
-                  تسجيل مغادرة
-                </button>
+                <Can permission="reservations:checkout">
+                  <button
+                    onClick={() => {
+                      setActionError("");
+                      setShowCheckoutModal(true);
+                    }}
+                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                    title="تسجيل مغادرة الضيف"
+                  >
+                    <LogOut size={16} />
+                    تسجيل مغادرة
+                  </button>
+                </Can>
               )}
               {(reservation.status === "upcoming" ||
                 reservation.status === "active") && (
-                <button
-                  onClick={() => {
-                    setActionError("");
-                    setShowCancelModal(true);
-                  }}
-                  className="flex items-center gap-2 bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-                  title="إلغاء الحجز"
-                >
-                  <Ban size={16} />
-                  إلغاء
-                </button>
+                <Can permission="reservations:cancel">
+                  <button
+                    onClick={() => {
+                      setActionError("");
+                      setShowCancelModal(true);
+                    }}
+                    className="flex items-center gap-2 bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                    title="إلغاء الحجز"
+                  >
+                    <Ban size={16} />
+                    إلغاء
+                  </button>
+                </Can>
               )}
               {reservation.status === "completed" && (
-                <button
-                  onClick={() => {
-                    setActionError("");
-                    setShowReopenModal(true);
-                  }}
-                  className="flex items-center gap-2 bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-                  title="إعادة فتح الحجز (يتطلب صلاحية مدير)"
-                >
-                  <RotateCcw size={16} />
-                  إعادة فتح
-                </button>
+                <Can permission="reservations:reopen">
+                  <button
+                    onClick={() => {
+                      setActionError("");
+                      setShowReopenModal(true);
+                    }}
+                    className="flex items-center gap-2 bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                    title="إعادة فتح الحجز (يتطلب صلاحية مدير)"
+                  >
+                    <RotateCcw size={16} />
+                    إعادة فتح
+                  </button>
+                </Can>
               )}
 
               {canExtendReservation(reservation) && (
-                <button
-                  onClick={openExtendModal}
-                  className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-                  title={
-                    reservation.status === "completed"
-                      ? "إعادة تفعيل وتمديد حجز انتهى اليوم"
-                      : "تمديد الحجز"
-                  }
-                >
-                  <CalendarPlus size={16} />
-                  {reservation.status === "completed"
-                    ? "إعادة تفعيل وتمديد"
-                    : "تمديد الحجز"}
-                </button>
+                <Can permission="reservations:extend">
+                  <button
+                    onClick={openExtendModal}
+                    className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                    title={
+                      reservation.status === "completed"
+                        ? "إعادة تفعيل وتمديد حجز انتهى اليوم"
+                        : "تمديد الحجز"
+                    }
+                  >
+                    <CalendarPlus size={16} />
+                    {reservation.status === "completed"
+                      ? "إعادة تفعيل وتمديد"
+                      : "تمديد الحجز"}
+                  </button>
+                </Can>
               )}
-              <button
-                onClick={handleStartEdit}
-                className="flex items-center gap-2 bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-              >
-                <Pencil size={16} />
-                تعديل
-              </button>
-              <Link
-                href={`/reservations/${reservation.id}/contract`}
-                className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-              >
-                <FileText size={16} />
-                طباعة العقد
-              </Link>
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-              >
-                <Trash2 size={16} />
-                حذف
-              </button>
+              <Can permission="reservations:edit">
+                <button
+                  onClick={handleStartEdit}
+                  className="flex items-center gap-2 bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                >
+                  <Pencil size={16} />
+                  تعديل
+                </button>
+              </Can>
+              <Can permission="reservations:print">
+                <Link
+                  href={`/reservations/${reservation.id}/contract`}
+                  className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                >
+                  <FileText size={16} />
+                  طباعة العقد
+                </Link>
+              </Can>
+              <Can permission="reservations:delete">
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                >
+                  <Trash2 size={16} />
+                  حذف
+                </button>
+              </Can>
             </>
           )}
         </div>
@@ -2159,15 +2178,17 @@ function ExtensionsHistory({
                   )}
                 </div>
                 {canReverse && (
-                  <button
-                    type="button"
-                    onClick={() => onReverse(ext)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors"
-                    title="عكس هذا التمديد (للمدير فقط)"
-                  >
-                    <Undo2 size={14} />
-                    عكس التمديد
-                  </button>
+                  <Can permission="reservations:reverse_extend">
+                    <button
+                      type="button"
+                      onClick={() => onReverse(ext)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors"
+                      title="عكس هذا التمديد (للمدير فقط)"
+                    >
+                      <Undo2 size={14} />
+                      عكس التمديد
+                    </button>
+                  </Can>
                 )}
               </div>
             </li>

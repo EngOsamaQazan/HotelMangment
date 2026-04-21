@@ -33,6 +33,7 @@ import type {
   UserLite,
 } from "@/lib/collab/types";
 import { PRIORITY_META, UserAvatar, formatShortDate } from "./shared";
+import { usePermissions } from "@/lib/permissions/client";
 
 interface LinkedMaintenance {
   id: number;
@@ -79,6 +80,8 @@ export function CardDrawer({
   const [description, setDescription] = useState("");
   const [openingChat, setOpeningChat] = useState(false);
   const router = useRouter();
+  const { can } = usePermissions();
+  const canDeleteCard = can("tasks.cards:delete");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -202,13 +205,15 @@ export function CardDrawer({
               )}
               <span className="hidden sm:inline">محادثة</span>
             </button>
-            <button
-              onClick={del}
-              title="حذف"
-              className="p-1.5 rounded-lg hover:bg-red-50 text-red-600 transition-colors"
-            >
-              <Trash2 size={18} />
-            </button>
+            {canDeleteCard && (
+              <button
+                onClick={del}
+                title="حذف"
+                className="p-1.5 rounded-lg hover:bg-red-50 text-red-600 transition-colors"
+              >
+                <Trash2 size={18} />
+              </button>
+            )}
             <button
               onClick={onClose}
               className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-500 transition-colors"

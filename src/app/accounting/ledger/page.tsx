@@ -221,16 +221,6 @@ export default function LedgerPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {from && isFirstPage && (
-                      <tr className="bg-blue-50/40 font-medium">
-                        <td className="px-4 py-3" colSpan={6}>
-                          رصيد أول المدة
-                        </td>
-                        <td className="px-4 py-3 font-bold">
-                          {formatAmount(data.openingBalance)}
-                        </td>
-                      </tr>
-                    )}
                     {pagedRows.map((r) => (
                       <tr key={r.id} className="hover:bg-gray-50/50">
                         <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
@@ -275,6 +265,16 @@ export default function LedgerPage() {
                         </td>
                       </tr>
                     ))}
+                    {from && isLastPage && (
+                      <tr className="bg-blue-50/40 font-medium">
+                        <td className="px-4 py-3" colSpan={6}>
+                          رصيد أول المدة
+                        </td>
+                        <td className="px-4 py-3 font-bold">
+                          {formatAmount(data.openingBalance)}
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                   {isLastPage && (
                     <tfoot>
@@ -299,16 +299,6 @@ export default function LedgerPage() {
             )}
             {data.rows.length > 0 && (
               <div className="md:hidden divide-y divide-gray-100">
-                {from && isFirstPage && (
-                  <div className="p-3 bg-blue-50/40 flex items-center justify-between gap-2 text-sm">
-                    <span className="font-medium text-gray-700">
-                      رصيد أول المدة
-                    </span>
-                    <span className="font-bold tabular-nums">
-                      {formatAmount(data.openingBalance)}
-                    </span>
-                  </div>
-                )}
                 {pagedRows.map((r) => (
                   <div key={r.id} className="p-3 space-y-2">
                     <div className="flex items-start justify-between gap-2">
@@ -353,6 +343,16 @@ export default function LedgerPage() {
                     </div>
                   </div>
                 ))}
+                {from && isLastPage && (
+                  <div className="p-3 bg-blue-50/40 flex items-center justify-between gap-2 text-sm">
+                    <span className="font-medium text-gray-700">
+                      رصيد أول المدة
+                    </span>
+                    <span className="font-bold tabular-nums">
+                      {formatAmount(data.openingBalance)}
+                    </span>
+                  </div>
+                )}
                 {isLastPage && (
                   <div className="p-3 bg-gray-100 grid grid-cols-3 gap-2 text-xs font-bold tabular-nums">
                     <span className="text-green-700">

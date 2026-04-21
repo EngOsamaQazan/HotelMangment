@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { numberToArabicWords } from "@/lib/utils";
+import { Can } from "@/components/Can";
 
 interface Unit {
   id: number;
@@ -181,7 +182,9 @@ export default function ContractClient({ id }: { id: string }) {
         .footer-note { text-align:center; font-size:9.5px; color:#999; margin-top:6px; border-top:1px solid #D4B273; padding-top:4px; }
       `}</style>
 
-      <button className="print-btn no-print" onClick={() => window.print()}>🖨️ طباعة العقد</button>
+      <Can permission="reservations:print">
+        <button className="print-btn no-print" onClick={() => window.print()}>🖨️ طباعة العقد</button>
+      </Can>
 
       <div className="contract-page">
 

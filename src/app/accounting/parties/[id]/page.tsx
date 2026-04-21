@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { cn, formatAmount, formatDate } from "@/lib/utils";
 import { Pagination, usePaginatedSlice } from "@/components/Pagination";
+import { Can } from "@/components/Can";
 
 const PAGE_SIZE = 20;
 
@@ -174,12 +175,14 @@ export default function PartyStatementPage() {
           <ArrowLeft size={16} /> العودة للقائمة
         </Link>
         <div className="flex items-center gap-2">
-          <Link
-            href={`/accounting/parties?edit=${id}`}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
-          >
-            <Pencil size={16} /> تعديل
-          </Link>
+          <Can permission="accounting.parties:edit">
+            <Link
+              href={`/accounting/parties?edit=${id}`}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+            >
+              <Pencil size={16} /> تعديل
+            </Link>
+          </Can>
           <button
             onClick={() => window.print()}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark"
@@ -430,16 +433,6 @@ export default function PartyStatementPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {from && isFirstPage && (
-                  <tr className="bg-blue-50/40 font-medium">
-                    <td className="px-4 py-3" colSpan={6}>
-                      رصيد أول المدة
-                    </td>
-                    <td className="px-4 py-3 font-bold">
-                      {formatAmount(data.openingBalance)}
-                    </td>
-                  </tr>
-                )}
                 {pagedRows.map((r) => (
                   <tr key={r.id} className="hover:bg-gray-50/50">
                     <td className="px-4 py-3 whitespace-nowrap text-gray-600">
@@ -475,6 +468,16 @@ export default function PartyStatementPage() {
                     </td>
                   </tr>
                 ))}
+                {from && isLastPage && (
+                  <tr className="bg-blue-50/40 font-medium">
+                    <td className="px-4 py-3" colSpan={6}>
+                      رصيد أول المدة
+                    </td>
+                    <td className="px-4 py-3 font-bold">
+                      {formatAmount(data.openingBalance)}
+                    </td>
+                  </tr>
+                )}
               </tbody>
               {isLastPage && (
                 <tfoot>
@@ -499,14 +502,6 @@ export default function PartyStatementPage() {
           {/* Mobile cards */}
           <div className="md:hidden">
             <div className="divide-y divide-gray-100">
-              {from && isFirstPage && (
-                <div className="p-3 bg-blue-50/40 flex items-center justify-between gap-2 text-sm">
-                  <span className="font-medium text-gray-700">رصيد أول المدة</span>
-                  <span className="font-bold tabular-nums">
-                    {formatAmount(data.openingBalance)}
-                  </span>
-                </div>
-              )}
               {pagedRows.map((r) => (
                 <div key={r.id} className="p-3 space-y-2">
                   <div className="flex items-start justify-between gap-2">
@@ -546,6 +541,14 @@ export default function PartyStatementPage() {
                   </div>
                 </div>
               ))}
+              {from && isLastPage && (
+                <div className="p-3 bg-blue-50/40 flex items-center justify-between gap-2 text-sm">
+                  <span className="font-medium text-gray-700">رصيد أول المدة</span>
+                  <span className="font-bold tabular-nums">
+                    {formatAmount(data.openingBalance)}
+                  </span>
+                </div>
+              )}
               {isLastPage && (
                 <div className="p-3 bg-gray-100 grid grid-cols-3 gap-2 text-xs font-bold tabular-nums">
                   <span className="text-green-700">

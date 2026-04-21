@@ -22,6 +22,7 @@ import {
 } from "@/lib/realtime/client";
 import { NewConversationModal } from "./NewConversationModal";
 import { useSession } from "next-auth/react";
+import { usePermissions } from "@/lib/permissions/client";
 
 interface Props {
   activeId: number | null;
@@ -36,6 +37,8 @@ export function ChatSidebar({ activeId }: Props) {
   const [showNew, setShowNew] = useState(false);
   const pathname = usePathname();
   const { connected } = useRealtime();
+  const { can } = usePermissions();
+  const canCreateChat = can("chat:create");
 
   const load = useCallback(async () => {
     try {
@@ -93,13 +96,15 @@ export function ChatSidebar({ activeId }: Props) {
             )}
           />
         </div>
-        <button
-          onClick={() => setShowNew(true)}
-          className="p-1.5 rounded-lg bg-primary text-white hover:bg-primary-dark transition-colors"
-          title="محادثة جديدة"
-        >
-          <Plus size={16} />
-        </button>
+        {canCreateChat && (
+          <button
+            onClick={() => setShowNew(true)}
+            className="p-1.5 rounded-lg bg-primary text-white hover:bg-primary-dark transition-colors"
+            title="محادثة جديدة"
+          >
+            <Plus size={16} />
+          </button>
+        )}
       </div>
 
       <div className="px-3 py-2 border-b border-gray-100">
@@ -126,12 +131,14 @@ export function ChatSidebar({ activeId }: Props) {
         ) : filtered.length === 0 ? (
           <div className="p-6 text-center text-gray-400 text-sm">
             لا توجد محادثات بعد.
-            <button
-              onClick={() => setShowNew(true)}
-              className="block mx-auto mt-3 text-primary underline"
-            >
-              ابدأ محادثة جديدة
-            </button>
+            {canCreateChat && (
+              <button
+                onClick={() => setShowNew(true)}
+                className="block mx-auto mt-3 text-primary underline"
+              >
+                ابدأ محادثة جديدة
+              </button>
+            )}
           </div>
         ) : (
           <ul>

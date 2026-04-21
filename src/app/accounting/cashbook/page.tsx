@@ -21,6 +21,7 @@ import {
   ArrowLeftRight,
 } from "lucide-react";
 import { cn, formatDate, formatAmount } from "@/lib/utils";
+import { Can } from "@/components/Can";
 
 type AccountKey = "cash" | "bank" | "wallet";
 
@@ -306,16 +307,18 @@ export default function CashbookPage() {
               </p>
             </div>
           </div>
-          <button
-            onClick={() => {
-              setForm(buildEmptyForm());
-              setShowForm(true);
-            }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium w-full sm:w-auto justify-center"
-          >
-            <Plus size={18} />
-            إضافة حركة
-          </button>
+          <Can permission="accounting.journal:create">
+            <button
+              onClick={() => {
+                setForm(buildEmptyForm());
+                setShowForm(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium w-full sm:w-auto justify-center"
+            >
+              <Plus size={18} />
+              إضافة حركة
+            </button>
+          </Can>
         </div>
       </div>
 
@@ -492,21 +495,6 @@ export default function CashbookPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {ledger && ledger.openingBalance !== 0 && isFirstPage && (
-                    <tr className="bg-amber-50/50 text-amber-900 text-xs">
-                      <td className="px-4 py-2 font-medium">
-                        {dateFrom ? formatDate(dateFrom) : "—"}
-                      </td>
-                      <td className="px-4 py-2">—</td>
-                      <td className="px-4 py-2 font-medium" colSpan={3}>
-                        الرصيد المُرحَّل (الافتتاحي)
-                      </td>
-                      <td className="px-4 py-2" />
-                      <td className="px-4 py-2 font-bold">
-                        {formatAmount(ledger.openingBalance)}
-                      </td>
-                    </tr>
-                  )}
                   {pagedRows.map((r) => (
                     <tr
                       key={r.id}
@@ -564,6 +552,21 @@ export default function CashbookPage() {
                       </td>
                     </tr>
                   ))}
+                  {ledger && ledger.openingBalance !== 0 && isLastPage && (
+                    <tr className="bg-amber-50/50 text-amber-900 text-xs">
+                      <td className="px-4 py-2 font-medium">
+                        {dateFrom ? formatDate(dateFrom) : "—"}
+                      </td>
+                      <td className="px-4 py-2">—</td>
+                      <td className="px-4 py-2 font-medium" colSpan={3}>
+                        الرصيد المُرحَّل (الافتتاحي)
+                      </td>
+                      <td className="px-4 py-2" />
+                      <td className="px-4 py-2 font-bold">
+                        {formatAmount(ledger.openingBalance)}
+                      </td>
+                    </tr>
+                  )}
                   {ledger && isLastPage && (
                     <tr className="bg-gray-100 font-bold text-gray-800 text-sm">
                       <td className="px-4 py-3" colSpan={4}>
@@ -586,21 +589,6 @@ export default function CashbookPage() {
 
             {/* Mobile / Tablet Cards < lg */}
             <div className="lg:hidden divide-y divide-gray-100">
-              {ledger && ledger.openingBalance !== 0 && isFirstPage && (
-                <div className="bg-amber-50/60 text-amber-900 px-4 py-3 flex items-center justify-between text-xs">
-                  <span className="font-medium">
-                    الرصيد المُرحَّل (الافتتاحي)
-                    {dateFrom && (
-                      <span className="text-amber-700/70 block text-[10px] mt-0.5">
-                        {formatDate(dateFrom)}
-                      </span>
-                    )}
-                  </span>
-                  <span className="font-bold tabular-nums">
-                    {formatAmount(ledger.openingBalance)}
-                  </span>
-                </div>
-              )}
               {pagedRows.map((r) => (
                 <div
                   key={r.id}
@@ -677,6 +665,21 @@ export default function CashbookPage() {
                   </div>
                 </div>
               ))}
+              {ledger && ledger.openingBalance !== 0 && isLastPage && (
+                <div className="bg-amber-50/60 text-amber-900 px-4 py-3 flex items-center justify-between text-xs">
+                  <span className="font-medium">
+                    الرصيد المُرحَّل (الافتتاحي)
+                    {dateFrom && (
+                      <span className="text-amber-700/70 block text-[10px] mt-0.5">
+                        {formatDate(dateFrom)}
+                      </span>
+                    )}
+                  </span>
+                  <span className="font-bold tabular-nums">
+                    {formatAmount(ledger.openingBalance)}
+                  </span>
+                </div>
+              )}
               {ledger && isLastPage && (
                 <div className="bg-gray-100 px-4 py-3 text-sm font-bold text-gray-800 space-y-1">
                   <div className="flex justify-between">

@@ -14,78 +14,91 @@ import {
   AlertTriangle,
   Receipt,
 } from "lucide-react";
+import { Can } from "@/components/Can";
 
 const SECTIONS: Array<{
   href: string;
   title: string;
   desc: string;
   icon: typeof BookOpen;
+  permission: string;
 }> = [
   {
     href: "/accounting/cashbook",
     title: "الدفتر النقدي",
     desc: "الصندوق والبنك والمحفظة الإلكترونية مع أرصدة فورية",
     icon: Banknote,
+    permission: "accounting.cashbook:view",
   },
   {
     href: "/accounting/accounts",
     title: "دليل الحسابات",
     desc: "إدارة شجرة الحسابات الأصول، الخصوم، الإيرادات، المصروفات",
     icon: BookOpen,
+    permission: "accounting.accounts:view",
   },
   {
     href: "/accounting/parties",
     title: "الأطراف",
     desc: "الشركاء، الموردون، الموظفون، المُقرضون + كشف حساب",
     icon: Users,
+    permission: "accounting.parties:view",
   },
   {
     href: "/accounting/payroll",
     title: "الرواتب والأجور",
     desc: "استحقاقات شهرية، عمولات، سلف، وسليبات رواتب قابلة للطباعة",
     icon: Receipt,
+    permission: "accounting.parties:view",
   },
   {
     href: "/accounting/journal",
     title: "القيود اليومية",
     desc: "عرض كافة القيود وإنشاء قيد يدوي متعدد السطور",
     icon: BookText,
+    permission: "accounting.journal:view",
   },
   {
     href: "/accounting/ledger",
     title: "الأستاذ العام",
     desc: "حركات حساب محدد مع أرصدة جارية",
     icon: Calculator,
+    permission: "accounting.ledger:view",
   },
   {
     href: "/accounting/reports/trial-balance",
     title: "ميزان المراجعة",
     desc: "التحقق من توازن الحسابات بتاريخ معين",
     icon: Scale,
+    permission: "accounting.reports:view",
   },
   {
     href: "/accounting/reports/income-statement",
     title: "قائمة الدخل",
     desc: "الإيرادات والمصروفات وصافي الربح/الخسارة",
     icon: TrendingUp,
+    permission: "accounting.reports:view",
   },
   {
     href: "/accounting/reports/balance-sheet",
     title: "الميزانية العمومية",
     desc: "الأصول = الخصوم + حقوق الملكية",
     icon: Wallet,
+    permission: "accounting.reports:view",
   },
   {
     href: "/accounting/reports/guest-debts",
     title: "تقرير ذمم النزلاء",
     desc: "الحجوزات غير المسددة — مربوطة بحساب 1100",
     icon: AlertTriangle,
+    permission: "accounting.reports:view",
   },
   {
     href: "/accounting/periods",
     title: "الفترات المالية",
     desc: "فتح/إقفال الفترات وقيد إقفال سنوي",
     icon: CalendarRange,
+    permission: "accounting.periods:view",
   },
 ];
 
@@ -108,8 +121,8 @@ export default function AccountingHomePage() {
         {SECTIONS.map((s) => {
           const Icon = s.icon;
           return (
+            <Can key={s.href} permission={s.permission}>
             <Link
-              key={s.href}
               href={s.href}
               className="relative bg-primary rounded-xl p-5 shadow-md hover:shadow-xl transition-all border border-gold/25 hover:border-gold/70 hover:-translate-y-0.5 group overflow-hidden"
             >
@@ -136,6 +149,7 @@ export default function AccountingHomePage() {
                 {s.desc}
               </p>
             </Link>
+            </Can>
           );
         })}
       </div>

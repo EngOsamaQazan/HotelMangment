@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn, formatAmount, formatDate } from "@/lib/utils";
 import { Pagination, usePaginatedSlice } from "@/components/Pagination";
+import { Can } from "@/components/Can";
 
 const PAGE_SIZE = 20;
 
@@ -232,12 +233,14 @@ export default function JournalPage() {
             القيود المحاسبية
           </h1>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm font-medium w-full sm:w-auto justify-center"
-        >
-          <Plus size={18} /> قيد يدوي
-        </button>
+        <Can permission="accounting.journal:create">
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm font-medium w-full sm:w-auto justify-center"
+          >
+            <Plus size={18} /> قيد يدوي
+          </button>
+        </Can>
       </div>
 
       <div className="bg-card-bg rounded-xl p-3 sm:p-4 shadow-sm">

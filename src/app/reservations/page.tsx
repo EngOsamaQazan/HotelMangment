@@ -19,6 +19,7 @@ import {
   statusLabels,
 } from "@/lib/utils";
 import { Pagination } from "@/components/Pagination";
+import { Can } from "@/components/Can";
 
 interface Unit {
   id: number;
@@ -140,13 +141,15 @@ export default function ReservationsPage() {
           <CalendarCheck className="text-primary" size={24} />
           <h1 className="text-xl sm:text-2xl font-bold text-primary">سجل الحجوزات</h1>
         </div>
-        <Link
-          href="/reservations/new"
-          className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-lg transition-colors font-medium w-full sm:w-auto"
-        >
-          <Plus size={18} />
-          حجز جديد
-        </Link>
+        <Can permission="reservations:create">
+          <Link
+            href="/reservations/new"
+            className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-lg transition-colors font-medium w-full sm:w-auto"
+          >
+            <Plus size={18} />
+            حجز جديد
+          </Link>
+        </Can>
       </div>
 
       {/* Summary strip */}
@@ -345,20 +348,24 @@ export default function ReservationsPage() {
                           >
                             <Eye size={16} />
                           </Link>
-                          <Link
-                            href={`/reservations/${r.id}`}
-                            className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
-                            title="تعديل"
-                          >
-                            <Pencil size={16} />
-                          </Link>
-                          <Link
-                            href={`/reservations/${r.id}/contract`}
-                            className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                            title="طباعة العقد"
-                          >
-                            <FileText size={16} />
-                          </Link>
+                          <Can permission="reservations:edit">
+                            <Link
+                              href={`/reservations/${r.id}`}
+                              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                              title="تعديل"
+                            >
+                              <Pencil size={16} />
+                            </Link>
+                          </Can>
+                          <Can permission="reservations:print">
+                            <Link
+                              href={`/reservations/${r.id}/contract`}
+                              className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                              title="طباعة العقد"
+                            >
+                              <FileText size={16} />
+                            </Link>
+                          </Can>
                         </div>
                       </td>
                     </tr>
@@ -416,13 +423,15 @@ export default function ReservationsPage() {
                       <Eye size={14} />
                       عرض
                     </Link>
-                    <Link
-                      href={`/reservations/${r.id}/contract`}
-                      className="flex-1 flex items-center justify-center gap-1 py-2 text-amber-600 bg-amber-50 rounded-lg text-xs font-medium"
-                    >
-                      <FileText size={14} />
-                      العقد
-                    </Link>
+                    <Can permission="reservations:print">
+                      <Link
+                        href={`/reservations/${r.id}/contract`}
+                        className="flex-1 flex items-center justify-center gap-1 py-2 text-amber-600 bg-amber-50 rounded-lg text-xs font-medium"
+                      >
+                        <FileText size={14} />
+                        العقد
+                      </Link>
+                    </Can>
                   </div>
                 </div>
               ))}

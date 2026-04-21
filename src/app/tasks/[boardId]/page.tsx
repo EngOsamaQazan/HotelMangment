@@ -36,6 +36,7 @@ import {
   type TaskEventPayload,
 } from "@/lib/realtime/client";
 import { cn } from "@/lib/utils";
+import { Can } from "@/components/Can";
 
 export default function BoardPage({
   params,
@@ -392,7 +393,9 @@ export default function BoardPage({
                   }}
                 />
               ))}
-              <AddColumnButton boardId={board.id} onCreated={load} />
+              <Can permission="tasks.boards:edit">
+                <AddColumnButton boardId={board.id} onCreated={load} />
+              </Can>
             </div>
             <DragOverlay>
               {activeCard && (

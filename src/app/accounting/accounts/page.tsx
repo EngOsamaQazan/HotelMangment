@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BookOpen, Plus, Loader2, AlertCircle, Lock, Eye, X } from "lucide-react";
 import Link from "next/link";
 import { cn, formatAmount } from "@/lib/utils";
+import { Can } from "@/components/Can";
 
 interface Account {
   id: number;
@@ -118,13 +119,15 @@ export default function AccountsPage() {
             دليل الحسابات
           </h1>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm font-medium w-full sm:w-auto justify-center"
-        >
-          <Plus size={18} />
-          إضافة حساب
-        </button>
+        <Can permission="accounting.accounts:create">
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm font-medium w-full sm:w-auto justify-center"
+          >
+            <Plus size={18} />
+            إضافة حساب
+          </button>
+        </Can>
       </div>
 
       <div className="flex flex-wrap gap-2">
