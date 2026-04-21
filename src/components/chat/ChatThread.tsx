@@ -153,24 +153,22 @@ export function ChatThread({ conversationId }: Props) {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [markRead]);
 
-  // Realtime: new/update/delete messages
+  // Realtime: new/update/delete messages.
+  // Uses the direct GET /api/chat/messages/[id] endpoint for reliability.
+  // If the single-message fetch ever fails (e.g. transient network), we fall
+  // back to reloading the whole thread so the UI never falls out of sync with
+  // what the user was just notified about.
   const fetchMessage = useCallback(
     async (messageId: number): Promise<ChatMessageT | null> => {
       try {
-        const res = await fetch(
-          `/api/chat/conversations/${conversationId}/messages?limit=1&cursor=${messageId + 1}`,
-        );
+        const res = await fetch(`/api/chat/messages/${messageId}`);
         if (!res.ok) return null;
-        const data = await res.json();
-        const m = (data.messages ?? []).find(
-          (x: ChatMessageT) => x.id === messageId,
-        );
-        return m ?? null;
+        return (await res.json()) as ChatMessageT;
       } catch {
         return null;
       }
     },
-    [conversationId],
+    [],
   );
 
   useRealtimeEvent<ChatEventPayload>(
@@ -180,22 +178,30 @@ export function ChatThread({ conversationId }: Props) {
       if (p.op === "insert") {
         const msg = await fetchMessage(p.messageId);
         if (msg) {
+          let inserted = false;
           setMessages((prev) => {
             if (prev.some((m) => m.id === msg.id)) return prev;
+            inserted = true;
             return [...prev, msg];
           });
-          // Scroll to bottom if we're near the bottom
-          const el = scrollRef.current;
-          if (el) {
-            const nearBottom =
-              el.scrollHeight - el.scrollTop - el.clientHeight < 200;
-            if (nearBottom) {
-              requestAnimationFrame(() => {
-                el.scrollTop = el.scrollHeight;
-              });
+          if (inserted) {
+            // Scroll to bottom if we're near the bottom
+            const el = scrollRef.current;
+            if (el) {
+              const nearBottom =
+                el.scrollHeight - el.scrollTop - el.clientHeight < 200;
+              if (nearBottom) {
+                requestAnimationFrame(() => {
+                  el.scrollTop = el.scrollHeight;
+                });
+              }
             }
+            if (p.senderId !== myId) markRead();
           }
-          if (p.senderId !== myId) markRead();
+        } else {
+          // Fallback: hydrate by reloading the whole page so the notified
+          // message is definitely visible.
+          await loadMessages();
         }
       } else if (p.op === "delete" || p.op === "update") {
         const msg = await fetchMessage(p.messageId);
@@ -203,10 +209,12 @@ export function ChatThread({ conversationId }: Props) {
           setMessages((prev) =>
             prev.map((m) => (m.id === msg.id ? msg : m)),
           );
+        } else {
+          await loadMessages();
         }
       }
     },
-    [conversationId, myId],
+    [conversationId, myId, loadMessages],
   );
 
   useRealtimeEvent<ChatReactionPayload>(
@@ -407,7 +415,7 @@ export function ChatThread({ conversationId }: Props) {
   const typingNames = Object.values(typing).map((t) => t.name);
 
   return (
-    <main className="flex-1 flex flex-col bg-gray-50 h-[calc(100vh-4rem)] md:h-[calc(100vh-2rem)]">
+    <main className="flex-1 flex flex-col bg-gray-50 h-[calc(100dvh-4rem)] md:h-[calc(100dvh-2rem)] min-h-0">
       {/* Header */}
       <div className="px-4 py-3 bg-white border-b border-gray-200 flex items-center gap-3 shrink-0">
         <Link
@@ -501,7 +509,7 @@ export function ChatThread({ conversationId }: Props) {
       {/* Composer */}
       <form
         onSubmit={sendMessage}
-        className="shrink-0 bg-white border-t border-gray-200 p-3 space-y-2"
+        className="shrink-0 bg-white border-t border-gray-200 p-3 space-y-2 safe-bottom"
       >
         {replyTo && (
           <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs">

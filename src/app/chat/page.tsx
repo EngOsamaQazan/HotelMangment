@@ -5,7 +5,7 @@ import { ChatSidebar } from "@/components/chat/ChatSidebar";
 
 export default function ChatIndexPage() {
   return (
-    <div className="flex flex-col md:flex-row -mx-4 md:-mx-6 -mt-4 md:-mt-6 h-[calc(100vh-4rem)] md:h-[calc(100vh-3rem)]">
+    <div className="flex flex-col md:flex-row -mx-4 md:-mx-6 -mt-4 md:-mt-6 -mb-4 md:-mb-6 h-[calc(100dvh-4rem)] md:h-[calc(100dvh-3rem)] min-h-0">
       <ChatSidebar activeId={null} />
       <main className="hidden md:flex flex-1 items-center justify-center bg-gray-50">
         <div className="text-center text-gray-400 px-6">

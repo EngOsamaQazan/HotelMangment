@@ -11,6 +11,64 @@ function errStatus(e: unknown): number {
 
 const EDIT_WINDOW_MS = 15 * 60 * 1000;
 
+/**
+ * GET /api/chat/messages/[id]
+ * Fetch a single message with all includes needed to render it in the
+ * thread. Used by the realtime handler when a `chat:event` notification
+ * arrives so we can hydrate the new/updated message without re-pulling
+ * the whole page.
+ */
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const session = await requirePermission("chat:view");
+    const userId = Number((session.user as { id?: string | number }).id);
+    const { id: raw } = await params;
+    const messageId = Number(raw);
+    if (!Number.isFinite(messageId)) {
+      return NextResponse.json({ error: "معرف غير صالح" }, { status: 400 });
+    }
+    const msg = await prisma.chatMessage.findUnique({
+      where: { id: messageId },
+      include: {
+        sender: { select: { id: true, name: true, email: true } },
+        attachments: true,
+        reactions: { select: { userId: true, emoji: true } },
+        replyTo: {
+          select: {
+            id: true,
+            body: true,
+            deletedAt: true,
+            sender: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+    if (!msg) {
+      return NextResponse.json(
+        { error: "لم يُعثر على الرسالة" },
+        { status: 404 },
+      );
+    }
+    await requireConversationAccess(msg.conversationId, userId);
+    return NextResponse.json(msg);
+  } catch (error) {
+    const authErr = handleAuthError(error);
+    if (authErr) return authErr;
+    const status = errStatus(error);
+    if (status === 403) {
+      return NextResponse.json(
+        { error: (error as Error).message },
+        { status: 403 },
+      );
+    }
+    console.error("GET message error:", error);
+    return NextResponse.json({ error: "فشل تحميل الرسالة" }, { status: 500 });
+  }
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },

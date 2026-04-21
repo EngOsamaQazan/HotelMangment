@@ -80,7 +80,7 @@ export function ChatSidebar({ activeId }: Props) {
   }, [conversations, query, myId]);
 
   return (
-    <aside className="w-full md:w-80 lg:w-96 shrink-0 bg-card-bg border-l border-gray-200 flex flex-col h-[calc(100vh-4rem)] md:h-[calc(100vh-2rem)]">
+    <aside className="w-full md:w-80 lg:w-96 shrink-0 bg-card-bg border-l border-gray-200 flex flex-col h-[calc(100dvh-4rem)] md:h-[calc(100dvh-2rem)] min-h-0">
       <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <MessageSquare size={18} className="text-primary" />
