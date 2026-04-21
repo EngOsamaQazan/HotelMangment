@@ -69,3 +69,11 @@ backup/
 *.sql
 *.dump
 !prisma/**/*.sql
+
+# Scratch / temporary agent artifacts (commit messages, nginx drafts, etc.)
+.tmp/
+
+# One-off maintenance scripts (rollbacks, data fixes) — kept locally only.
+# Whitelist scripts/ by default; add specific one-shots here as needed.
+scripts/fix-voided-entries-status.cjs
+scripts/rollback-reservations-after-adjustment.cjs
