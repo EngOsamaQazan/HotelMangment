@@ -36,7 +36,13 @@ export async function GET(
     await requireConversationAccess(conversationId, userId);
 
     const { searchParams } = new URL(request.url);
-    const cursor = Number(searchParams.get("cursor"));
+    // NB: `searchParams.get(...)` returns `null` when the param is absent.
+    // Passing that through `Number()` would give `0` (and `isFinite(0)` is
+    // `true`), which silently adds `where.id = { lt: 0 }` to the query and
+    // excludes every message — the thread shows up empty on first load.
+    // Only treat the cursor as set when the caller actually sent one.
+    const cursorRaw = searchParams.get("cursor");
+    const cursorNum = cursorRaw != null ? Number(cursorRaw) : NaN;
     const rawLimit = Number(searchParams.get("limit"));
     const limit = Math.min(
       MAX_PAGE_SIZE,
@@ -44,8 +50,8 @@ export async function GET(
     );
 
     const where: Record<string, unknown> = { conversationId };
-    if (Number.isFinite(cursor)) {
-      where.id = { lt: cursor };
+    if (Number.isFinite(cursorNum) && cursorNum > 0) {
+      where.id = { lt: cursorNum };
     }
     const messagesDesc = await prisma.chatMessage.findMany({
       where,
