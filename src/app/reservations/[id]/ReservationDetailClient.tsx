@@ -23,6 +23,7 @@ import {
   History,
   CheckCircle2,
   Clock,
+  Undo2,
 } from "lucide-react";
 import { NumberInput } from "@/components/ui/NumberInput";
 import { CountrySelect } from "@/components/ui/CountrySelect";
@@ -91,6 +92,26 @@ interface StatusLogEntry {
   actor: { id: number; name: string; email: string } | null;
 }
 
+interface ExtensionEntry {
+  id: number;
+  additionalNights: number;
+  stayType: string;
+  addedAmount: number | string;
+  addedPaid: number | string;
+  paymentMethod: string | null;
+  note: string | null;
+  previousCheckOut: string;
+  newCheckOut: string;
+  previousNumNights: number;
+  newNumNights: number;
+  previousStatus: string;
+  createdAt: string;
+  reversedAt: string | null;
+  reversalReason: string | null;
+  createdBy: { id: number; name: string } | null;
+  reversedBy: { id: number; name: string } | null;
+}
+
 const STATUS_LOG_ACTION_LABELS: Record<string, string> = {
   check_in: "تسجيل دخول",
   check_out: "تسجيل مغادرة",
@@ -98,6 +119,7 @@ const STATUS_LOG_ACTION_LABELS: Record<string, string> = {
   no_show: "عدم حضور",
   reopen: "إعادة فتح",
   extend: "تمديد",
+  reverse_extend: "عكس تمديد",
   edit: "تعديل مالي",
   auto_activate: "تفعيل تلقائي",
   auto_complete: "إنهاء تلقائي",
@@ -191,6 +213,34 @@ export default function ReservationDetailClient({ id }: { id: string }) {
   const [noShowKeepCharge, setNoShowKeepCharge] = useState(false);
   const [showReopenModal, setShowReopenModal] = useState(false);
   const [reopenReason, setReopenReason] = useState("");
+
+  // ---- Extensions history + reverse (undo) ----
+  const [extensions, setExtensions] = useState<ExtensionEntry[]>([]);
+  const [extensionsLoading, setExtensionsLoading] = useState(false);
+  const [reverseTarget, setReverseTarget] = useState<ExtensionEntry | null>(
+    null,
+  );
+  const [reverseReason, setReverseReason] = useState("");
+  const [reversing, setReversing] = useState(false);
+  const [reverseError, setReverseError] = useState("");
+
+  const fetchExtensions = useCallback(async () => {
+    setExtensionsLoading(true);
+    try {
+      const res = await fetch(`/api/reservations/${id}/extensions`);
+      if (!res.ok) throw new Error("Failed");
+      const data: { extensions: ExtensionEntry[] } = await res.json();
+      setExtensions(data.extensions || []);
+    } catch {
+      setExtensions([]);
+    } finally {
+      setExtensionsLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchExtensions();
+  }, [fetchExtensions]);
 
   const fetchReservation = useCallback(async () => {
     setLoading(true);
@@ -388,11 +438,52 @@ export default function ReservationDetailClient({ id }: { id: string }) {
       } else {
         await fetchReservation();
       }
+      await fetchExtensions();
       setShowExtendModal(false);
     } catch (err) {
       setExtendError(err instanceof Error ? err.message : "حدث خطأ غير متوقع");
     } finally {
       setExtending(false);
+    }
+  };
+
+  const openReverseModal = (ext: ExtensionEntry) => {
+    setReverseTarget(ext);
+    setReverseReason("");
+    setReverseError("");
+  };
+
+  const handleSubmitReverse = async () => {
+    if (!reverseTarget) return;
+    if (!reverseReason.trim()) {
+      setReverseError("يرجى إدخال سبب عكس التمديد");
+      return;
+    }
+    setReversing(true);
+    setReverseError("");
+    try {
+      const res = await fetch(
+        `/api/reservations/${id}/extensions/${reverseTarget.id}/reverse`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason: reverseReason.trim() }),
+        },
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "تعذّر عكس التمديد");
+      }
+      await fetchReservation();
+      await fetchExtensions();
+      setReverseTarget(null);
+      setReverseReason("");
+    } catch (err) {
+      setReverseError(
+        err instanceof Error ? err.message : "حدث خطأ غير متوقع",
+      );
+    } finally {
+      setReversing(false);
     }
   };
 
@@ -1586,9 +1677,78 @@ export default function ReservationDetailClient({ id }: { id: string }) {
             </div>
           )}
 
+          {/* ===== Extensions history (with undo) ===== */}
+          <ExtensionsHistory
+            loading={extensionsLoading}
+            extensions={extensions}
+            onReverse={openReverseModal}
+          />
+
           {/* ===== Audit log / status timeline ===== */}
           <StatusTimeline logs={reservation.statusLogs ?? []} />
         </div>
+      )}
+
+      {/* ===== Reverse-extension modal ===== */}
+      {reverseTarget && (
+        <ActionModal
+          icon={<Undo2 size={18} className="text-rose-600" />}
+          iconBg="bg-rose-50"
+          title="عكس تمديد الحجز"
+          description="سيتم إلغاء هذا التمديد ماليًا ومحاسبيًا وإعادة الحجز إلى وضعه قبل التمديد. هذا الإجراء مُسجَّل في السجل ولا يمكن التراجع عنه إلا بتمديد جديد."
+          confirmLabel="تأكيد العكس"
+          confirmClass="bg-rose-600 hover:bg-rose-700"
+          busy={reversing}
+          error={reverseError}
+          onConfirm={handleSubmitReverse}
+          onClose={() => {
+            if (!reversing) {
+              setReverseTarget(null);
+              setReverseReason("");
+              setReverseError("");
+            }
+          }}
+        >
+          <div className="space-y-3">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 space-y-1">
+              <p>
+                <span className="font-semibold">عدد الليالي المُلغاة:</span>{" "}
+                {reverseTarget.additionalNights}{" "}
+                {reverseTarget.stayType === "monthly"
+                  ? "شهر"
+                  : reverseTarget.stayType === "weekly"
+                    ? "أسبوع"
+                    : "ليلة"}
+              </p>
+              <p>
+                <span className="font-semibold">المبلغ الذي سيُعاد:</span>{" "}
+                {Number(reverseTarget.addedAmount).toFixed(2)}
+                {Number(reverseTarget.addedPaid) > 0 && (
+                  <>
+                    {" "}— <span className="font-semibold">دفعة مُلغاة:</span>{" "}
+                    {Number(reverseTarget.addedPaid).toFixed(2)}
+                  </>
+                )}
+              </p>
+              <p>
+                <span className="font-semibold">موعد الخروج سيعود إلى:</span>{" "}
+                {formatDate(reverseTarget.previousCheckOut)}
+              </p>
+            </div>
+            <label className="block">
+              <span className="block text-xs font-medium text-gray-600 mb-1">
+                سبب العكس (إلزامي)
+              </span>
+              <textarea
+                value={reverseReason}
+                onChange={(e) => setReverseReason(e.target.value)}
+                rows={3}
+                placeholder="مثلاً: تمديد خاطئ، الضيف لم يوافق، عدد ليالٍ غير صحيح…"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
+              />
+            </label>
+          </div>
+        </ActionModal>
       )}
     </div>
   );
@@ -1857,6 +2017,163 @@ function StatusTile({
         {main}
       </p>
       {sub && <p className="text-[11px] opacity-80 mt-1">{sub}</p>}
+    </div>
+  );
+}
+
+/**
+ * Extensions history panel. Lists every extension posted against the
+ * reservation, most-recent first. The latest *non-reversed* extension
+ * exposes a "Reverse" button — reversing out of LIFO order is rejected
+ * by the API so we only show the button on that single row.
+ */
+function ExtensionsHistory({
+  loading,
+  extensions,
+  onReverse,
+}: {
+  loading: boolean;
+  extensions: ExtensionEntry[];
+  onReverse: (ext: ExtensionEntry) => void;
+}) {
+  const latestReversibleId = (() => {
+    const latest = extensions.find((e) => !e.reversedAt);
+    return latest ? latest.id : null;
+  })();
+
+  if (loading && extensions.length === 0) {
+    return (
+      <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 p-6">
+        <h2 className="text-lg font-bold text-gray-700 mb-3 flex items-center gap-2">
+          <div className="w-1 h-6 bg-primary rounded-full" />
+          <CalendarPlus size={18} />
+          سجل التمديدات
+        </h2>
+        <div className="flex items-center gap-2 text-sm text-gray-400">
+          <Loader2 size={16} className="animate-spin" />
+          جاري التحميل...
+        </div>
+      </div>
+    );
+  }
+
+  if (extensions.length === 0) return null;
+
+  return (
+    <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 p-6">
+      <h2 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+        <div className="w-1 h-6 bg-primary rounded-full" />
+        <CalendarPlus size={18} />
+        سجل التمديدات ({extensions.length})
+      </h2>
+      <ul className="space-y-3">
+        {extensions.map((ext) => {
+          const reversed = Boolean(ext.reversedAt);
+          const canReverse = !reversed && ext.id === latestReversibleId;
+          const unitLabel =
+            ext.stayType === "monthly"
+              ? "شهر"
+              : ext.stayType === "weekly"
+                ? "أسبوع"
+                : "ليلة";
+          const created = new Date(ext.createdAt);
+          const reversedAt = ext.reversedAt ? new Date(ext.reversedAt) : null;
+          return (
+            <li
+              key={ext.id}
+              className={cn(
+                "border rounded-lg p-4",
+                reversed
+                  ? "border-rose-200 bg-rose-50/40"
+                  : "border-gray-100 bg-gray-50/50",
+              )}
+            >
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-bold text-gray-800">
+                      +{ext.additionalNights} {unitLabel}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      ({formatDate(ext.previousCheckOut)} →{" "}
+                      {formatDate(ext.newCheckOut)})
+                    </span>
+                    {reversed && (
+                      <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[11px] font-medium">
+                        معكوس
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                    <div>
+                      <p className="text-gray-400">مبلغ إضافي</p>
+                      <p className="font-semibold text-gray-700">
+                        {formatAmount(ext.addedAmount)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">دفعة مستلمة</p>
+                      <p className="font-semibold text-emerald-700">
+                        {formatAmount(ext.addedPaid)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">الموظف</p>
+                      <p className="font-medium text-gray-700">
+                        {ext.createdBy?.name || "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">التاريخ</p>
+                      <p className="font-medium text-gray-700">
+                        {Number.isNaN(created.getTime())
+                          ? ext.createdAt
+                          : created.toLocaleString("ar", {
+                              dateStyle: "short",
+                              timeStyle: "short",
+                            })}
+                      </p>
+                    </div>
+                  </div>
+                  {ext.note && (
+                    <p className="mt-2 text-xs text-gray-600 leading-relaxed whitespace-pre-wrap">
+                      ملاحظة: {ext.note}
+                    </p>
+                  )}
+                  {reversed && ext.reversalReason && (
+                    <div className="mt-2 border-t border-rose-200 pt-2 text-xs text-rose-700 space-y-1">
+                      <p>
+                        <span className="font-semibold">سبب العكس:</span>{" "}
+                        {ext.reversalReason}
+                      </p>
+                      <p className="text-[11px] text-rose-500">
+                        {reversedAt && !Number.isNaN(reversedAt.getTime())
+                          ? reversedAt.toLocaleString("ar", {
+                              dateStyle: "short",
+                              timeStyle: "short",
+                            })
+                          : ""}
+                        {ext.reversedBy ? ` • ${ext.reversedBy.name}` : ""}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                {canReverse && (
+                  <button
+                    type="button"
+                    onClick={() => onReverse(ext)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors"
+                    title="عكس هذا التمديد (للمدير فقط)"
+                  >
+                    <Undo2 size={14} />
+                    عكس التمديد
+                  </button>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

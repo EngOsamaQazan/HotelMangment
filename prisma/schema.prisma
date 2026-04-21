@@ -41,6 +41,8 @@ model User {
 
   // ---- Reservation audit ----
   reservationStatusLogs ReservationStatusLog[]
+  extensionsCreated     ReservationExtension[] @relation("ReservationExtensionCreator")
+  extensionsReversed    ReservationExtension[] @relation("ReservationExtensionReverser")
 
   @@map("users")
 }
@@ -221,10 +223,50 @@ model Reservation {
   guests       Guest[]
   transactions Transaction[]
   statusLogs   ReservationStatusLog[]
+  extensions   ReservationExtension[]
 
   @@index([status])
   @@index([actualCheckInAt])
   @@map("reservations")
+}
+
+/// Append-only log of every reservation extension event. Each row keeps
+/// enough "before" state to support a clean reversal (undo) even after
+/// multiple extensions, and acts as the authoritative source when the
+/// front-desk UI needs to show the history of a stay.
+model ReservationExtension {
+  id                  Int       @id @default(autoincrement())
+  reservationId       Int       @map("reservation_id")
+  additionalNights    Int       @map("additional_nights")
+  stayType            String    @default("daily") @map("stay_type")
+  addedAmount         Float     @map("added_amount")
+  addedPaid           Float     @default(0) @map("added_paid")
+  paymentMethod       String?   @map("payment_method")
+  note                String?
+  // Snapshot of the reservation BEFORE this extension was applied — used
+  // to restore state on reversal.
+  previousCheckOut    DateTime  @map("previous_check_out")
+  newCheckOut         DateTime  @map("new_check_out")
+  previousNumNights   Int       @map("previous_num_nights")
+  newNumNights        Int       @map("new_num_nights")
+  previousTotalAmount Float     @map("previous_total_amount")
+  newTotalAmount      Float     @map("new_total_amount")
+  previousPaidAmount  Float     @map("previous_paid_amount")
+  newPaidAmount       Float     @map("new_paid_amount")
+  previousStatus      String    @map("previous_status")
+  createdById         Int?      @map("created_by")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  reversedAt          DateTime? @map("reversed_at")
+  reversedById        Int?      @map("reversed_by")
+  reversalReason      String?   @map("reversal_reason")
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  createdBy   User?       @relation("ReservationExtensionCreator", fields: [createdById], references: [id])
+  reversedBy  User?       @relation("ReservationExtensionReverser", fields: [reversedById], references: [id])
+
+  @@index([reservationId, createdAt])
+  @@index([reversedAt])
+  @@map("reservation_extensions")
 }
 
 /// Append-only audit trail of every reservation state transition.

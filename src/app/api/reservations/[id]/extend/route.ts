@@ -139,7 +139,7 @@ export async function POST(
     const newRemaining = Math.round((newTotal - newPaid) * 100) / 100;
 
     const updated = await prisma.$transaction(async (tx) => {
-      const res = await tx.reservation.update({
+      await tx.reservation.update({
         where: { id: reservationId },
         data: {
           numNights: newNumNights,
@@ -169,6 +169,30 @@ export async function POST(
         });
       }
 
+      // Persist an immutable audit record of this extension so it can be
+      // reversed later if the front-desk clerk made a mistake.
+      const extension = await tx.reservationExtension.create({
+        data: {
+          reservationId,
+          additionalNights,
+          stayType,
+          addedAmount,
+          addedPaid,
+          paymentMethod,
+          note: body.note ? String(body.note).slice(0, 1000) : null,
+          previousCheckOut: existing.checkOut,
+          newCheckOut,
+          previousNumNights: existing.numNights,
+          newNumNights,
+          previousTotalAmount: Number(existing.totalAmount),
+          newTotalAmount: newTotal,
+          previousPaidAmount: Number(existing.paidAmount),
+          newPaidAmount: newPaid,
+          previousStatus: existing.status,
+          createdById: Number.isFinite(actorUserId) ? actorUserId : null,
+        },
+      });
+
       if (addedPaid > 0) {
         const cashCode = cashAccountCodeFromMethod(paymentMethod);
         await tx.transaction.create({
@@ -186,6 +210,7 @@ export async function POST(
 
       await postExtensionEntries(tx, {
         reservationId,
+        extensionId: extension.id,
         guestName: existing.guestName,
         guestIdNumber: existing.guestIdNumber,
         phone: existing.phone,
@@ -204,7 +229,7 @@ export async function POST(
           stayType === "monthly" ? "شهر" : stayType === "weekly" ? "أسبوع" : "ليلة"
         }، مبلغ إضافي ${addedAmount.toFixed(2)}${
           body.note ? " — " + String(body.note).slice(0, 200) : ""
-        }`,
+        } (EXT#${extension.id})`,
         actorUserId: Number.isFinite(actorUserId) ? actorUserId : null,
       });
 

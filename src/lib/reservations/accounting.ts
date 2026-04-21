@@ -154,6 +154,7 @@ export async function postExtensionEntries(
   tx: Tx,
   args: {
     reservationId: number;
+    extensionId?: number;
     guestName: string;
     guestIdNumber?: string | null;
     phone?: string | null;
@@ -166,6 +167,7 @@ export async function postExtensionEntries(
 ): Promise<void> {
   const {
     reservationId,
+    extensionId,
     guestName,
     guestIdNumber,
     phone,
@@ -183,12 +185,17 @@ export async function postExtensionEntries(
     reservationId,
   });
 
+  // `reference` carries the extension id so we can later void exactly the
+  // entries tied to a single extension event (see `reverseExtensionEntries`).
+  const extRef = extensionId != null ? `ext:${extensionId}` : null;
+
   if (addedAmount > 0) {
     await postEntry(tx, {
       date: extensionDate,
       description: `تمديد حجز #${reservationId} - ${guestName} - ${unitNumber}`,
       source: "extension",
       sourceRefId: reservationId,
+      reference: extRef,
       lines: [
         {
           accountCode: ACCOUNT_CODES.AR_GUESTS,
@@ -212,6 +219,7 @@ export async function postExtensionEntries(
       description: `دفعة تمديد حجز #${reservationId} - ${guestName}`,
       source: "payment",
       sourceRefId: reservationId,
+      reference: extRef,
       lines: [
         {
           accountCode: cashCode,
@@ -227,6 +235,37 @@ export async function postExtensionEntries(
       ],
     });
   }
+}
+
+/**
+ * Reverse every journal entry tied to a single extension event. This is
+ * called when the front-desk undoes an extension (e.g. clerical mistake).
+ * Matches both the revenue (`source="extension"`) and any payment entries
+ * (`source="payment"`) posted against this specific extension via the
+ * `reference = "ext:<id>"` marker set by `postExtensionEntries`.
+ */
+export async function reverseExtensionEntries(
+  tx: Tx,
+  args: {
+    reservationId: number;
+    extensionId: number;
+    reason: string;
+    voidedById?: number | null;
+  },
+): Promise<number> {
+  const { reservationId, extensionId, reason, voidedById } = args;
+  const entries = await tx.journalEntry.findMany({
+    where: {
+      sourceRefId: reservationId,
+      reference: `ext:${extensionId}`,
+      status: "posted",
+    },
+    select: { id: true },
+  });
+  for (const e of entries) {
+    await voidEntry(tx, e.id, reason, voidedById ?? null);
+  }
+  return entries.length;
 }
 
 /**

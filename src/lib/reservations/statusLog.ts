@@ -30,6 +30,7 @@ export type StatusLogAction =
   | "no_show"
   | "reopen"
   | "extend"
+  | "reverse_extend"
   | "edit"
   | "auto_activate"
   | "auto_complete";
@@ -41,6 +42,7 @@ export const STATUS_LOG_ACTION_LABELS: Record<StatusLogAction, string> = {
   no_show: "عدم حضور",
   reopen: "إعادة فتح",
   extend: "تمديد",
+  reverse_extend: "عكس تمديد",
   edit: "تعديل مالي",
   auto_activate: "تفعيل تلقائي",
   auto_complete: "إنهاء تلقائي",
@@ -108,6 +110,9 @@ export function isTransitionAllowed(
         fromStatus === "upcoming" ||
         fromStatus === "completed"
       );
+    case "reverse_extend":
+      // Reverse flow can restore to any non-cancelled previous status.
+      return fromStatus !== "cancelled";
     case "edit":
       // Edits never change the status; they're logged for financial trail.
       return true;
