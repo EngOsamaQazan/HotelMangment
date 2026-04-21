@@ -81,15 +81,18 @@ export function BookedDatePicker({
     [minDate, today],
   );
 
-  const [viewMonth, setViewMonth] = useState<Date>(() =>
-    selectedDate ?? effectiveMin ?? today,
-  );
-
-  useEffect(() => {
-    if (selectedDate) {
-      setViewMonth(selectedDate);
-    }
-  }, [selectedDate]);
+  // `monthOverride` is the month the user has paged to via prev/next.
+  // When the controlled `value` changes we clear the override so the
+  // calendar follows the new selection. This is the canonical
+  // "sync state with props during render" pattern (no useEffect needed).
+  const [monthOverride, setMonthOverride] = useState<Date | null>(null);
+  const [lastSeenValue, setLastSeenValue] = useState(value);
+  if (value !== lastSeenValue) {
+    setLastSeenValue(value);
+    setMonthOverride(null);
+  }
+  const viewMonth: Date = monthOverride ?? selectedDate ?? effectiveMin ?? today;
+  const setViewMonth = (d: Date) => setMonthOverride(d);
 
   // Close on outside click
   useEffect(() => {

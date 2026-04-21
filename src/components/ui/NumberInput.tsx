@@ -2,8 +2,6 @@
 
 import {
   forwardRef,
-  useEffect,
-  useRef,
   useState,
   type FocusEvent,
   type InputHTMLAttributes,
@@ -65,18 +63,12 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
     },
     ref,
   ) {
-    const [raw, setRaw] = useState<string>(
-      Number.isFinite(value) ? String(value) : "",
-    );
-    const focusedRef = useRef(false);
-
-    useEffect(() => {
-      if (focusedRef.current) return;
-      const parsed = decimal ? parseFloat(raw) : parseInt(raw, 10);
-      if (!Number.isFinite(parsed) || parsed !== value) {
-        setRaw(Number.isFinite(value) ? String(value) : "");
-      }
-    }, [value, raw, decimal]);
+    // `draft` holds the user's in-progress text while the field is focused
+    // (including empty strings, partial "-" or "1."). When null, we fall back
+    // to the controlled `value` stringified — so external updates show up
+    // without needing a useEffect to sync derived state.
+    const [draft, setDraft] = useState<string | null>(null);
+    const raw = draft ?? (Number.isFinite(value) ? String(value) : "");
 
     function clamp(n: number): number {
       let v = n;
@@ -101,12 +93,12 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
         step={step}
         value={raw}
         onFocus={(e) => {
-          focusedRef.current = true;
+          if (draft === null) setDraft(raw);
           onFocus?.(e);
         }}
         onChange={(e) => {
           const next = e.target.value;
-          setRaw(next);
+          setDraft(next);
           if (next === "" || next === "-" || next === ".") return;
           const parsed = decimal ? parseFloat(next) : parseInt(next, 10);
           if (Number.isFinite(parsed)) {
@@ -115,17 +107,17 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
           }
         }}
         onBlur={(e) => {
-          focusedRef.current = false;
           const parsed = decimal ? parseFloat(raw) : parseInt(raw, 10);
           if (Number.isFinite(parsed)) {
             const clamped = clamp(parsed);
             if (clamped !== value) onValueChange(clamped);
-            setRaw(String(clamped));
           } else {
             const fb = resolveFallback();
             if (fb !== value) onValueChange(fb);
-            setRaw(String(fb));
           }
+          // Release our local draft so the field reflects the (now normalized)
+          // controlled value on the next render.
+          setDraft(null);
           onBlur?.(e);
         }}
         {...rest}
