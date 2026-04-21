@@ -267,6 +267,13 @@ export default function CashbookPage() {
     }
   }
 
+  // NOTE: Hooks must be called unconditionally — keep usePaginatedSlice above
+  // any early return. rules-of-hooks will fail CI otherwise.
+  const activeMeta = ACCOUNT_META[activeTab];
+  const rows = ledger?.rows ?? [];
+  const pagedRows = usePaginatedSlice(rows, page, PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -281,11 +288,6 @@ export default function CashbookPage() {
       </div>
     );
   }
-
-  const activeMeta = ACCOUNT_META[activeTab];
-  const rows = ledger?.rows ?? [];
-  const pagedRows = usePaginatedSlice(rows, page, PAGE_SIZE);
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const isFirstPage = page === 1;
   const isLastPage = page === totalPages;
 
