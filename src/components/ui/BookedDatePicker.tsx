@@ -171,7 +171,7 @@ export function BookedDatePicker({
           <div className="flex items-center justify-between mb-2">
             <button
               type="button"
-              onClick={() => setViewMonth((m) => subMonths(m, 1))}
+              onClick={() => setViewMonth(subMonths(viewMonth, 1))}
               className="p-1.5 rounded hover:bg-gray-100"
               aria-label="الشهر السابق"
             >
@@ -182,7 +182,7 @@ export function BookedDatePicker({
             </div>
             <button
               type="button"
-              onClick={() => setViewMonth((m) => addMonths(m, 1))}
+              onClick={() => setViewMonth(addMonths(viewMonth, 1))}
               className="p-1.5 rounded hover:bg-gray-100"
               aria-label="الشهر التالي"
             >
