@@ -128,7 +128,8 @@ export const unitTypeLabels: Record<string, string> = {
 };
 
 export const statusLabels: Record<string, string> = {
-  active: "نشط",
+  active: "ساري",
+  upcoming: "قادم",
   completed: "منتهي",
   cancelled: "ملغي",
   available: "شاغرة",

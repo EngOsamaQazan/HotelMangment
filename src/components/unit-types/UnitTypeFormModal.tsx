@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { X, Save, Loader2, AlertCircle, Upload, Star, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NumberInput } from "@/components/ui/NumberInput";
 import { UNIT_CATEGORIES } from "./shared";
 import {
   BedConfigurator,
@@ -425,13 +426,10 @@ export function UnitTypeFormModal({ id, onClose, onSaved }: Props) {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         بالغون
                       </label>
-                      <input
-                        type="number"
+                      <NumberInput
                         min={1}
                         value={form.maxAdults}
-                        onChange={(e) =>
-                          setForm({ ...form, maxAdults: Number(e.target.value) || 1 })
-                        }
+                        onValueChange={(n) => setForm({ ...form, maxAdults: n })}
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       />
                     </div>
@@ -439,13 +437,10 @@ export function UnitTypeFormModal({ id, onClose, onSaved }: Props) {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         أطفال
                       </label>
-                      <input
-                        type="number"
+                      <NumberInput
                         min={0}
                         value={form.maxChildren}
-                        onChange={(e) =>
-                          setForm({ ...form, maxChildren: Number(e.target.value) || 0 })
-                        }
+                        onValueChange={(n) => setForm({ ...form, maxChildren: n })}
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       />
                     </div>
@@ -453,13 +448,10 @@ export function UnitTypeFormModal({ id, onClose, onSaved }: Props) {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         السعة القصوى
                       </label>
-                      <input
-                        type="number"
+                      <NumberInput
                         min={1}
                         value={form.maxOccupancy}
-                        onChange={(e) =>
-                          setForm({ ...form, maxOccupancy: Number(e.target.value) || 1 })
-                        }
+                        onValueChange={(n) => setForm({ ...form, maxOccupancy: n })}
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       />
                     </div>
@@ -557,12 +549,10 @@ export function UnitTypeFormModal({ id, onClose, onSaved }: Props) {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         ترتيب العرض
                       </label>
-                      <input
-                        type="number"
+                      <NumberInput
+                        min={0}
                         value={form.sortOrder}
-                        onChange={(e) =>
-                          setForm({ ...form, sortOrder: Number(e.target.value) || 0 })
-                        }
+                        onValueChange={(n) => setForm({ ...form, sortOrder: n })}
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       />
                     </div>

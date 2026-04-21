@@ -14,7 +14,10 @@ import {
   X,
   UserPlus,
   AlertTriangle,
+  CalendarPlus,
 } from "lucide-react";
+import { NumberInput } from "@/components/ui/NumberInput";
+import { CountrySelect } from "@/components/ui/CountrySelect";
 import {
   cn,
   formatDate,
@@ -63,9 +66,20 @@ interface ReservationData {
 
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-green-100 text-green-800",
+  upcoming: "bg-blue-100 text-blue-800",
   completed: "bg-gray-100 text-gray-700",
   cancelled: "bg-red-100 text-red-800",
 };
+
+/** Extract `HH:mm` from an ISO string, falling back to `fallback`. */
+function extractHHMM(iso: string, fallback: string): string {
+  if (!iso) return fallback;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return fallback;
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
 
 export default function ReservationDetailClient({ id }: { id: string }) {
   const router = useRouter();
@@ -78,12 +92,23 @@ export default function ReservationDetailClient({ id }: { id: string }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Extend reservation state
+  const [showExtendModal, setShowExtendModal] = useState(false);
+  const [extending, setExtending] = useState(false);
+  const [extendError, setExtendError] = useState("");
+  const [extendNights, setExtendNights] = useState(1);
+  const [extendAmount, setExtendAmount] = useState<string>("");
+  const [extendPaid, setExtendPaid] = useState<string>("0");
+  const [extendPaymentMethod, setExtendPaymentMethod] = useState("cash");
+
   // Edit form state
   const [guestName, setGuestName] = useState("");
   const [phone, setPhone] = useState("");
   const [numGuests, setNumGuests] = useState(1);
   const [stayType, setStayType] = useState("daily");
   const [checkIn, setCheckIn] = useState("");
+  const [checkInTime, setCheckInTime] = useState("14:00");
+  const [checkOutTime, setCheckOutTime] = useState("12:00");
   const [numNights, setNumNights] = useState(1);
   const [unitPrice, setUnitPrice] = useState("");
   const [paidAmount, setPaidAmount] = useState("0");
@@ -117,6 +142,9 @@ export default function ReservationDetailClient({ id }: { id: string }) {
     setNumGuests(r.numGuests);
     setStayType(r.stayType);
     setCheckIn(r.checkIn.split("T")[0]);
+    // Preserve the HH:mm portion of stored DateTimes when editing.
+    setCheckInTime(extractHHMM(r.checkIn, "14:00"));
+    setCheckOutTime(extractHHMM(r.checkOut, "12:00"));
     setNumNights(r.numNights);
     setUnitPrice(String(r.unitPrice));
     setPaidAmount(String(r.paidAmount));
@@ -191,13 +219,15 @@ export default function ReservationDetailClient({ id }: { id: string }) {
     setError("");
 
     try {
+      const checkInIso = `${checkIn}T${checkInTime || "14:00"}:00`;
+      const checkOutIso = `${checkOut}T${checkOutTime || "12:00"}:00`;
+
       const body = {
         guestName: guestName.trim(),
         phone: phone.trim() || null,
-        numNights,
         stayType,
-        checkIn,
-        checkOut,
+        checkIn: checkInIso,
+        checkOut: checkOutIso,
         unitPrice,
         totalAmount,
         paidAmount: paidAmount || "0",
@@ -232,6 +262,64 @@ export default function ReservationDetailClient({ id }: { id: string }) {
       setError(err instanceof Error ? err.message : "حدث خطأ غير متوقع");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const openExtendModal = () => {
+    if (!reservation) return;
+    const nightlyRate = Number(reservation.unitPrice) || 0;
+    setExtendNights(1);
+    setExtendAmount((nightlyRate * 1).toFixed(2));
+    setExtendPaid("0");
+    setExtendPaymentMethod(reservation.paymentMethod || "cash");
+    setExtendError("");
+    setShowExtendModal(true);
+  };
+
+  const handleExtendNightsChange = (n: number) => {
+    setExtendNights(n);
+    if (reservation) {
+      const rate = Number(reservation.unitPrice) || 0;
+      setExtendAmount((rate * Math.max(1, n)).toFixed(2));
+    }
+  };
+
+  const handleSubmitExtend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reservation) return;
+    if (extendNights <= 0) {
+      setExtendError("أدخل عدد ليالي التمديد");
+      return;
+    }
+    setExtending(true);
+    setExtendError("");
+    try {
+      const res = await fetch(`/api/reservations/${reservation.id}/extend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          additionalNights: extendNights,
+          additionalAmount: extendAmount ? Number(extendAmount) : undefined,
+          additionalPaid: extendPaid ? Number(extendPaid) : 0,
+          paymentMethod: extendPaymentMethod,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "فشل تمديد الحجز");
+      }
+      const data = await res.json();
+      if (data?.reservation) {
+        setReservation(data.reservation);
+        populateForm(data.reservation);
+      } else {
+        await fetchReservation();
+      }
+      setShowExtendModal(false);
+    } catch (err) {
+      setExtendError(err instanceof Error ? err.message : "حدث خطأ غير متوقع");
+    } finally {
+      setExtending(false);
     }
   };
 
@@ -302,6 +390,16 @@ export default function ReservationDetailClient({ id }: { id: string }) {
         <div className="flex items-center gap-2">
           {!editing && (
             <>
+              {(reservation.status === "active" ||
+                reservation.status === "upcoming") && (
+                <button
+                  onClick={openExtendModal}
+                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                >
+                  <CalendarPlus size={16} />
+                  تمديد الحجز
+                </button>
+              )}
               <button
                 onClick={handleStartEdit}
                 className="flex items-center gap-2 bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
@@ -371,6 +469,169 @@ export default function ReservationDetailClient({ id }: { id: string }) {
         </div>
       )}
 
+      {/* Extend reservation modal */}
+      {showExtendModal && reservation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <form
+            onSubmit={handleSubmitExtend}
+            className="bg-white rounded-xl shadow-xl p-5 sm:p-6 max-w-lg w-full space-y-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-100 rounded-full">
+                  <CalendarPlus className="text-emerald-600" size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800">
+                    تمديد الحجز #{reservation.id}
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    الخروج الحالي:{" "}
+                    <span className="font-medium">
+                      {formatDate(reservation.checkOut)}
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => !extending && setShowExtendModal(false)}
+                className="p-1.5 rounded hover:bg-gray-100"
+                aria-label="إغلاق"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {extendError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs">
+                {extendError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  عدد{" "}
+                  {reservation.stayType === "monthly"
+                    ? "الأشهر"
+                    : reservation.stayType === "weekly"
+                    ? "الأسابيع"
+                    : "الليالي"}{" "}
+                  الإضافية
+                </label>
+                <NumberInput
+                  min={1}
+                  value={extendNights}
+                  onValueChange={handleExtendNightsChange}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  المبلغ الإضافي
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={extendAmount}
+                  onChange={(e) => setExtendAmount(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
+                />
+                <p className="text-[11px] text-gray-500 mt-1">
+                  المعدّل اليومي: {formatAmount(reservation.unitPrice)}
+                </p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  دفعة عند التمديد (اختياري)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={extendPaid}
+                  onChange={(e) => setExtendPaid(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  طريقة الدفع
+                </label>
+                <select
+                  value={extendPaymentMethod}
+                  onChange={(e) => setExtendPaymentMethod(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
+                >
+                  <option value="cash">نقدي</option>
+                  <option value="bank">تحويل بنكي</option>
+                  <option value="transfer">تحويل</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-xs text-emerald-800 space-y-1">
+              <div className="flex items-center justify-between">
+                <span>إجمالي الحجز بعد التمديد:</span>
+                <span className="font-bold">
+                  {formatAmount(
+                    (Number(reservation.totalAmount) + Number(extendAmount || 0)).toFixed(2),
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>المدفوع بعد التمديد:</span>
+                <span className="font-bold">
+                  {formatAmount(
+                    (Number(reservation.paidAmount) + Number(extendPaid || 0)).toFixed(2),
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>المتبقي بعد التمديد:</span>
+                <span className="font-bold">
+                  {formatAmount(
+                    (
+                      Number(reservation.totalAmount) +
+                      Number(extendAmount || 0) -
+                      (Number(reservation.paidAmount) + Number(extendPaid || 0))
+                    ).toFixed(2),
+                  )}
+                </span>
+              </div>
+              <p className="text-[11px] text-emerald-700 pt-1 border-t border-emerald-200">
+                سيتم إصدار قيد محاسبي منفصل لمبلغ التمديد دون المساس بقيود الحجز الأصلي (مطابق لـ IAS 8 / SOX).
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={extending}
+                className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg transition-colors font-medium disabled:opacity-50"
+              >
+                {extending ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <CalendarPlus size={16} />
+                )}
+                {extending ? "جاري التمديد..." : "تأكيد التمديد"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowExtendModal(false)}
+                disabled={extending}
+                className="flex-1 py-2.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors font-medium disabled:opacity-50"
+              >
+                إلغاء
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {editing ? (
         /* ===== EDIT MODE ===== */
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -407,13 +668,10 @@ export default function ReservationDetailClient({ id }: { id: string }) {
                 <label className="block text-sm font-medium text-gray-600 mb-1.5">
                   عدد النزلاء
                 </label>
-                <input
-                  type="number"
+                <NumberInput
                   min={1}
                   value={numGuests}
-                  onChange={(e) =>
-                    setNumGuests(Math.max(1, parseInt(e.target.value) || 1))
-                  }
+                  onValueChange={setNumGuests}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
                 />
               </div>
@@ -447,12 +705,21 @@ export default function ReservationDetailClient({ id }: { id: string }) {
                 <label className="block text-sm font-medium text-gray-600 mb-1.5">
                   تاريخ الدخول
                 </label>
-                <input
-                  type="date"
-                  value={checkIn}
-                  onChange={(e) => setCheckIn(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={checkIn}
+                    onChange={(e) => setCheckIn(e.target.value)}
+                    className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
+                  />
+                  <input
+                    type="time"
+                    value={checkInTime}
+                    onChange={(e) => setCheckInTime(e.target.value)}
+                    className="w-28 px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
+                    title="وقت الدخول"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1.5">
@@ -465,24 +732,35 @@ export default function ReservationDetailClient({ id }: { id: string }) {
                 </label>
                 <input
                   type="number"
-                  min={1}
                   value={numNights}
-                  onChange={(e) =>
-                    setNumNights(Math.max(1, parseInt(e.target.value) || 1))
-                  }
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
+                  readOnly
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-gray-600 text-sm cursor-not-allowed"
                 />
+                <p className="text-[11px] text-gray-500 mt-1">
+                  لإضافة ليالٍ استخدم زر{" "}
+                  <span className="font-semibold text-primary">تمديد الحجز</span>{" "}
+                  (للحفاظ على سجل القيود المحاسبية).
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1.5">
                   تاريخ الخروج
                 </label>
-                <input
-                  type="date"
-                  value={checkOut}
-                  readOnly
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-sm cursor-not-allowed"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={checkOut}
+                    readOnly
+                    className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-sm cursor-not-allowed"
+                  />
+                  <input
+                    type="time"
+                    value={checkOutTime}
+                    onChange={(e) => setCheckOutTime(e.target.value)}
+                    className="w-28 px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
+                    title="وقت الخروج"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -572,7 +850,8 @@ export default function ReservationDetailClient({ id }: { id: string }) {
                   onChange={(e) => setStatus(e.target.value)}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
                 >
-                  <option value="active">نشط</option>
+                  <option value="upcoming">قادم</option>
+                  <option value="active">ساري</option>
                   <option value="completed">منتهي</option>
                   <option value="cancelled">ملغي</option>
                 </select>
@@ -646,14 +925,10 @@ export default function ReservationDetailClient({ id }: { id: string }) {
                       }
                       className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
                     />
-                    <input
-                      type="text"
-                      placeholder="الجنسية"
+                    <CountrySelect
                       value={guest.nationality}
-                      onChange={(e) =>
-                        updateGuest(idx, "nationality", e.target.value)
-                      }
-                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
+                      onValueChange={(v) => updateGuest(idx, "nationality", v)}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm bg-white"
                     />
                   </div>
                 </div>
@@ -722,11 +997,11 @@ export default function ReservationDetailClient({ id }: { id: string }) {
               />
               <DetailRow
                 label="تاريخ الدخول"
-                value={formatDate(reservation.checkIn)}
+                value={`${formatDate(reservation.checkIn)} - ${extractHHMM(reservation.checkIn, "14:00")}`}
               />
               <DetailRow
                 label="تاريخ الخروج"
-                value={formatDate(reservation.checkOut)}
+                value={`${formatDate(reservation.checkOut)} - ${extractHHMM(reservation.checkOut, "12:00")}`}
               />
               <DetailRow
                 label="عدد الليالي"

@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import {
-  postEntry,
-  getOrCreateGuestParty,
-  cashAccountCodeFromMethod,
-  ACCOUNT_CODES,
-} from "@/lib/accounting";
+import { cashAccountCodeFromMethod, ACCOUNT_CODES } from "@/lib/accounting";
+import { postReservationEntries } from "@/lib/reservations/accounting";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
+import { maybeSweepLazy } from "@/lib/reservations/sweeper";
 
 export async function GET(request: Request) {
   try {
     await requirePermission("reservations:view");
+    // Piggy-back lifecycle transitions on user reads so the list stays
+    // fresh even without a running external cron.
+    await maybeSweepLazy();
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const search = searchParams.get("search");
@@ -96,6 +96,45 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unit not found" }, { status: 404 });
     }
 
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    const now = new Date();
+
+    if (
+      Number.isNaN(checkInDate.getTime()) ||
+      Number.isNaN(checkOutDate.getTime()) ||
+      checkOutDate <= checkInDate
+    ) {
+      return NextResponse.json(
+        { error: "تاريخ/وقت الدخول أو الخروج غير صالح" },
+        { status: 400 },
+      );
+    }
+
+    // Reject any overlap with another active/upcoming reservation on the same unit.
+    // Two ranges overlap iff (A.start < B.end) AND (A.end > B.start).
+    const conflict = await prisma.reservation.findFirst({
+      where: {
+        unitId,
+        status: { in: ["active", "upcoming"] },
+        checkIn: { lt: checkOutDate },
+        checkOut: { gt: checkInDate },
+      },
+      select: { id: true, checkIn: true, checkOut: true, guestName: true },
+    });
+    if (conflict) {
+      return NextResponse.json(
+        {
+          error: `تتعارض الفترة المطلوبة مع حجز آخر على نفس الوحدة (#${conflict.id} - ${conflict.guestName})`,
+        },
+        { status: 409 },
+      );
+    }
+
+    // Future booking? Keep the unit alone until the sweeper activates it.
+    const isFutureBooking = checkInDate > now;
+    const reservationStatus = isFutureBooking ? "upcoming" : "active";
+
     const paid = parseFloat(paidAmount || "0");
     const total = parseFloat(totalAmount);
     const remaining = total - paid;
@@ -110,8 +149,8 @@ export async function POST(request: Request) {
           phone: phone || null,
           numNights: numNights || 1,
           stayType: stayType || "daily",
-          checkIn: new Date(checkIn),
-          checkOut: new Date(checkOut),
+          checkIn: checkInDate,
+          checkOut: checkOutDate,
           unitPrice: Number(unitPrice),
           totalAmount: Number(totalAmount),
           paidAmount: paid,
@@ -121,7 +160,7 @@ export async function POST(request: Request) {
           notes: notes || null,
           groupId: groupId || null,
           bedSetupRequested: bedSetupRequested || null,
-          status: "active",
+          status: reservationStatus,
         },
       });
 
@@ -138,43 +177,18 @@ export async function POST(request: Request) {
         });
       }
 
-      await tx.unit.update({
-        where: { id: unitId },
-        data: { status: "occupied" },
-      });
-
-      const partyId = await getOrCreateGuestParty(tx, {
-        name: guestName,
-        phone: phone || null,
-        nationalId: guestIdNumber || null,
-        reservationId: res.id,
-      });
-
-      if (total > 0) {
-        await postEntry(tx, {
-          date: new Date(checkIn),
-          description: `حجز #${res.id} - ${guestName} - ${unit.unitNumber}`,
-          source: "reservation",
-          sourceRefId: res.id,
-          lines: [
-            {
-              accountCode: ACCOUNT_CODES.AR_GUESTS,
-              partyId,
-              debit: total,
-              description: `ذمة النزيل ${guestName}`,
-            },
-            {
-              accountCode: ACCOUNT_CODES.REVENUE_ROOMS,
-              credit: total,
-              description: `إيراد حجز ${unit.unitNumber}`,
-            },
-          ],
+      // Only flip the unit to occupied when the reservation is starting right
+      // now. Future bookings leave the unit available and are activated by
+      // the sweeper (see `src/lib/reservations/sweeper.ts`).
+      if (!isFutureBooking) {
+        await tx.unit.update({
+          where: { id: unitId },
+          data: { status: "occupied" },
         });
       }
 
       if (paid > 0) {
         const cashCode = cashAccountCodeFromMethod(paymentMethod);
-
         await tx.transaction.create({
           data: {
             date: new Date(),
@@ -186,27 +200,19 @@ export async function POST(request: Request) {
             bankRef: null,
           },
         });
-
-        await postEntry(tx, {
-          date: new Date(),
-          description: `دفعة حجز #${res.id} - ${guestName}`,
-          source: "payment",
-          sourceRefId: res.id,
-          lines: [
-            {
-              accountCode: cashCode,
-              debit: paid,
-              description: `استلام دفعة ${guestName}`,
-            },
-            {
-              accountCode: ACCOUNT_CODES.AR_GUESTS,
-              partyId,
-              credit: paid,
-              description: `سداد جزء من ذمة النزيل`,
-            },
-          ],
-        });
       }
+
+      await postReservationEntries(tx, {
+        reservationId: res.id,
+        guestName,
+        guestIdNumber: guestIdNumber || null,
+        phone: phone || null,
+        unitNumber: unit.unitNumber,
+        checkIn: checkInDate,
+        totalAmount: total,
+        paidAmount: paid,
+        paymentMethod: paymentMethod || null,
+      });
 
       return tx.reservation.findUnique({
         where: { id: res.id },

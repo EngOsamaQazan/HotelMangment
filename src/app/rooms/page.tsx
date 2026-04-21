@@ -50,6 +50,13 @@ interface UnitTypeInfo {
   rooms: UnitTypeRoom[];
 }
 
+interface NextReservation {
+  id: number;
+  guestName: string;
+  checkIn: string;
+  checkOut: string;
+}
+
 interface Unit {
   id: number;
   unitNumber: string;
@@ -65,6 +72,7 @@ interface Unit {
   phone?: string;
   checkInDate?: string;
   reservationNotes?: string;
+  nextReservation?: NextReservation;
 }
 
 const statusConfig: Record<
@@ -374,6 +382,24 @@ function UnitCard({ unit, onClick }: { unit: Unit; onClick: () => void }) {
               <span>خروج: {formatDate(unit.checkOutDate)}</span>
             </div>
           )}
+        </div>
+      )}
+
+      {unit.status !== "occupied" && unit.nextReservation && (
+        <div className="mt-3 pt-3 border-t border-blue-200/60 space-y-1.5 text-right">
+          <div className="inline-flex items-center gap-1.5 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5">
+            محجوزة لاحقاً
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-gray-600">
+            <User size={12} className="text-gray-400" />
+            <span className="truncate">{unit.nextReservation.guestName}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+            <CalendarDays size={12} className="text-gray-400" />
+            <span>
+              {formatDate(unit.nextReservation.checkIn)} — {formatDate(unit.nextReservation.checkOut)}
+            </span>
+          </div>
         </div>
       )}
     </button>

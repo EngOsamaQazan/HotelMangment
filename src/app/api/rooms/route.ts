@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
+import { maybeSweepLazy } from "@/lib/reservations/sweeper";
 
 export async function GET() {
   try {
     await requirePermission("rooms:view");
+    await maybeSweepLazy();
     const units = await prisma.unit.findMany({
       include: {
         reservations: {
-          where: { status: "active" },
-          orderBy: { checkIn: "desc" },
-          take: 1,
+          where: { status: { in: ["active", "upcoming"] } },
+          orderBy: { checkIn: "asc" },
         },
         maintenance: {
           where: { status: { not: "completed" } },
@@ -29,8 +30,18 @@ export async function GET() {
       orderBy: [{ floor: "asc" }, { unitNumber: "asc" }],
     });
 
+    const now = new Date();
     const result = units.map((unit) => {
-      const activeRes = unit.reservations[0] || null;
+      const activeRes =
+        unit.reservations.find(
+          (r) => r.status === "active" && r.checkIn <= now && r.checkOut > now,
+        ) || null;
+      const nextUpcoming =
+        unit.reservations.find(
+          (r) =>
+            (r.status === "upcoming" || r.status === "active") &&
+            r.checkIn > now,
+        ) || null;
       return {
         id: unit.id,
         unitNumber: unit.unitNumber,
@@ -61,6 +72,14 @@ export async function GET() {
         checkInDate: activeRes?.checkIn?.toISOString() || undefined,
         checkOutDate: activeRes?.checkOut?.toISOString() || undefined,
         reservationNotes: activeRes?.notes || undefined,
+        nextReservation: nextUpcoming
+          ? {
+              id: nextUpcoming.id,
+              guestName: nextUpcoming.guestName,
+              checkIn: nextUpcoming.checkIn.toISOString(),
+              checkOut: nextUpcoming.checkOut.toISOString(),
+            }
+          : undefined,
       };
     });
 

@@ -3,12 +3,18 @@ import * as vision from "@google-cloud/vision";
 import path from "path";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
-const keyPath = path.resolve(process.cwd(), "google-vision-key.json");
+function resolveKeyPath(): string {
+  const fromEnv = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (fromEnv && fromEnv.trim()) {
+    return path.isAbsolute(fromEnv) ? fromEnv : path.resolve(process.cwd(), fromEnv);
+  }
+  return path.resolve(process.cwd(), "google-vision-key.json");
+}
 
 let client: vision.ImageAnnotatorClient | null = null;
 function getClient() {
   if (!client) {
-    client = new vision.ImageAnnotatorClient({ keyFilename: keyPath });
+    client = new vision.ImageAnnotatorClient({ keyFilename: resolveKeyPath() });
   }
   return client;
 }

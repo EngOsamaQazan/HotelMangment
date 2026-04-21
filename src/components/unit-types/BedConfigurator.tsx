@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus, Trash2, GripVertical } from "lucide-react";
+import { NumberInput } from "@/components/ui/NumberInput";
 import { BED_TYPES, ROOM_KINDS, BedIcon } from "./shared";
 
 export interface BedState {
@@ -202,15 +203,10 @@ export function BedConfigurator({ rooms, onChange }: Props) {
                       <label className="block text-[10px] font-medium text-gray-500 mb-1">
                         العدد
                       </label>
-                      <input
-                        type="number"
+                      <NumberInput
                         min={1}
                         value={bed.count}
-                        onChange={(e) =>
-                          updateBed(rIdx, bIdx, {
-                            count: Math.max(1, Number(e.target.value) || 1),
-                          })
-                        }
+                        onValueChange={(n) => updateBed(rIdx, bIdx, { count: n })}
                         className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       />
                     </div>

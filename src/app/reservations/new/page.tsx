@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -19,6 +19,13 @@ import {
   unitTypeLabels,
 } from "@/lib/utils";
 import IdScanner from "@/components/IdScanner";
+import { NumberInput } from "@/components/ui/NumberInput";
+import { CountrySelect } from "@/components/ui/CountrySelect";
+import {
+  BookedDatePicker,
+  type BlockedRange,
+  isSpanBlocked,
+} from "@/components/ui/BookedDatePicker";
 import { BedIcon } from "@/components/unit-types/shared";
 
 interface UnitTypeBed {
@@ -93,8 +100,11 @@ export default function NewReservationPage() {
   const [guestNationality, setGuestNationality] = useState("");
   const [phone, setPhone] = useState("");
   const [numGuests, setNumGuests] = useState(1);
-  const [checkIn, setCheckIn] = useState("");
   const [numNights, setNumNights] = useState(1);
+  const [checkIn, setCheckIn] = useState("");
+  // Global hotel standards: check-in 14:00, check-out 12:00.
+  const [checkInTime, setCheckInTime] = useState("14:00");
+  const [checkOutTime, setCheckOutTime] = useState("12:00");
   const [unitPrice, setUnitPrice] = useState<string>("");
   const [paidAmount, setPaidAmount] = useState<string>("0");
   const [paymentMethod, setPaymentMethod] = useState("cash");
@@ -114,9 +124,18 @@ export default function NewReservationPage() {
 
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
-  const filteredUnits = units.filter(
-    (u) => u.unitType === unitType && u.status === "available"
+  // IDs of units that have a real conflict with the currently selected
+  // window. Populated by /api/units/availability, so we let users book a
+  // unit that is "occupied" today but free on a future date, and correctly
+  // hide a unit that is "available" today but already booked for that range.
+  const [unavailableUnitIds, setUnavailableUnitIds] = useState<Set<number>>(
+    new Set(),
   );
+
+  // Blocked ranges for the currently-selected unit, used by the date picker
+  // to disable days that are already claimed by another reservation.
+  const [unitBlockedRanges, setUnitBlockedRanges] = useState<BlockedRange[]>([]);
+  const [unitMaintenance, setUnitMaintenance] = useState(false);
 
   const checkOut = (() => {
     if (!checkIn || !numNights) return "";
@@ -131,6 +150,19 @@ export default function NewReservationPage() {
     return d.toISOString().split("T")[0];
   })();
 
+  // A unit is offered in the picker when:
+  //   - it matches the selected unitType, AND
+  //   - it is not under maintenance right now, AND
+  //   - it has no active/upcoming reservation overlapping the requested range.
+  // We no longer hard-filter on `status === 'available'`: a currently-occupied
+  // unit may be free on a future date, which is exactly what we want to allow.
+  const filteredUnits = units.filter(
+    (u) =>
+      u.unitType === unitType &&
+      u.status !== "maintenance" &&
+      !unavailableUnitIds.has(u.id),
+  );
+
   const totalAmount = unitPrice ? (parseFloat(unitPrice) * numNights).toFixed(2) : "0.00";
   const remaining = (parseFloat(totalAmount) - parseFloat(paidAmount || "0")).toFixed(2);
 
@@ -141,6 +173,27 @@ export default function NewReservationPage() {
       .then((data) => setUnits(Array.isArray(data) ? data : []))
       .catch(() => setUnits([]));
   }, []);
+
+  useEffect(() => {
+    if (!checkIn || !checkOut) return;
+    const ciIso = `${checkIn}T${checkInTime || "14:00"}:00`;
+    const coIso = `${checkOut}T${checkOutTime || "12:00"}:00`;
+    const controller = new AbortController();
+    fetch(
+      `/api/units/availability?checkIn=${encodeURIComponent(ciIso)}&checkOut=${encodeURIComponent(coIso)}`,
+      { signal: controller.signal },
+    )
+      .then((r) => r.json())
+      .then((data: { id: number; available: boolean }[]) => {
+        if (!Array.isArray(data)) return;
+        const blocked = new Set(
+          data.filter((u) => !u.available).map((u) => u.id),
+        );
+        setUnavailableUnitIds(blocked);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [checkIn, checkOut, checkInTime, checkOutTime]);
 
   useEffect(() => {
     if (!checkIn) return;
@@ -191,6 +244,41 @@ export default function NewReservationPage() {
     setUnitId("");
   }, [unitType]);
 
+  // Fetch the blocked windows for the selected unit so the date picker can
+  // visually disable already-reserved days.
+  useEffect(() => {
+    if (!unitId) {
+      setUnitBlockedRanges([]);
+      setUnitMaintenance(false);
+      return;
+    }
+    const controller = new AbortController();
+    fetch(`/api/units/${unitId}/booked-dates?months=12`, { signal: controller.signal })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && Array.isArray(data.ranges)) {
+          setUnitBlockedRanges(data.ranges as BlockedRange[]);
+          setUnitMaintenance(Boolean(data.maintenance));
+        } else {
+          setUnitBlockedRanges([]);
+          setUnitMaintenance(false);
+        }
+      })
+      .catch(() => {
+        setUnitBlockedRanges([]);
+        setUnitMaintenance(false);
+      });
+    return () => controller.abort();
+  }, [unitId]);
+
+  // Surface an inline error if the user picks a date range that would collide
+  // with a booking on the selected unit (belt-and-suspenders with the server
+  // side overlap check).
+  const rangeConflict = useMemo(() => {
+    if (!unitId || !checkIn || !checkOut) return null;
+    return isSpanBlocked(checkIn, checkOut, unitBlockedRanges);
+  }, [unitId, checkIn, checkOut, unitBlockedRanges]);
+
   const updateGuest = (index: number, field: keyof GuestEntry, value: string) => {
     setGuests((prev) =>
       prev.map((g, i) => (i === index ? { ...g, [field]: value } : g))
@@ -214,10 +302,24 @@ export default function NewReservationPage() {
       return;
     }
 
+    if (rangeConflict) {
+      setError(
+        `الفترة المحدّدة تتعارض مع حجز آخر على نفس الوحدة${
+          rangeConflict.guestName ? ` (${rangeConflict.guestName})` : ""
+        } — الرجاء اختيار تاريخ آخر.`,
+      );
+      return;
+    }
+
     setSubmitting(true);
     setError("");
 
     try {
+      // Compose full ISO datetimes from date + time inputs so the server stores
+      // the actual hour (Prisma fields are DateTime).
+      const checkInIso = `${checkIn}T${checkInTime || "14:00"}:00`;
+      const checkOutIso = `${checkOut}T${checkOutTime || "12:00"}:00`;
+
       const body = {
         unitId: parseInt(unitId),
         guestName: guestName.trim(),
@@ -226,8 +328,8 @@ export default function NewReservationPage() {
         phone: phone.trim() || null,
         numNights,
         stayType,
-        checkIn,
-        checkOut,
+        checkIn: checkInIso,
+        checkOut: checkOutIso,
         unitPrice,
         totalAmount,
         paidAmount: paidAmount || "0",
@@ -498,12 +600,10 @@ export default function NewReservationPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1.5">الجنسية</label>
-              <input
-                type="text"
+              <CountrySelect
                 value={guestNationality}
-                onChange={(e) => setGuestNationality(e.target.value)}
-                placeholder="مثال: أردني"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
+                onValueChange={setGuestNationality}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm bg-white"
               />
             </div>
             <div>
@@ -518,12 +618,11 @@ export default function NewReservationPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1.5">عدد النزلاء</label>
-              <input
-                type="number"
+              <NumberInput
                 min={1}
                 max={20}
                 value={numGuests}
-                onChange={(e) => setNumGuests(Math.max(1, parseInt(e.target.value) || 1))}
+                onValueChange={setNumGuests}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
               />
             </div>
@@ -541,33 +640,67 @@ export default function NewReservationPage() {
               <label className="block text-sm font-medium text-gray-600 mb-1.5">
                 تاريخ الدخول <span className="text-red-500">*</span>
               </label>
-              <input
-                type="date"
-                value={checkIn}
-                onChange={(e) => setCheckIn(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
-              />
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <BookedDatePicker
+                    value={checkIn}
+                    onChange={setCheckIn}
+                    blockedRanges={unitBlockedRanges}
+                    maintenance={unitMaintenance}
+                    unavailableReason={
+                      unitMaintenance
+                        ? "الوحدة تحت الصيانة — حرّرها أولاً من لوحة الغرف"
+                        : undefined
+                    }
+                    placeholder={unitId ? "اختر تاريخ الدخول" : "اختر الوحدة أولاً"}
+                    disabled={!unitId}
+                  />
+                </div>
+                <input
+                  type="time"
+                  value={checkInTime}
+                  onChange={(e) => setCheckInTime(e.target.value)}
+                  className="w-28 px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
+                  title="وقت الدخول"
+                />
+              </div>
+              {rangeConflict && (
+                <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
+                  <AlertTriangle size={12} />
+                  يتعارض التاريخ مع حجز سابق
+                  {rangeConflict.guestName ? ` لصالح ${rangeConflict.guestName}` : ""}
+                  {" — اختر تاريخاً آخر أو قلّص الليالي"}
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1.5">
                 عدد {stayLabel === "ليلة" ? "الليالي" : stayLabel === "أسبوع" ? "الأسابيع" : "الأشهر"}
               </label>
-              <input
-                type="number"
+              <NumberInput
                 min={1}
                 value={numNights}
-                onChange={(e) => setNumNights(Math.max(1, parseInt(e.target.value) || 1))}
+                onValueChange={setNumNights}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1.5">تاريخ الخروج</label>
-              <input
-                type="date"
-                value={checkOut}
-                readOnly
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-gray-600 text-sm cursor-not-allowed"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  value={checkOut}
+                  readOnly
+                  className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-gray-600 text-sm cursor-not-allowed"
+                />
+                <input
+                  type="time"
+                  value={checkOutTime}
+                  onChange={(e) => setCheckOutTime(e.target.value)}
+                  className="w-28 px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
+                  title="وقت الخروج"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -655,7 +788,7 @@ export default function NewReservationPage() {
             </h2>
             <button
               type="button"
-              onClick={() => setNumGuests((n) => n + 1)}
+              onClick={() => setNumGuests((n) => Math.min(20, n + 1))}
               className="flex items-center gap-1 text-sm text-primary hover:text-primary-dark font-medium"
             >
               <UserPlus size={16} />
@@ -713,12 +846,10 @@ export default function NewReservationPage() {
                     onChange={(e) => updateGuest(idx, "idNumber", e.target.value)}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
                   />
-                  <input
-                    type="text"
-                    placeholder="الجنسية"
+                  <CountrySelect
                     value={guest.nationality}
-                    onChange={(e) => updateGuest(idx, "nationality", e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
+                    onValueChange={(v) => updateGuest(idx, "nationality", v)}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm bg-white"
                   />
                 </div>
               </div>

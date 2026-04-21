@@ -55,16 +55,38 @@ interface ApiResponse {
 
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-green-100 text-green-800",
+  upcoming: "bg-blue-100 text-blue-800",
   completed: "bg-gray-100 text-gray-700",
   cancelled: "bg-red-100 text-red-800",
 };
+
+interface CountsResponse {
+  active: number;
+  upcoming: number;
+  completed: number;
+  cancelled: number;
+  startingToday: number;
+  endingToday: number;
+  upcomingThisWeek: number;
+}
+
+type TabKey = "active" | "upcoming" | "completed" | "cancelled" | "all";
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "active", label: "سارية" },
+  { key: "upcoming", label: "قادمة" },
+  { key: "completed", label: "منتهية" },
+  { key: "cancelled", label: "ملغاة" },
+  { key: "all", label: "الكل" },
+];
 
 export default function ReservationsPage() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<TabKey>("active");
   const [page, setPage] = useState(1);
+  const [summary, setSummary] = useState<CountsResponse | null>(null);
   const limit = 20;
 
   const fetchReservations = useCallback(async () => {
@@ -87,9 +109,24 @@ export default function ReservationsPage() {
     }
   }, [search, statusFilter, page]);
 
+  const fetchSummary = useCallback(async () => {
+    try {
+      const res = await fetch("/api/reservations/summary");
+      if (!res.ok) return;
+      const json: CountsResponse = await res.json();
+      setSummary(json);
+    } catch {
+      setSummary(null);
+    }
+  }, []);
+
   useEffect(() => {
     fetchReservations();
   }, [fetchReservations]);
+
+  useEffect(() => {
+    fetchSummary();
+  }, [fetchSummary, statusFilter]);
 
   useEffect(() => {
     setPage(1);
@@ -112,32 +149,88 @@ export default function ReservationsPage() {
         </Link>
       </div>
 
-      {/* Filters */}
+      {/* Summary strip */}
+      {summary && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <SummaryCard
+            label="السارية الآن"
+            value={summary.active}
+            tone="green"
+          />
+          <SummaryCard
+            label="قادمة اليوم"
+            value={summary.startingToday}
+            tone="blue"
+          />
+          <SummaryCard
+            label="تنتهي اليوم"
+            value={summary.endingToday}
+            tone="amber"
+          />
+          <SummaryCard
+            label="قادمة هذا الأسبوع"
+            value={summary.upcomingThisWeek}
+            tone="indigo"
+          />
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {TABS.map((t) => {
+            const count =
+              summary == null
+                ? null
+                : t.key === "all"
+                  ? summary.active + summary.upcoming + summary.completed + summary.cancelled
+                  : summary[t.key];
+            const isActive = statusFilter === t.key;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setStatusFilter(t.key)}
+                className={cn(
+                  "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
+                  isActive
+                    ? "bg-primary text-white border-primary"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-primary/40 hover:text-primary",
+                )}
+              >
+                <span>{t.label}</span>
+                {count != null && (
+                  <span
+                    className={cn(
+                      "inline-flex items-center justify-center min-w-[1.5rem] px-1.5 h-5 rounded-full text-[11px] font-semibold",
+                      isActive
+                        ? "bg-white/20 text-white"
+                        : "bg-gray-100 text-gray-700",
+                    )}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Search */}
       <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 p-4">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-              size={18}
-            />
-            <input
-              type="text"
-              placeholder="بحث بالاسم أو رقم الهاتف أو الوحدة..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pr-10 pl-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
-            />
-          </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm min-w-[160px]"
-          >
-            <option value="all">جميع الحالات</option>
-            <option value="active">نشط</option>
-            <option value="completed">منتهي</option>
-            <option value="cancelled">ملغي</option>
-          </select>
+        <div className="relative">
+          <Search
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+            size={18}
+          />
+          <input
+            type="text"
+            placeholder="بحث بالاسم أو رقم الهاتف أو الوحدة..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pr-10 pl-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
+          />
         </div>
       </div>
 
@@ -346,6 +439,34 @@ export default function ReservationsPage() {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function SummaryCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "green" | "blue" | "amber" | "indigo";
+}) {
+  const toneClasses: Record<typeof tone, string> = {
+    green: "bg-green-50 border-green-200 text-green-700",
+    blue: "bg-blue-50 border-blue-200 text-blue-700",
+    amber: "bg-amber-50 border-amber-200 text-amber-700",
+    indigo: "bg-indigo-50 border-indigo-200 text-indigo-700",
+  };
+  return (
+    <div
+      className={cn(
+        "rounded-xl border p-4 flex items-center justify-between shadow-sm",
+        toneClasses[tone],
+      )}
+    >
+      <span className="text-sm font-medium">{label}</span>
+      <span className="text-2xl font-bold">{value}</span>
     </div>
   );
 }

@@ -104,29 +104,59 @@ jobs:
             RELEASE="${{ steps.package.outputs.release }}"
             DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
 
-            echo "==> [1/6] link shared/.env + uploads into release"
+            echo "==> [1/7] link shared/.env + uploads + google-vision-key into release"
             ln -sfn "$DEPLOY_PATH/shared/.env"     "$RELEASE/.env"
             ln -sfn "$DEPLOY_PATH/shared/uploads"  "$RELEASE/uploads"
+            if [ -f "$DEPLOY_PATH/shared/google-vision-key.json" ]; then
+              ln -sfn "$DEPLOY_PATH/shared/google-vision-key.json" "$RELEASE/google-vision-key.json"
+            fi
 
-            echo "==> [2/6] install prod node_modules (safe because we already rsynced built .next)"
+            echo "==> [2/7] install prod node_modules (safe because we already rsynced built .next)"
             cd "$RELEASE"
             npm ci --omit=dev --no-audit --no-fund
 
-            echo "==> [3/6] prisma db push (schema sync)"
+            echo "==> [3/7] install realtime node_modules"
+            if [ -d realtime ]; then
+              cd "$RELEASE/realtime"
+              npm install --omit=dev --no-audit --no-fund
+              cd "$RELEASE"
+            fi
+
+            echo "==> [4/7] prisma db push (schema sync)"
             set -a; source "$DEPLOY_PATH/shared/.env"; set +a
             npx prisma db push --skip-generate --accept-data-loss
 
-            echo "==> [4/6] copy public + static into .next/standalone"
+            echo "==> [5/7] copy public + static + prisma + vision-key into .next/standalone"
             if [ -d .next/standalone ]; then
               [ -d public ]        && cp -rn public        .next/standalone/          || true
               [ -d .next/static ]  && cp -rn .next/static  .next/standalone/.next/    || true
+              if [ -f "$DEPLOY_PATH/shared/google-vision-key.json" ]; then
+                ln -sfn "$DEPLOY_PATH/shared/google-vision-key.json" .next/standalone/google-vision-key.json
+              fi
+
+              # Copy Prisma runtime into standalone node_modules (Next.js 16 + Turbopack omits them)
+              mkdir -p .next/standalone/node_modules/@prisma .next/standalone/node_modules/.prisma
+              [ -d node_modules/@prisma/client ] && cp -a node_modules/@prisma/client .next/standalone/node_modules/@prisma/ || true
+              [ -d node_modules/.prisma/client ] && cp -a node_modules/.prisma/client .next/standalone/node_modules/.prisma/ || true
+
+              # Next.js 16 Turbopack references @prisma/client-<hash> → create symlink aliases
+              HASHES=$(grep -hoE '@prisma/client-[a-f0-9]+' .next/standalone/.next/server/chunks/*.js 2>/dev/null | sort -u || true)
+              for H in $HASHES; do
+                NAME="${H#@prisma/}"
+                [ ! -e ".next/standalone/node_modules/@prisma/$NAME" ] && \
+                  ln -s client ".next/standalone/node_modules/@prisma/$NAME" && \
+                  echo "  linked standalone: @prisma/$NAME -> client"
+                [ ! -e "node_modules/@prisma/$NAME" ] && \
+                  ln -s client "node_modules/@prisma/$NAME" && \
+                  echo "  linked top-level:  @prisma/$NAME -> client"
+              done
             fi
 
-            echo "==> [5/6] atomic symlink swap: current -> $RELEASE"
+            echo "==> [6/7] atomic symlink swap: current -> $RELEASE"
             ln -sfn "$RELEASE" "$DEPLOY_PATH/current.new"
             mv -Tf "$DEPLOY_PATH/current.new" "$DEPLOY_PATH/current"
 
-            echo "==> [6/6] restart services"
+            echo "==> [7/7] restart services"
             sudo /bin/systemctl restart mafhotel-app.service
             sudo /bin/systemctl restart mafhotel-realtime.service
 

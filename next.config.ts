@@ -14,6 +14,13 @@ const NO_STORE_HEADERS = [
 const nextConfig: NextConfig = {
   output: "standalone",
   devIndicators: false,
+  serverExternalPackages: ["@prisma/client", ".prisma/client", "prisma"],
+  outputFileTracingIncludes: {
+    "/**": [
+      "./node_modules/.prisma/client/**",
+      "./node_modules/@prisma/client/**",
+    ],
+  },
   async headers() {
     return [
       {
