@@ -26,11 +26,11 @@ export async function GET(
     const board = await prisma.taskBoard.findUnique({
       where: { id: boardId },
       include: {
-        owner: { select: { id: true, name: true, email: true } },
+        owner: { select: { id: true, name: true, email: true, avatarUrl: true } },
         columns: { orderBy: { position: "asc" } },
         members: {
           include: {
-            user: { select: { id: true, name: true, email: true } },
+            user: { select: { id: true, name: true, email: true, avatarUrl: true } },
           },
         },
         labels: { orderBy: { id: "asc" } },
@@ -39,7 +39,7 @@ export async function GET(
           include: {
             assignees: {
               include: {
-                user: { select: { id: true, name: true, email: true } },
+                user: { select: { id: true, name: true, email: true, avatarUrl: true } },
               },
             },
             labels: { include: { label: true } },

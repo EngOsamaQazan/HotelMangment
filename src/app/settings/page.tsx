@@ -21,6 +21,7 @@ import Link from "next/link";
 import { cn, formatDate, roleLabels } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions/client";
 import { Can } from "@/components/Can";
+import { UserAvatar } from "@/components/tasks/shared";
 
 interface UserRecord {
   id: number;
@@ -28,6 +29,7 @@ interface UserRecord {
   email: string;
   username: string | null;
   role: "admin" | "receptionist" | "accountant";
+  avatarUrl?: string | null;
   createdAt: string;
 }
 
@@ -359,7 +361,10 @@ export default function SettingsPage() {
                       className="hover:bg-gray-50/50 transition-colors"
                     >
                       <td className="px-4 py-3 font-medium text-gray-800">
-                        {user.name}
+                        <div className="flex items-center gap-2">
+                          <UserAvatar user={user} size={32} />
+                          <span>{user.name}</span>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-gray-600 direction-ltr text-right">
                         {user.email}
@@ -426,8 +431,13 @@ export default function SettingsPage() {
             <div className="md:hidden divide-y divide-gray-100">
               {users.map((user) => (
                 <div key={user.id} className="p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-gray-800">{user.name}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <UserAvatar user={user} size={32} />
+                      <span className="font-bold text-gray-800 truncate">
+                        {user.name}
+                      </span>
+                    </div>
                     <RoleBadge role={user.role} />
                   </div>
                   <p className="text-sm text-gray-500 direction-ltr text-right">{user.email}</p>

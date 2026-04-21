@@ -85,16 +85,17 @@ export function UserAvatar({
   size = 24,
   className,
 }: {
-  user: { id: number; name: string };
+  user: { id: number; name: string; avatarUrl?: string | null };
   size?: number;
   className?: string;
 }) {
+  const hasPhoto = Boolean(user.avatarUrl);
   return (
     <span
       title={user.name}
       className={cn(
-        "inline-flex items-center justify-center rounded-full text-white font-bold",
-        avatarColor(user.id),
+        "inline-flex items-center justify-center rounded-full text-white font-bold overflow-hidden shrink-0",
+        !hasPhoto && avatarColor(user.id),
         className,
       )}
       style={{
@@ -103,7 +104,18 @@ export function UserAvatar({
         fontSize: Math.max(10, Math.floor(size / 2.3)),
       }}
     >
-      {initialsOf(user.name) || "?"}
+      {hasPhoto ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`/api/files/avatar/${user.id}`}
+          alt={user.name}
+          width={size}
+          height={size}
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <span>{initialsOf(user.name) || "?"}</span>
+      )}
     </span>
   );
 }

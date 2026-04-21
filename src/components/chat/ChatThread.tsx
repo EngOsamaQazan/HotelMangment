@@ -60,7 +60,12 @@ export function ChatThread({ conversationId }: Props) {
   const [sendText, setSendText] = useState("");
   const [sending, setSending] = useState(false);
   const [replyTo, setReplyTo] = useState<ChatMessageT | null>(null);
-  const [typing, setTyping] = useState<Record<number, { name: string; until: number }>>({});
+  const [typing, setTyping] = useState<
+    Record<
+      number,
+      { id: number; name: string; avatarUrl?: string | null; until: number }
+    >
+  >({});
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const didAutoScrollRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -265,7 +270,12 @@ export function ChatThread({ conversationId }: Props) {
       setTyping((prev) => {
         const next = { ...prev };
         if (p.typing) {
-          next[p.userId] = { name: peer.user.name, until: Date.now() + 4000 };
+          next[p.userId] = {
+            id: peer.user.id,
+            name: peer.user.name,
+            avatarUrl: peer.user.avatarUrl ?? null,
+            until: Date.now() + 4000,
+          };
         } else {
           delete next[p.userId];
         }
@@ -412,7 +422,7 @@ export function ChatThread({ conversationId }: Props) {
   }
 
   const title = conversationTitle(conversation, myId);
-  const typingNames = Object.values(typing).map((t) => t.name);
+  const typingUsers = Object.values(typing);
 
   return (
     <main className="flex-1 flex flex-col bg-gray-50 h-[calc(100dvh-4rem)] md:h-[calc(100dvh-2rem)] min-h-0">
@@ -499,9 +509,21 @@ export function ChatThread({ conversationId }: Props) {
             />
           );
         })}
-        {typingNames.length > 0 && (
-          <div className="text-xs text-gray-500 italic px-2 py-1">
-            {typingNames.join("، ")} يكتب...
+        {typingUsers.length > 0 && (
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 italic px-2 py-1">
+            <div className="flex -space-x-1.5 -space-x-reverse">
+              {typingUsers.map((u) => (
+                <UserAvatar
+                  key={u.id}
+                  user={u}
+                  size={18}
+                  className="ring-1 ring-white"
+                />
+              ))}
+            </div>
+            <span>
+              {typingUsers.map((u) => u.name).join("، ")} يكتب...
+            </span>
           </div>
         )}
       </div>
@@ -514,6 +536,7 @@ export function ChatThread({ conversationId }: Props) {
         {replyTo && (
           <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs">
             <Reply size={12} className="text-primary" />
+            <UserAvatar user={replyTo.sender} size={20} />
             <div className="flex-1 min-w-0">
               <span className="text-primary font-medium">
                 ردّ على {replyTo.sender.name}:
@@ -680,10 +703,11 @@ function MessageBubble({
               mine ? "border-r-white/40" : "border-r-primary",
             )}
           >
-            <p className="font-medium text-gray-600">
-              {message.replyTo.sender.name}
+            <p className="flex items-center gap-1.5 font-medium text-gray-600">
+              <UserAvatar user={message.replyTo.sender} size={16} />
+              <span>{message.replyTo.sender.name}</span>
             </p>
-            <p className="text-gray-500 line-clamp-2">
+            <p className="text-gray-500 line-clamp-2 mt-0.5">
               {message.replyTo.deletedAt
                 ? "(رسالة محذوفة)"
                 : message.replyTo.body}

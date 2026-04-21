@@ -51,7 +51,7 @@ export async function PATCH(
       where: { id: commentId },
       data: { body: text.trim(), editedAt: new Date() },
       include: {
-        author: { select: { id: true, name: true, email: true } },
+        author: { select: { id: true, name: true, email: true, avatarUrl: true } },
       },
     });
     return NextResponse.json(updated);

@@ -31,7 +31,7 @@ export async function GET(
     await requireBoardAccess(task.boardId, userId, "viewer");
     const items = await prisma.taskActivity.findMany({
       where: { taskId },
-      include: { actor: { select: { id: true, name: true } } },
+      include: { actor: { select: { id: true, name: true, avatarUrl: true } } },
       orderBy: { createdAt: "desc" },
       take: 100,
     });

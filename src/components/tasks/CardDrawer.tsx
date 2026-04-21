@@ -979,13 +979,14 @@ function ActivitySection({ card }: { card: DetailCard }) {
       {card.activities.map((a) => (
         <li key={a.id} className="relative">
           <span className="absolute -start-[22px] top-1 w-3 h-3 rounded-full bg-primary ring-4 ring-white" />
-          <div className="flex items-baseline gap-2 text-sm">
+          <div className="flex items-center gap-2 text-sm">
+            <UserAvatar user={a.actor} size={22} />
             <span className="font-medium text-gray-800">{a.actor.name}</span>
             <span className="text-gray-500">
               {labels[a.type] || a.type}
             </span>
           </div>
-          <p className="text-[11px] text-gray-400">
+          <p className="text-[11px] text-gray-400 mt-0.5 ms-8">
             {new Date(a.createdAt).toLocaleString("ar-EG")}
           </p>
         </li>

@@ -62,6 +62,31 @@ export async function GET(
       storagePath = att.storagePath;
       fileName = att.fileName;
       mimeType = att.mimeType;
+    } else if (kind === "avatar") {
+      const user = await prisma.user.findUnique({
+        where: { id: attachmentId },
+        select: { avatarUrl: true, name: true },
+      });
+      if (!user || !user.avatarUrl) {
+        return NextResponse.json(
+          { error: "لا توجد صورة لهذا المستخدم" },
+          { status: 404 },
+        );
+      }
+      storagePath = user.avatarUrl;
+      fileName = `avatar-${attachmentId}`;
+      // MIME is recorded neither here nor in `avatarUrl`; infer from extension.
+      const ext = storagePath.split(".").pop()?.toLowerCase() ?? "";
+      mimeType =
+        ext === "png"
+          ? "image/png"
+          : ext === "gif"
+            ? "image/gif"
+            : ext === "webp"
+              ? "image/webp"
+              : ext === "svg"
+                ? "image/svg+xml"
+                : "image/jpeg";
     } else if (kind === "chat") {
       const att = await prisma.chatMessageAttachment.findUnique({
         where: { id: attachmentId },

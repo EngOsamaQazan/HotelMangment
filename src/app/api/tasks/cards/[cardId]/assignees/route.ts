@@ -68,7 +68,7 @@ export async function POST(
     const updated = await prisma.taskAssignee.findMany({
       where: { taskId },
       include: {
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, avatarUrl: true } },
       },
     });
     return NextResponse.json(updated, { status: 201 });

@@ -24,8 +24,8 @@ export async function GET(
       where: { reservationId },
       orderBy: { createdAt: "desc" },
       include: {
-        createdBy: { select: { id: true, name: true } },
-        reversedBy: { select: { id: true, name: true } },
+        createdBy: { select: { id: true, name: true, avatarUrl: true } },
+        reversedBy: { select: { id: true, name: true, avatarUrl: true } },
       },
     });
     return NextResponse.json({ extensions });

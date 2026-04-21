@@ -94,6 +94,7 @@ export async function PUT(
           email: true,
           username: true,
           role: true,
+          avatarUrl: true,
           createdAt: true,
         },
       });

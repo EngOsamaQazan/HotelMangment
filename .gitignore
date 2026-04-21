@@ -70,6 +70,9 @@ backup/
 *.dump
 !prisma/**/*.sql
 
+# User-uploaded files (avatars, chat/task attachments, etc.)
+/uploads/
+
 # Scratch / temporary agent artifacts (commit messages, nginx drafts, etc.)
 .tmp/
 

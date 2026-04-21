@@ -25,6 +25,7 @@ import { signOut } from "next-auth/react";
 import { BrandLogo, BrandLogoInline } from "@/components/BrandLogo";
 import { usePermissions } from "@/lib/permissions/client";
 import { NotificationsBell } from "@/components/NotificationsBell";
+import { UserMenu } from "@/components/UserMenu";
 import {
   useRealtimeEvent,
   type ChatEventPayload,
@@ -206,7 +207,10 @@ export function Sidebar() {
           <Menu size={24} />
         </button>
         <BrandLogoInline />
-        <NotificationsBell iconClassName="text-white hover:bg-sidebar-hover" />
+        <div className="flex items-center gap-1">
+          <UserMenu variant="dark" />
+          <NotificationsBell iconClassName="text-white hover:bg-sidebar-hover" />
+        </div>
       </div>
 
       {mobileOpen && (

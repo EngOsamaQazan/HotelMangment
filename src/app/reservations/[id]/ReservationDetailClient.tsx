@@ -28,6 +28,7 @@ import {
 import { NumberInput } from "@/components/ui/NumberInput";
 import { CountrySelect } from "@/components/ui/CountrySelect";
 import { Can } from "@/components/Can";
+import { UserAvatar } from "@/components/tasks/shared";
 import {
   cn,
   formatDate,
@@ -90,7 +91,12 @@ interface StatusLogEntry {
   action: string;
   reason: string | null;
   at: string;
-  actor: { id: number; name: string; email: string } | null;
+  actor: {
+    id: number;
+    name: string;
+    email: string;
+    avatarUrl?: string | null;
+  } | null;
 }
 
 interface ExtensionEntry {
@@ -109,8 +115,8 @@ interface ExtensionEntry {
   createdAt: string;
   reversedAt: string | null;
   reversalReason: string | null;
-  createdBy: { id: number; name: string } | null;
-  reversedBy: { id: number; name: string } | null;
+  createdBy: { id: number; name: string; avatarUrl?: string | null } | null;
+  reversedBy: { id: number; name: string; avatarUrl?: string | null } | null;
 }
 
 const STATUS_LOG_ACTION_LABELS: Record<string, string> = {
@@ -2138,8 +2144,15 @@ function ExtensionsHistory({
                     </div>
                     <div>
                       <p className="text-gray-400">الموظف</p>
-                      <p className="font-medium text-gray-700">
-                        {ext.createdBy?.name || "—"}
+                      <p className="font-medium text-gray-700 flex items-center gap-1.5">
+                        {ext.createdBy ? (
+                          <>
+                            <UserAvatar user={ext.createdBy} size={18} />
+                            <span>{ext.createdBy.name}</span>
+                          </>
+                        ) : (
+                          "—"
+                        )}
                       </p>
                     </div>
                     <div>
@@ -2165,14 +2178,22 @@ function ExtensionsHistory({
                         <span className="font-semibold">سبب العكس:</span>{" "}
                         {ext.reversalReason}
                       </p>
-                      <p className="text-[11px] text-rose-500">
-                        {reversedAt && !Number.isNaN(reversedAt.getTime())
-                          ? reversedAt.toLocaleString("ar", {
-                              dateStyle: "short",
-                              timeStyle: "short",
-                            })
-                          : ""}
-                        {ext.reversedBy ? ` • ${ext.reversedBy.name}` : ""}
+                      <p className="text-[11px] text-rose-500 flex items-center gap-1 flex-wrap">
+                        <span>
+                          {reversedAt && !Number.isNaN(reversedAt.getTime())
+                            ? reversedAt.toLocaleString("ar", {
+                                dateStyle: "short",
+                                timeStyle: "short",
+                              })
+                            : ""}
+                        </span>
+                        {ext.reversedBy && (
+                          <>
+                            <span>•</span>
+                            <UserAvatar user={ext.reversedBy} size={14} />
+                            <span>{ext.reversedBy.name}</span>
+                          </>
+                        )}
                       </p>
                     </div>
                   )}
@@ -2245,15 +2266,25 @@ function StatusTimeline({ logs }: { logs: StatusLogEntry[] }) {
                       {log.reason}
                     </p>
                   )}
-                  <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
+                  <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1 flex-wrap">
                     <Clock size={11} />
-                    {Number.isNaN(ts.getTime())
-                      ? log.at
-                      : ts.toLocaleString("ar", {
-                          dateStyle: "short",
-                          timeStyle: "short",
-                        })}
-                    {log.actor ? ` • ${log.actor.name}` : " • النظام"}
+                    <span>
+                      {Number.isNaN(ts.getTime())
+                        ? log.at
+                        : ts.toLocaleString("ar", {
+                            dateStyle: "short",
+                            timeStyle: "short",
+                          })}
+                    </span>
+                    {log.actor ? (
+                      <>
+                        <span>•</span>
+                        <UserAvatar user={log.actor} size={14} />
+                        <span>{log.actor.name}</span>
+                      </>
+                    ) : (
+                      <span>• النظام</span>
+                    )}
                   </p>
                 </div>
               </div>

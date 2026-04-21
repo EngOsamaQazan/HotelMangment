@@ -21,7 +21,7 @@ export async function GET() {
       include: {
         participants: {
           include: {
-            user: { select: { id: true, name: true, email: true } },
+            user: { select: { id: true, name: true, email: true, avatarUrl: true } },
           },
         },
         task: { select: { id: true, title: true, boardId: true } },
@@ -30,7 +30,7 @@ export async function GET() {
           orderBy: { createdAt: "desc" },
           take: 1,
           include: {
-            sender: { select: { id: true, name: true } },
+            sender: { select: { id: true, name: true, avatarUrl: true } },
           },
         },
       },
@@ -125,7 +125,7 @@ export async function POST(request: Request) {
         include: {
           participants: {
             include: {
-              user: { select: { id: true, name: true, email: true } },
+              user: { select: { id: true, name: true, email: true, avatarUrl: true } },
             },
           },
         },
@@ -159,7 +159,7 @@ export async function POST(request: Request) {
         include: {
           participants: {
             include: {
-              user: { select: { id: true, name: true, email: true } },
+              user: { select: { id: true, name: true, email: true, avatarUrl: true } },
             },
           },
           task: { select: { id: true, title: true, boardId: true } },
@@ -184,7 +184,7 @@ export async function POST(request: Request) {
             include: {
               participants: {
                 include: {
-                  user: { select: { id: true, name: true, email: true } },
+                  user: { select: { id: true, name: true, email: true, avatarUrl: true } },
                 },
               },
               task: { select: { id: true, title: true, boardId: true } },
@@ -219,7 +219,7 @@ export async function POST(request: Request) {
         include: {
           participants: {
             include: {
-              user: { select: { id: true, name: true, email: true } },
+              user: { select: { id: true, name: true, email: true, avatarUrl: true } },
             },
           },
           task: { select: { id: true, title: true, boardId: true } },

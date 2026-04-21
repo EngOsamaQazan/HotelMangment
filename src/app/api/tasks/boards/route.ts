@@ -21,11 +21,11 @@ export async function GET() {
         OR: [{ ownerId: userId }, { members: { some: { userId } } }],
       },
       include: {
-        owner: { select: { id: true, name: true, email: true } },
+        owner: { select: { id: true, name: true, email: true, avatarUrl: true } },
         _count: { select: { tasks: true, members: true } },
         members: {
           select: {
-            user: { select: { id: true, name: true, email: true } },
+            user: { select: { id: true, name: true, email: true, avatarUrl: true } },
             role: true,
           },
         },
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
       return tx.taskBoard.findUniqueOrThrow({
         where: { id: created.id },
         include: {
-          owner: { select: { id: true, name: true, email: true } },
+          owner: { select: { id: true, name: true, email: true, avatarUrl: true } },
           _count: { select: { tasks: true, members: true } },
         },
       });

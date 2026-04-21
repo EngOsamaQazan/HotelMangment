@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { TaskBoardLite, UserLite } from "@/lib/collab/types";
 import { Can } from "@/components/Can";
+import { UserAvatar } from "@/components/tasks/shared";
 
 const PALETTE = [
   "#1e3a8a",
@@ -380,6 +381,7 @@ function NewBoardModal({
                         )
                       }
                     />
+                    <UserAvatar user={u} size={22} />
                     <span className="text-gray-800">{u.name}</span>
                     <span className="text-xs text-gray-400">{u.email}</span>
                   </label>

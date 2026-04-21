@@ -14,6 +14,7 @@ export interface UserLite {
   name: string;
   email?: string | null;
   username?: string | null;
+  avatarUrl?: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -168,7 +169,7 @@ export interface ChatReplySnippet {
   id: number;
   body: string;
   deletedAt: string | null;
-  sender: { id: number; name: string };
+  sender: { id: number; name: string; avatarUrl?: string | null };
 }
 
 export interface ChatMessage {
@@ -198,7 +199,7 @@ export interface ChatConversation {
   task?: { id: number; title: string; boardId: number } | null;
   lastMessage?:
     | (Pick<ChatMessage, "id" | "body" | "createdAt" | "senderId"> & {
-        sender: { id: number; name: string };
+        sender: { id: number; name: string; avatarUrl?: string | null };
       })
     | null;
   unreadCount?: number;

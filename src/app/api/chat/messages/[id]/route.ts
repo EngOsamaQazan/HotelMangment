@@ -33,7 +33,7 @@ export async function GET(
     const msg = await prisma.chatMessage.findUnique({
       where: { id: messageId },
       include: {
-        sender: { select: { id: true, name: true, email: true } },
+        sender: { select: { id: true, name: true, email: true, avatarUrl: true } },
         attachments: true,
         reactions: { select: { userId: true, emoji: true } },
         replyTo: {
@@ -41,7 +41,7 @@ export async function GET(
             id: true,
             body: true,
             deletedAt: true,
-            sender: { select: { id: true, name: true } },
+            sender: { select: { id: true, name: true, avatarUrl: true } },
           },
         },
       },
@@ -115,7 +115,7 @@ export async function PATCH(
       where: { id: messageId },
       data: { body: text.trim(), editedAt: new Date() },
       include: {
-        sender: { select: { id: true, name: true, email: true } },
+        sender: { select: { id: true, name: true, email: true, avatarUrl: true } },
         attachments: true,
         reactions: { select: { userId: true, emoji: true } },
         replyTo: {
@@ -123,7 +123,7 @@ export async function PATCH(
             id: true,
             body: true,
             deletedAt: true,
-            sender: { select: { id: true, name: true } },
+            sender: { select: { id: true, name: true, avatarUrl: true } },
           },
         },
       },

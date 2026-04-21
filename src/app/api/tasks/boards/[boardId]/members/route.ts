@@ -25,7 +25,7 @@ export async function GET(
     const members = await prisma.taskBoardMember.findMany({
       where: { boardId },
       include: {
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, avatarUrl: true } },
       },
       orderBy: { createdAt: "asc" },
     });
@@ -84,7 +84,7 @@ export async function POST(
     const members = await prisma.taskBoardMember.findMany({
       where: { boardId },
       include: {
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, avatarUrl: true } },
       },
     });
     return NextResponse.json(members, { status: 201 });

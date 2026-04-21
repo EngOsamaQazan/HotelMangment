@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { cn, formatDate, formatAmount, statusLabels } from "@/lib/utils";
 import { Pagination, usePaginatedSlice } from "@/components/Pagination";
 import { Can } from "@/components/Can";
+import { UserAvatar } from "@/components/tasks/shared";
 
 const PAGE_SIZE = 20;
 
@@ -662,7 +663,7 @@ function ConvertToTaskModal({
   const [columns, setColumns] = useState<ColumnLite[]>([]);
   const [columnId, setColumnId] = useState<number | null>(null);
   const [members, setMembers] = useState<
-    { id: number; name: string }[]
+    { id: number; name: string; avatarUrl?: string | null }[]
   >([]);
   const [assigneeIds, setAssigneeIds] = useState<number[]>([]);
   const [priority, setPriority] = useState<
@@ -730,9 +731,12 @@ function ConvertToTaskModal({
         setColumnId(cols[0]?.id ?? null);
         setMembers(
           (data.members || []).map(
-            (m: { user: { id: number; name: string } }) => ({
+            (m: {
+              user: { id: number; name: string; avatarUrl?: string | null };
+            }) => ({
               id: m.user.id,
               name: m.user.name,
+              avatarUrl: m.user.avatarUrl ?? null,
             }),
           ),
         );
@@ -900,6 +904,7 @@ function ConvertToTaskModal({
                               )
                             }
                           />
+                          <UserAvatar user={m} size={22} />
                           <span className="text-gray-800">{m.name}</span>
                         </label>
                       );

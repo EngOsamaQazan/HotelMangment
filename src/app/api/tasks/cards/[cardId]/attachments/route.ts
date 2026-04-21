@@ -32,7 +32,7 @@ export async function GET(
     await requireBoardAccess(task.boardId, userId, "viewer");
     const attachments = await prisma.taskAttachment.findMany({
       where: { taskId },
-      include: { uploadedBy: { select: { id: true, name: true } } },
+      include: { uploadedBy: { select: { id: true, name: true, avatarUrl: true } } },
       orderBy: { createdAt: "desc" },
     });
     return NextResponse.json(attachments);
@@ -91,7 +91,7 @@ export async function POST(
           storagePath: saved.storagePath,
           uploadedById: userId,
         },
-        include: { uploadedBy: { select: { id: true, name: true } } },
+        include: { uploadedBy: { select: { id: true, name: true, avatarUrl: true } } },
       });
       await tx.taskActivity.create({
         data: {

@@ -163,7 +163,7 @@ export async function POST(
         include: {
           assignees: {
             include: {
-              user: { select: { id: true, name: true, email: true } },
+              user: { select: { id: true, name: true, email: true, avatarUrl: true } },
             },
           },
           labels: { include: { label: true } },

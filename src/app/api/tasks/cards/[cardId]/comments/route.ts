@@ -32,7 +32,7 @@ export async function GET(
     const comments = await prisma.taskComment.findMany({
       where: { taskId, deletedAt: null },
       include: {
-        author: { select: { id: true, name: true, email: true } },
+        author: { select: { id: true, name: true, email: true, avatarUrl: true } },
       },
       orderBy: { createdAt: "asc" },
     });
@@ -89,7 +89,7 @@ export async function POST(
           body: commentBody.trim(),
         },
         include: {
-          author: { select: { id: true, name: true, email: true } },
+          author: { select: { id: true, name: true, email: true, avatarUrl: true } },
         },
       });
       await tx.taskActivity.create({

@@ -58,7 +58,7 @@ export async function GET(
       orderBy: { id: "desc" },
       take: limit + 1,
       include: {
-        sender: { select: { id: true, name: true, email: true } },
+        sender: { select: { id: true, name: true, email: true, avatarUrl: true } },
         attachments: true,
         reactions: {
           select: { userId: true, emoji: true },
@@ -68,7 +68,7 @@ export async function GET(
             id: true,
             body: true,
             deletedAt: true,
-            sender: { select: { id: true, name: true } },
+            sender: { select: { id: true, name: true, avatarUrl: true } },
           },
         },
       },
@@ -148,7 +148,7 @@ export async function POST(
           replyToId: Number.isFinite(replyToId) ? Number(replyToId) : null,
         },
         include: {
-          sender: { select: { id: true, name: true, email: true } },
+          sender: { select: { id: true, name: true, email: true, avatarUrl: true } },
           attachments: true,
           reactions: { select: { userId: true, emoji: true } },
           replyTo: {
@@ -156,7 +156,7 @@ export async function POST(
               id: true,
               body: true,
               deletedAt: true,
-              sender: { select: { id: true, name: true } },
+              sender: { select: { id: true, name: true, avatarUrl: true } },
             },
           },
         },

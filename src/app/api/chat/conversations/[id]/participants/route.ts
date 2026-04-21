@@ -44,7 +44,7 @@ export async function POST(
     const parts = await prisma.chatParticipant.findMany({
       where: { conversationId },
       include: {
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, avatarUrl: true } },
       },
     });
     return NextResponse.json(parts, { status: 201 });

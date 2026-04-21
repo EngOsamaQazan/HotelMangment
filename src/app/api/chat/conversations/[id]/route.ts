@@ -27,7 +27,7 @@ export async function GET(
       include: {
         participants: {
           include: {
-            user: { select: { id: true, name: true, email: true } },
+            user: { select: { id: true, name: true, email: true, avatarUrl: true } },
           },
         },
         task: { select: { id: true, title: true, boardId: true } },

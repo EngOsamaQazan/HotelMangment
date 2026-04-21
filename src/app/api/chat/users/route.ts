@@ -35,6 +35,7 @@ export async function GET(request: Request) {
         name: true,
         email: true,
         username: true,
+        avatarUrl: true,
       },
       orderBy: { name: "asc" },
       take: limit,

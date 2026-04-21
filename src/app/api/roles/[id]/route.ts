@@ -27,7 +27,7 @@ export async function GET(
         },
         users: {
           select: {
-            user: { select: { id: true, name: true, email: true } },
+            user: { select: { id: true, name: true, email: true, avatarUrl: true } },
           },
         },
       },

@@ -43,30 +43,30 @@ export async function GET(
       include: {
         assignees: {
           include: {
-            user: { select: { id: true, name: true, email: true } },
+            user: { select: { id: true, name: true, email: true, avatarUrl: true } },
           },
         },
         labels: { include: { label: true } },
         checklist: { orderBy: { position: "asc" } },
         attachments: {
           include: {
-            uploadedBy: { select: { id: true, name: true } },
+            uploadedBy: { select: { id: true, name: true, avatarUrl: true } },
           },
           orderBy: { createdAt: "desc" },
         },
         comments: {
           where: { deletedAt: null },
           include: {
-            author: { select: { id: true, name: true, email: true } },
+            author: { select: { id: true, name: true, email: true, avatarUrl: true } },
           },
           orderBy: { createdAt: "asc" },
         },
         activities: {
-          include: { actor: { select: { id: true, name: true } } },
+          include: { actor: { select: { id: true, name: true, avatarUrl: true } } },
           orderBy: { createdAt: "desc" },
           take: 50,
         },
-        createdBy: { select: { id: true, name: true, email: true } },
+        createdBy: { select: { id: true, name: true, email: true, avatarUrl: true } },
         column: { select: { id: true, name: true } },
         board: { select: { id: true, name: true } },
         maintenance: {
@@ -155,7 +155,7 @@ export async function PATCH(
         include: {
           assignees: {
             include: {
-              user: { select: { id: true, name: true, email: true } },
+              user: { select: { id: true, name: true, email: true, avatarUrl: true } },
             },
           },
           labels: { include: { label: true } },
