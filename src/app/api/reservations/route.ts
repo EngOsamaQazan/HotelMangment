@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { cashAccountCodeFromMethod, ACCOUNT_CODES } from "@/lib/accounting";
+import { cashAccountCodeFromMethod, ACCOUNT_CODES, AccountingError } from "@/lib/accounting";
 import { postReservationEntries } from "@/lib/reservations/accounting";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 import { maybeSweepLazy } from "@/lib/reservations/sweeper";
@@ -131,9 +131,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // Future booking? Keep the unit alone until the sweeper activates it.
-    const isFutureBooking = checkInDate > now;
-    const reservationStatus = isFutureBooking ? "upcoming" : "active";
+    // Decide the reservation's initial lifecycle state from the requested
+    // window. Three mutually-exclusive cases:
+    //   • checkIn in the future            → "upcoming"
+    //   • checkIn now/past, checkOut future → "active"   (currently staying)
+    //   • checkOut in the past             → "completed" (back-dated record)
+    // The unit status and the accounting payment date both follow from this.
+    let reservationStatus: "upcoming" | "active" | "completed";
+    if (checkInDate > now) reservationStatus = "upcoming";
+    else if (checkOutDate <= now) reservationStatus = "completed";
+    else reservationStatus = "active";
+
+    const isBackdated = checkInDate < now;
+    // Cash was received on the day the guest actually paid. For normal/future
+    // bookings that's today; for back-dated records it's the check-in date so
+    // the payment entry lands in the same fiscal period as the revenue entry.
+    const paymentDate = isBackdated ? checkInDate : now;
 
     const paid = parseFloat(paidAmount || "0");
     const total = parseFloat(totalAmount);
@@ -161,6 +174,14 @@ export async function POST(request: Request) {
           groupId: groupId || null,
           bedSetupRequested: bedSetupRequested || null,
           status: reservationStatus,
+          // For fully back-dated bookings the operational events (arrival
+          // and departure) have already happened. Stamp the desk timestamps
+          // with the scheduled dates so the record is historically complete
+          // and the reservation detail page doesn't render empty slots.
+          actualCheckInAt:
+            reservationStatus === "completed" ? checkInDate : null,
+          actualCheckOutAt:
+            reservationStatus === "completed" ? checkOutDate : null,
         },
       });
 
@@ -177,10 +198,11 @@ export async function POST(request: Request) {
         });
       }
 
-      // Only flip the unit to occupied when the reservation is starting right
-      // now. Future bookings leave the unit available and are activated by
-      // the sweeper (see `src/lib/reservations/sweeper.ts`).
-      if (!isFutureBooking) {
+      // Flip the unit to occupied only if the reservation is active right
+      // now. `upcoming` leaves the unit free until the sweeper activates it;
+      // `completed` (back-dated, fully in the past) must not touch the unit
+      // at all because the guest has already left.
+      if (reservationStatus === "active") {
         await tx.unit.update({
           where: { id: unitId },
           data: { status: "occupied" },
@@ -191,7 +213,7 @@ export async function POST(request: Request) {
         const cashCode = cashAccountCodeFromMethod(paymentMethod);
         await tx.transaction.create({
           data: {
-            date: new Date(),
+            date: paymentDate,
             description: `حجز - ${guestName} - غرفة ${unit.unitNumber}`,
             reservationId: res.id,
             amount: paid,
@@ -212,6 +234,7 @@ export async function POST(request: Request) {
         totalAmount: total,
         paidAmount: paid,
         paymentMethod: paymentMethod || null,
+        paymentDate,
       });
 
       return tx.reservation.findUnique({
@@ -224,6 +247,12 @@ export async function POST(request: Request) {
   } catch (error) {
     const authErr = handleAuthError(error);
     if (authErr) return authErr;
+    // Closed-period / validation errors carry user-friendly Arabic messages;
+    // bubble them up as 400 so the front-end error banner shows them directly
+    // (typical case: back-dated reservation landing in a closed fiscal month).
+    if (error instanceof AccountingError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.error("POST /api/reservations error:", error);
     return NextResponse.json(
       { error: "Failed to create reservation" },

@@ -44,6 +44,12 @@ export interface BookedDatePickerProps {
   maintenance?: boolean;
   /** Optional label for an all-day maintenance banner inside the popover. */
   unavailableReason?: string;
+  /**
+   * When true, dates before the effective minimum become selectable again.
+   * Intended for back-office flows where staff register a reservation that
+   * already happened (e.g. a walk-in that was forgotten).
+   */
+  allowPastDates?: boolean;
 }
 
 const WEEKDAY_HEADERS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
@@ -70,6 +76,7 @@ export function BookedDatePicker({
   id,
   maintenance = false,
   unavailableReason,
+  allowPastDates = false,
 }: BookedDatePickerProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -136,7 +143,7 @@ export function BookedDatePicker({
 
   function handleSelect(day: Date) {
     if (maintenance) return;
-    if (day.getTime() < effectiveMin.getTime()) return;
+    if (!allowPastDates && day.getTime() < effectiveMin.getTime()) return;
     if (isBlocked(day)) return;
     onChange(format(day, "yyyy-MM-dd"));
     setOpen(false);
@@ -206,10 +213,13 @@ export function BookedDatePicker({
             {days.map((day) => {
               const inMonth = isSameMonth(day, viewMonth);
               const beforeMin = day.getTime() < effectiveMin.getTime();
+              // With `allowPastDates` the past-min restriction is lifted so
+              // the day becomes clickable *and* visually normal (not greyed).
+              const pastDisabled = beforeMin && !allowPastDates;
               const blocked = isBlocked(day);
               const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
               const isToday = isSameDay(day, today);
-              const disabledDay = maintenance || beforeMin || !!blocked;
+              const disabledDay = maintenance || pastDisabled || !!blocked;
 
               return (
                 <button
@@ -219,10 +229,12 @@ export function BookedDatePicker({
                   title={
                     blocked
                       ? `محجوز${blocked.guestName ? ` لصالح ${blocked.guestName}` : ""}`
-                      : beforeMin
+                      : pastDisabled
                       ? "تاريخ قديم"
                       : maintenance
                       ? "الوحدة تحت الصيانة"
+                      : beforeMin && allowPastDates
+                      ? "تاريخ قديم — تسجيل بأثر رجعي"
                       : undefined
                   }
                   onClick={() => handleSelect(day)}
@@ -232,7 +244,10 @@ export function BookedDatePicker({
                     inMonth && !disabledDay && !isSelected && "hover:bg-primary/10 text-gray-700",
                     disabledDay && "cursor-not-allowed",
                     blocked && "bg-red-50 text-red-400 line-through decoration-red-300",
-                    beforeMin && !blocked && "text-gray-300",
+                    pastDisabled && !blocked && "text-gray-300",
+                    // Historical (past) days in backdate mode get a subtle amber tint
+                    // so staff notice they're outside the normal selection window.
+                    beforeMin && allowPastDates && !blocked && !isSelected && "bg-amber-50 text-amber-700 hover:bg-amber-100",
                     isSelected && "bg-primary text-white font-semibold hover:bg-primary",
                     !isSelected && isToday && "ring-1 ring-primary/40",
                   )}

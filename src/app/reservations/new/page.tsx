@@ -12,6 +12,7 @@ import {
   UserPlus,
   AlertTriangle,
   Users as UsersIcon,
+  History,
 } from "lucide-react";
 import {
   cn,
@@ -136,6 +137,12 @@ export default function NewReservationPage() {
   // to disable days that are already claimed by another reservation.
   const [unitBlockedRanges, setUnitBlockedRanges] = useState<BlockedRange[]>([]);
   const [unitMaintenance, setUnitMaintenance] = useState(false);
+
+  // Back-office flow: when enabled, staff can pick a past check-in date to
+  // register a reservation that already happened (walk-in that was forgotten).
+  // The server will auto-derive the correct status (active/completed) and
+  // post the accounting entries on the historical date, not today.
+  const [backdated, setBackdated] = useState(false);
 
   const checkOut = (() => {
     if (!checkIn || !numNights) return "";
@@ -279,6 +286,29 @@ export default function NewReservationPage() {
     return isSpanBlocked(checkIn, checkOut, unitBlockedRanges);
   }, [unitId, checkIn, checkOut, unitBlockedRanges]);
 
+  // Preview of what status the server will assign, so back-office staff see
+  // exactly what will be saved before they submit.
+  const derivedStatus = useMemo<null | "upcoming" | "active" | "completed">(() => {
+    if (!checkIn) return null;
+    const now = new Date();
+    const ciIso = `${checkIn}T${checkInTime || "14:00"}:00`;
+    const coIso = `${checkOut}T${checkOutTime || "12:00"}:00`;
+    const ci = new Date(ciIso);
+    const co = new Date(coIso);
+    if (Number.isNaN(ci.getTime()) || Number.isNaN(co.getTime())) return null;
+    if (ci > now) return "upcoming";
+    if (co <= now) return "completed";
+    return "active";
+  }, [checkIn, checkOut, checkInTime, checkOutTime]);
+
+  const isBackdatedSelection = useMemo(() => {
+    if (!checkIn) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const ci = new Date(`${checkIn}T00:00:00`);
+    return ci.getTime() < today.getTime();
+  }, [checkIn]);
+
   const updateGuest = (index: number, field: keyof GuestEntry, value: string) => {
     setGuests((prev) =>
       prev.map((g, i) => (i === index ? { ...g, [field]: value } : g))
@@ -344,6 +374,11 @@ export default function NewReservationPage() {
             idNumber: g.idNumber.trim(),
             nationality: g.nationality.trim(),
           })),
+        // Explicit flag so the server can audit/allow backdating. The server
+        // derives the actual booking status from the dates regardless, but
+        // this flag guards against accidental past-date submissions from
+        // clients that haven't opted-in.
+        backdated: backdated && isBackdatedSelection,
       };
 
       const res = await fetch("/api/reservations", {
@@ -383,6 +418,21 @@ export default function NewReservationPage() {
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
           {error}
+        </div>
+      )}
+
+      {backdated && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-3 text-sm flex items-start gap-2">
+          <History size={18} className="shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <div className="font-semibold">وضع التسجيل بأثر رجعي مُفعّل</div>
+            <div className="text-amber-700">
+              سيتم نشر القيود المحاسبية (الإيراد والدفعة) على تاريخ الدخول المُدخل، وليس تاريخ اليوم.
+              إذا كانت الفترة المحاسبية لذلك الشهر مقفلة، ستحتاج لفتحها أولاً من
+              <Link href="/accounting/periods" className="underline font-medium mx-1">صفحة الفترات المحاسبية</Link>
+              ثم إعادة المحاولة.
+            </div>
+          </div>
         </div>
       )}
 
@@ -647,6 +697,7 @@ export default function NewReservationPage() {
                     onChange={setCheckIn}
                     blockedRanges={unitBlockedRanges}
                     maintenance={unitMaintenance}
+                    allowPastDates={backdated}
                     unavailableReason={
                       unitMaintenance
                         ? "الوحدة تحت الصيانة — حرّرها أولاً من لوحة الغرف"
@@ -664,6 +715,45 @@ export default function NewReservationPage() {
                   title="وقت الدخول"
                 />
               </div>
+
+              <label className="flex items-start gap-2 mt-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={backdated}
+                  onChange={(e) => {
+                    const next = e.target.checked;
+                    setBackdated(next);
+                    if (!next && isBackdatedSelection) {
+                      setCheckIn(new Date().toISOString().split("T")[0]);
+                    }
+                  }}
+                  className="mt-0.5 w-4 h-4 accent-primary"
+                />
+                <span className="text-xs text-gray-700 leading-snug">
+                  <span className="flex items-center gap-1 font-medium">
+                    <History size={12} className="text-amber-600" />
+                    تسجيل بأثر رجعي (تاريخ دخول قديم)
+                  </span>
+                  <span className="text-gray-500">
+                    استخدمه لتسجيل حجز تمّ فعلياً ولم يُدخَل بوقته. القيود المحاسبية ستُسجّل على التاريخ الفعلي.
+                  </span>
+                </span>
+              </label>
+
+              {backdated && isBackdatedSelection && derivedStatus && (
+                <p className="text-xs text-amber-700 mt-1.5 flex items-center gap-1">
+                  <History size={12} />
+                  الحالة التلقائية عند الحفظ:{" "}
+                  <b>
+                    {derivedStatus === "completed"
+                      ? "مكتمل (مغادر)"
+                      : derivedStatus === "active"
+                      ? "نشط"
+                      : "قادم"}
+                  </b>
+                </p>
+              )}
+
               {rangeConflict && (
                 <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
                   <AlertTriangle size={12} />

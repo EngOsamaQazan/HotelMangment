@@ -39,6 +39,13 @@ export interface ReservationFinancialSnapshot {
   totalAmount: number;
   paidAmount: number;
   paymentMethod?: string | null;
+  /**
+   * Economic date the cash was actually received. Defaults to "now" for the
+   * normal create flow; back-office back-dating flows pass the historical
+   * date (usually equal to `checkIn`) so the cash entry posts in the correct
+   * accounting period instead of today's.
+   */
+  paymentDate?: Date;
 }
 
 /**
@@ -59,6 +66,7 @@ export async function postReservationEntries(
     totalAmount,
     paidAmount,
     paymentMethod,
+    paymentDate,
   } = snapshot;
 
   const partyId = await getOrCreateGuestParty(tx, {
@@ -93,7 +101,7 @@ export async function postReservationEntries(
   if (paidAmount > 0) {
     const cashCode = cashAccountCodeFromMethod(paymentMethod);
     await postEntry(tx, {
-      date: new Date(),
+      date: paymentDate ?? new Date(),
       description: `دفعة حجز #${reservationId} - ${guestName}`,
       source: "payment",
       sourceRefId: reservationId,
