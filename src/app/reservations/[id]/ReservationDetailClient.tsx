@@ -71,6 +71,24 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-red-100 text-red-800",
 };
 
+/**
+ * Extension is allowed when:
+ *   • status is `active` or `upcoming`, OR
+ *   • status is `completed` AND the check-out date is today (same calendar
+ *     day) — this covers the "الضيف قرر يكمّل بعد ما خرج" case, before the
+ *     accounting period closes.
+ */
+function canExtendReservation(r: { status: string; checkOut: string }): boolean {
+  if (r.status === "active" || r.status === "upcoming") return true;
+  if (r.status !== "completed") return false;
+  const co = new Date(r.checkOut);
+  if (Number.isNaN(co.getTime())) return false;
+  co.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return co.getTime() === today.getTime();
+}
+
 /** Extract `HH:mm` from an ISO string, falling back to `fallback`. */
 function extractHHMM(iso: string, fallback: string): string {
   if (!iso) return fallback;
@@ -390,14 +408,20 @@ export default function ReservationDetailClient({ id }: { id: string }) {
         <div className="flex items-center gap-2">
           {!editing && (
             <>
-              {(reservation.status === "active" ||
-                reservation.status === "upcoming") && (
+              {canExtendReservation(reservation) && (
                 <button
                   onClick={openExtendModal}
                   className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                  title={
+                    reservation.status === "completed"
+                      ? "إعادة تفعيل وتمديد حجز انتهى اليوم"
+                      : "تمديد الحجز"
+                  }
                 >
                   <CalendarPlus size={16} />
-                  تمديد الحجز
+                  {reservation.status === "completed"
+                    ? "إعادة تفعيل وتمديد"
+                    : "تمديد الحجز"}
                 </button>
               )}
               <button
@@ -483,8 +507,15 @@ export default function ReservationDetailClient({ id }: { id: string }) {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-gray-800">
-                    تمديد الحجز #{reservation.id}
+                    {reservation.status === "completed"
+                      ? `إعادة تفعيل وتمديد الحجز #${reservation.id}`
+                      : `تمديد الحجز #${reservation.id}`}
                   </h3>
+                  {reservation.status === "completed" && (
+                    <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1 mt-1 inline-block">
+                      الحجز منتهٍ اليوم — التمديد سيُعيد تفعيله ويضع الوحدة «مشغولة» مجدداً.
+                    </p>
+                  )}
                   <p className="text-xs text-gray-500">
                     الخروج الحالي:{" "}
                     <span className="font-medium">

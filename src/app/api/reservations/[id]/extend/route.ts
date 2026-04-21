@@ -47,9 +47,26 @@ export async function POST(
     if (!existing) {
       return NextResponse.json({ error: "Reservation not found" }, { status: 404 });
     }
-    if (existing.status === "cancelled" || existing.status === "completed") {
+    if (existing.status === "cancelled") {
       return NextResponse.json(
-        { error: "لا يمكن تمديد حجز ملغي أو منتهٍ" },
+        { error: "لا يمكن تمديد حجز ملغي" },
+        { status: 409 },
+      );
+    }
+    // Allow extending a `completed` reservation only when check-out was today
+    // (same calendar day). This covers the common "نسي الضيف وبعدين قرر يكمّل"
+    // scenario. Older completed reservations stay immutable.
+    const isCompletedToday = (() => {
+      if (existing.status !== "completed") return false;
+      const co = new Date(existing.checkOut);
+      co.setHours(0, 0, 0, 0);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return co.getTime() === today.getTime();
+    })();
+    if (existing.status === "completed" && !isCompletedToday) {
+      return NextResponse.json(
+        { error: "لا يمكن تمديد حجز منتهٍ إلا في نفس يوم انتهائه" },
         { status: 409 },
       );
     }
@@ -128,6 +145,9 @@ export async function POST(
           totalAmount: newTotal,
           paidAmount: newPaid,
           remaining: newRemaining,
+          // Re-activate a reservation that was auto-completed earlier today
+          // (the guest effectively never left). Otherwise keep the current status.
+          ...(isCompletedToday ? { status: "active" } : {}),
           ...(body.note
             ? {
                 notes: existing.notes
@@ -137,6 +157,15 @@ export async function POST(
             : {}),
         },
       });
+
+      // The sweeper may have flipped the unit to `maintenance` (or `available`)
+      // after check-out. Re-opening the stay puts the unit back on `occupied`.
+      if (isCompletedToday) {
+        await tx.unit.update({
+          where: { id: existing.unitId },
+          data: { status: "occupied" },
+        });
+      }
 
       if (addedPaid > 0) {
         const cashCode = cashAccountCodeFromMethod(paymentMethod);
