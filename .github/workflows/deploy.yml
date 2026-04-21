@@ -1,5 +1,17 @@
 name: Deploy to mafhotel.com
 
+# Tayseer-style fast deploy:
+#   1. SSH into the server
+#   2. git pull the latest code in-place
+#   3. Skip npm ci / prisma generate when hashes are unchanged
+#   4. Always run `next build` but with `.next/cache/` preserved for
+#      Turbopack's incremental cache -> small change builds in ~20-30s
+#   5. Restart systemd services
+#
+# Previous flow: build on the runner + rsync everything -> ~3-5 min.
+# This flow:     pull + (maybe) npm ci + build + restart -> ~30-60 s
+# for code-only changes, matching our PHP sibling.
+
 on:
   push:
     branches: [main]
@@ -9,194 +21,144 @@ concurrency:
   group: deploy-production
   cancel-in-progress: false
 
-env:
-  NODE_VERSION: "24.15.0"
-
 jobs:
   deploy:
-    name: Build & Deploy
+    name: Deploy via SSH
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
 
     steps:
-      # ───── 1. Checkout ─────────────────────────────────────────
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Deploy
+        uses: appleboy/ssh-action@v1
         with:
-          fetch-depth: 1
-
-      # ───── 2. Setup Node ───────────────────────────────────────
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-
-      # ───── 3. Install & build on runner (fast CI) ─────────────
-      - name: Install dependencies
-        run: npm ci --no-audit --no-fund --prefer-offline
-
-      - name: Prisma generate
-        run: npx prisma generate
-
-      - name: Type-check & build
-        env:
-          NEXTAUTH_SECRET: build-time-placeholder-unused-at-runtime
-          NEXTAUTH_URL: https://mafhotel.com
-          NEXT_PUBLIC_SITE_URL: https://mafhotel.com
-          DATABASE_URL: postgresql://build:build@localhost:5432/build
-          SKIP_ENV_VALIDATION: "1"
-        run: npm run build
-
-      - name: Realtime install
-        working-directory: realtime
-        run: npm install --no-audit --no-fund
-
-      # ───── 4. Package release artifact ─────────────────────────
-      - name: Package release
-        id: package
-        run: |
-          TS=$(date +%Y%m%d-%H%M%S)
-          echo "ts=$TS" >> $GITHUB_OUTPUT
-          echo "release=/opt/mafhotel.com/releases/$TS" >> $GITHUB_OUTPUT
-          # Trim heavy dev-only files before rsync
-          rm -rf .git docs .github \
-                 .next/cache \
-                 bot tools deployment deploy \
-                 node_modules/.cache
-
-      # ───── 5. Prepare SSH ──────────────────────────────────────
-      - name: Configure SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-
-      # ───── 6. rsync code to new release directory ─────────────
-      - name: rsync → server
-        env:
-          REMOTE: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
-          RELEASE: ${{ steps.package.outputs.release }}
-        run: |
-          ssh -i ~/.ssh/deploy_key "$REMOTE" "mkdir -p $RELEASE"
-          rsync -az --delete \
-            -e "ssh -i ~/.ssh/deploy_key" \
-            --exclude='.git' \
-            --exclude='.github' \
-            --exclude='node_modules' \
-            --exclude='.next/cache' \
-            ./ "$REMOTE:$RELEASE/"
-
-      # ───── 7. Activate release on server ──────────────────────
-      - name: Activate release (atomic)
-        env:
-          REMOTE: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-          RELEASE: ${{ steps.package.outputs.release }}
-        run: |
-          ssh -i ~/.ssh/deploy_key "$REMOTE" bash -s << 'ENDSSH'
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 22
+          command_timeout: 12m
+          script: |
             set -euo pipefail
             export NVM_DIR="$HOME/.nvm"
+            # shellcheck source=/dev/null
             source "$NVM_DIR/nvm.sh"
 
-            RELEASE="${{ steps.package.outputs.release }}"
-            DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
+            DEPLOY_PATH="/opt/mafhotel.com"
+            APP_DIR="$DEPLOY_PATH/app"
+            SHARED="$DEPLOY_PATH/shared"
+            STATE="$SHARED/deploy-state"
+            REPO_URL="https://github.com/EngOsamaQazan/HotelMangment.git"
+            BRANCH="main"
 
-            echo "==> [1/7] link shared/.env + uploads + google-vision-key into release"
-            ln -sfn "$DEPLOY_PATH/shared/.env"     "$RELEASE/.env"
-            ln -sfn "$DEPLOY_PATH/shared/uploads"  "$RELEASE/uploads"
-            if [ -f "$DEPLOY_PATH/shared/google-vision-key.json" ]; then
-              ln -sfn "$DEPLOY_PATH/shared/google-vision-key.json" "$RELEASE/google-vision-key.json"
+            mkdir -p "$STATE"
+
+            # ───── 1. Clone on first deploy, pull afterwards ─────────
+            if [ ! -d "$APP_DIR/.git" ]; then
+              echo "==> [1/6] First deploy — cloning repo into $APP_DIR"
+              rm -rf "$APP_DIR"
+              git clone --depth 20 --branch "$BRANCH" "$REPO_URL" "$APP_DIR"
+            else
+              echo "==> [1/6] Pulling latest changes"
+              cd "$APP_DIR"
+              git fetch origin "$BRANCH" --depth 20
+              git reset --hard "origin/$BRANCH"
+              git clean -fd -e node_modules -e .next -e uploads -e .env -e google-vision-key.json
             fi
 
-            echo "==> [2/7] install prod node_modules (safe because we already rsynced built .next)"
-            cd "$RELEASE"
-            npm ci --omit=dev --no-audit --no-fund
+            cd "$APP_DIR"
+            SHA=$(git rev-parse --short HEAD)
+            echo "    deployed commit: $SHA"
 
-            echo "==> [3/7] install realtime node_modules"
+            # ───── 2. Link shared files (idempotent) ─────────────────
+            echo "==> [2/6] Linking shared env + uploads + vision key"
+            ln -sfn "$SHARED/.env"     ".env"
+            ln -sfn "$SHARED/uploads"  "uploads"
+            if [ -f "$SHARED/google-vision-key.json" ]; then
+              ln -sfn "$SHARED/google-vision-key.json" "google-vision-key.json"
+            fi
+
+            # ───── 3. Smart npm ci (skip when lock unchanged) ────────
+            NEW_LOCK=$(sha256sum package-lock.json | cut -d' ' -f1)
+            OLD_LOCK=$(cat "$STATE/lock-hash" 2>/dev/null || echo "")
+            if [ "$NEW_LOCK" != "$OLD_LOCK" ] || [ ! -d node_modules ]; then
+              echo "==> [3/6] package-lock.json changed -> npm ci"
+              npm ci --no-audit --no-fund --prefer-offline
+              echo "$NEW_LOCK" > "$STATE/lock-hash"
+            else
+              echo "==> [3/6] npm deps unchanged -> skipping npm ci"
+            fi
+
             if [ -d realtime ]; then
-              cd "$RELEASE/realtime"
-              npm install --omit=dev --no-audit --no-fund
-              cd "$RELEASE"
+              NEW_RT=$(sha256sum realtime/package-lock.json 2>/dev/null | cut -d' ' -f1 || echo "")
+              OLD_RT=$(cat "$STATE/realtime-lock-hash" 2>/dev/null || echo "")
+              if [ -n "$NEW_RT" ] && { [ "$NEW_RT" != "$OLD_RT" ] || [ ! -d realtime/node_modules ]; }; then
+                echo "    realtime deps changed -> npm install"
+                (cd realtime && npm install --omit=dev --no-audit --no-fund)
+                echo "$NEW_RT" > "$STATE/realtime-lock-hash"
+              fi
             fi
 
-            echo "==> [4/7] prisma db push (schema sync)"
-            set -a; source "$DEPLOY_PATH/shared/.env"; set +a
-            npx prisma db push --skip-generate --accept-data-loss
+            # ───── 4. Smart Prisma (generate + db push only on change) ─
+            NEW_SCHEMA=$(sha256sum prisma/schema.prisma | cut -d' ' -f1)
+            OLD_SCHEMA=$(cat "$STATE/schema-hash" 2>/dev/null || echo "")
+            if [ "$NEW_SCHEMA" != "$OLD_SCHEMA" ] || [ ! -d node_modules/.prisma/client ]; then
+              echo "==> [4/6] prisma schema changed -> generate + db push"
+              set -a; source "$SHARED/.env"; set +a
+              npx prisma generate
+              npx prisma db push --skip-generate --accept-data-loss
+              echo "$NEW_SCHEMA" > "$STATE/schema-hash"
+            else
+              echo "==> [4/6] prisma schema unchanged -> skipping generate"
+            fi
 
-            echo "==> [5/7] copy public + static + prisma + vision-key into .next/standalone"
+            # ───── 5. Build Next.js (incremental via .next/cache) ────
+            echo "==> [5/6] next build (incremental if .next/cache exists)"
+            NEXTAUTH_SECRET=build-time-placeholder \
+            NEXTAUTH_URL=https://mafhotel.com \
+            NEXT_PUBLIC_SITE_URL=https://mafhotel.com \
+            SKIP_ENV_VALIDATION=1 \
+              npm run build
+
+            # Next 16 + Turbopack standalone: copy static assets + wire
+            # up hashed Prisma client aliases so the server.js resolves.
             if [ -d .next/standalone ]; then
               [ -d public ]        && cp -rn public        .next/standalone/          || true
               [ -d .next/static ]  && cp -rn .next/static  .next/standalone/.next/    || true
-              if [ -f "$DEPLOY_PATH/shared/google-vision-key.json" ]; then
-                ln -sfn "$DEPLOY_PATH/shared/google-vision-key.json" .next/standalone/google-vision-key.json
+              if [ -f "$SHARED/google-vision-key.json" ]; then
+                ln -sfn "$SHARED/google-vision-key.json" .next/standalone/google-vision-key.json
               fi
-
-              # Copy Prisma runtime into standalone node_modules (Next.js 16 + Turbopack omits them)
               mkdir -p .next/standalone/node_modules/@prisma .next/standalone/node_modules/.prisma
               [ -d node_modules/@prisma/client ] && cp -a node_modules/@prisma/client .next/standalone/node_modules/@prisma/ || true
               [ -d node_modules/.prisma/client ] && cp -a node_modules/.prisma/client .next/standalone/node_modules/.prisma/ || true
 
-              # Next.js 16 Turbopack references @prisma/client-<hash> → create symlink aliases
               HASHES=$(grep -hoE '@prisma/client-[a-f0-9]+' .next/standalone/.next/server/chunks/*.js 2>/dev/null | sort -u || true)
               for H in $HASHES; do
                 NAME="${H#@prisma/}"
                 [ ! -e ".next/standalone/node_modules/@prisma/$NAME" ] && \
-                  ln -s client ".next/standalone/node_modules/@prisma/$NAME" && \
-                  echo "  linked standalone: @prisma/$NAME -> client"
+                  ln -s client ".next/standalone/node_modules/@prisma/$NAME" || true
                 [ ! -e "node_modules/@prisma/$NAME" ] && \
-                  ln -s client "node_modules/@prisma/$NAME" && \
-                  echo "  linked top-level:  @prisma/$NAME -> client"
+                  ln -s client "node_modules/@prisma/$NAME" || true
               done
             fi
 
-            echo "==> [6/7] atomic symlink swap: current -> $RELEASE"
-            ln -sfn "$RELEASE" "$DEPLOY_PATH/current.new"
+            # ───── 6. Swap `current` symlink + restart services ──────
+            ln -sfn "$APP_DIR" "$DEPLOY_PATH/current.new"
             mv -Tf "$DEPLOY_PATH/current.new" "$DEPLOY_PATH/current"
 
-            echo "==> [7/7] restart services"
+            echo "==> [6/6] Restarting services"
             sudo /bin/systemctl restart mafhotel-app.service
             sudo /bin/systemctl restart mafhotel-realtime.service
 
-            echo "==> Cleanup: keep last 5 releases"
-            ls -1dt "$DEPLOY_PATH"/releases/*/ | tail -n +6 | xargs -r rm -rf
-            ls -1dt "$DEPLOY_PATH"/releases/ | sed 's/^/  /'
-          ENDSSH
-
-      # ───── 8. Health check ─────────────────────────────────────
-      - name: Health check
-        run: |
-          for i in 1 2 3 4 5 6 7 8 9 10; do
+            # ───── Health check ──────────────────────────────────────
+            echo "==> Health check"
             sleep 3
-            code=$(curl -sko /dev/null -w "%{http_code}" -m 8 https://mafhotel.com/login || echo 000)
-            echo "attempt $i: HTTP $code"
-            if [ "$code" = "200" ]; then
-              echo "✅ deployment healthy"
-              exit 0
-            fi
-          done
-          echo "❌ health check failed after 30s"
-          exit 1
-
-      # ───── 9. Cleanup on failure (rollback) ────────────────────
-      - name: Rollback on failure
-        if: failure() && steps.package.outputs.release
-        env:
-          REMOTE: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-        run: |
-          ssh -i ~/.ssh/deploy_key "$REMOTE" bash -s << 'ENDSSH'
-            set -euo pipefail
-            DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
-            # Find previous release and roll back
-            PREV=$(ls -1dt "$DEPLOY_PATH"/releases/*/ | sed -n '2p')
-            if [ -n "$PREV" ]; then
-              echo "rolling back to $PREV"
-              ln -sfn "$PREV" "$DEPLOY_PATH/current.new"
-              mv -Tf "$DEPLOY_PATH/current.new" "$DEPLOY_PATH/current"
-              sudo /bin/systemctl restart mafhotel-app.service
-              sudo /bin/systemctl restart mafhotel-realtime.service
-            fi
-          ENDSSH
+            for i in 1 2 3 4 5 6 7 8; do
+              CODE=$(curl -sko /dev/null -w "%{http_code}" -m 6 https://mafhotel.com/login || echo 000)
+              echo "    attempt $i: HTTP $CODE"
+              if [ "$CODE" = "200" ]; then
+                echo "✅ deployed $SHA"
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "❌ health check failed after 22s"
+            exit 1

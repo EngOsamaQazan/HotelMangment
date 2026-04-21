@@ -10,6 +10,8 @@
  * Allow-list (no permission required):
  *   - /api/auth/**            (NextAuth internals)
  *   - /api/me/permissions     (the endpoint consumed by PermissionsProvider)
+ *   - /api/cron/**            (external cron jobs, guarded by CRON_SECRET
+ *                              — not RBAC, since there is no user session)
  *   - /login                  (auth pages)
  *   - /unauthorized           (403 page)
  *   - /                       (root, redirects)
@@ -31,6 +33,7 @@ const ALLOWLIST: string[] = [
   "/api/auth",
   "/api/me/permissions",
   "/api/build-id",
+  "/api/cron",
 ];
 
 interface Finding {
