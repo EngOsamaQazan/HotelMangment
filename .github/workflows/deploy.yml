@@ -144,16 +144,26 @@ jobs:
                 printf '%s=%s\n' "$key" "$val" >> "$SHARED_ENV"
               fi
             }
-            # Insert-if-missing only: never overwrites an existing value.
-            # Critical for BOOKING_ENC_KEY — rotating it would break every
-            # credential already encrypted on the server.
+            # Insert only when the key is missing OR its current value is
+            # empty. Never overwrites a real value — critical for
+            # BOOKING_ENC_KEY, since rotating it would make every existing
+            # encrypted credential on the server undecryptable.
             insert_env_once() {
               local key="$1"
               local val="$2"
               [ -z "$val" ] && return 0
-              if ! grep -qE "^${key}=" "$SHARED_ENV"; then
-                printf '%s=%s\n' "$key" "$val" >> "$SHARED_ENV"
-                echo "    seeded $key (was missing)"
+              local current
+              current=$(grep -E "^${key}=" "$SHARED_ENV" | head -n1 | sed "s|^${key}=||" || echo "")
+              if [ -z "$current" ]; then
+                if grep -qE "^${key}=" "$SHARED_ENV"; then
+                  sed -i "s|^${key}=.*|${key}=${val}|" "$SHARED_ENV"
+                  echo "    seeded $key (was empty)"
+                else
+                  printf '%s=%s\n' "$key" "$val" >> "$SHARED_ENV"
+                  echo "    seeded $key (was missing)"
+                fi
+              else
+                echo "    $key already set — leaving untouched"
               fi
             }
             upsert_env META_APP_ID                   "$META_APP_ID"
