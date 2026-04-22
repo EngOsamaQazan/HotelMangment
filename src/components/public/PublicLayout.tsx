@@ -1,6 +1,6 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { ReactNode } from "react";
-import { Building2 } from "lucide-react";
 
 /** Shared chrome for the public-facing marketing & legal pages.
  *  Intentionally simple: no sidebar, no auth, no client JS — so it renders
@@ -8,9 +8,16 @@ import { Building2 } from "lucide-react";
 export function PublicLayout({
   children,
   activeHref,
+  transparentHeader = false,
+  fullBleed = false,
 }: {
   children: ReactNode;
   activeHref?: "/landing" | "/about" | "/privacy" | "/terms";
+  /** When true the header floats over the hero (used on /landing). */
+  transparentHeader?: boolean;
+  /** When true, <main> won't apply its padded container — let the page
+   *  build its own edge-to-edge sections (hero, full-bleed galleries). */
+  fullBleed?: boolean;
 }) {
   const navItems: { href: "/landing" | "/about" | "/privacy" | "/terms"; label: string }[] = [
     { href: "/landing", label: "الرئيسية" },
@@ -19,16 +26,31 @@ export function PublicLayout({
     { href: "/terms", label: "الشروط" },
   ];
 
+  const headerClass = transparentHeader
+    ? "absolute inset-x-0 top-0 z-30 bg-gradient-to-b from-black/55 to-transparent text-white"
+    : "bg-primary text-white shadow-md";
+
   return (
     <div className="min-h-screen flex flex-col bg-page-bg">
-      <header className="bg-primary text-white shadow-md">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
+      <header className={headerClass}>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 md:py-4 flex items-center justify-between gap-4">
           <Link
             href="/landing"
-            className="flex items-center gap-2 font-bold text-lg hover:opacity-90"
+            className="flex items-center gap-2 hover:opacity-90"
           >
-            <Building2 size={24} className="text-gold" />
-            <span>فندق المفرق</span>
+            <span className="relative h-10 w-10 md:h-12 md:w-12 shrink-0">
+              <Image
+                src="/logo.png"
+                alt="فندق المفرق"
+                fill
+                sizes="48px"
+                className="object-contain"
+                priority
+              />
+            </span>
+            <span className="font-bold text-base md:text-lg tracking-wide">
+              فندق المفرق
+            </span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-5 text-sm">
@@ -49,14 +71,20 @@ export function PublicLayout({
 
           <Link
             href="/login"
-            className="px-4 py-2 rounded-lg bg-gold text-primary font-semibold hover:bg-gold-dark transition-colors text-sm"
+            className="px-3 sm:px-4 py-2 rounded-lg bg-gold text-primary font-semibold hover:bg-gold-dark transition-colors text-xs sm:text-sm"
           >
             تسجيل الدخول
           </Link>
         </div>
       </header>
 
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 md:py-12">
+      <main
+        className={
+          fullBleed
+            ? "flex-1"
+            : "flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 md:py-12"
+        }
+      >
         {children}
       </main>
 
