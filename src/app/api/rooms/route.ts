@@ -26,6 +26,12 @@ export async function GET() {
             },
           },
         },
+        mergeAsA: {
+          include: { unitB: { select: { id: true, unitNumber: true } } },
+        },
+        mergeAsB: {
+          include: { unitA: { select: { id: true, unitNumber: true } } },
+        },
       },
       orderBy: [{ floor: "asc" }, { unitNumber: "asc" }],
     });
@@ -42,9 +48,15 @@ export async function GET() {
             (r.status === "upcoming" || r.status === "active") &&
             r.checkIn > now,
         ) || null;
+      const mergedPartner = unit.mergeAsA?.unitB
+        ? { id: unit.mergeAsA.unitB.id, unitNumber: unit.mergeAsA.unitB.unitNumber }
+        : unit.mergeAsB?.unitA
+        ? { id: unit.mergeAsB.unitA.id, unitNumber: unit.mergeAsB.unitA.unitNumber }
+        : null;
       return {
         id: unit.id,
         unitNumber: unit.unitNumber,
+        mergedPartner,
         type: unit.unitType,
         unitTypeId: unit.unitTypeId,
         unitType: unit.unitTypeRef

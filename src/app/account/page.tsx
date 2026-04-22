@@ -170,7 +170,7 @@ function ReservationCard({
 
   return (
     <Link
-      href={`/account/reservations/${r.id}`}
+      href={`/account/reservations/${r.confirmationCode ?? r.id}`}
       className="block bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md transition"
     >
       <div className="flex items-start justify-between gap-3 mb-3">

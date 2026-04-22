@@ -47,7 +47,7 @@ export async function GET(
         rooms: {
           orderBy: { position: "asc" },
           include: {
-            beds: { select: { bedType: true, count: true, combinable: true } },
+            beds: { select: { bedType: true, count: true, sleepsExtra: true } },
           },
         },
       },

@@ -64,6 +64,13 @@ model Unit {
   maintenance  Maintenance[]
   photos       UnitPhoto[]
 
+  /// Room-to-room merging pair (1↔1). A `Unit` appears in either side A or
+  /// side B of exactly ONE `UnitMerge` row. The helpers in
+  /// `src/lib/units/merge.ts` always normalize storage so that unitAId <
+  /// unitBId, eliminating the need for duplicate rows.
+  mergeAsA UnitMerge? @relation("UnitMergeA")
+  mergeAsB UnitMerge? @relation("UnitMergeB")
+
   @@index([unitTypeId])
   @@index([status])
   @@map("units")
@@ -157,19 +164,41 @@ model UnitTypeRoom {
 }
 
 model UnitTypeBed {
-  id             Int     @id @default(autoincrement())
-  roomId         Int     @map("room_id")
-  bedType        String  @map("bed_type") // single | double | queen | king | sofa_bed | bunk_bed | crib | arabic_floor_seating
-  count          Int     @default(1)
-  combinable     Boolean @default(false)
-  combinesToType String? @map("combines_to_type")
-  sleepsExtra    Boolean @default(false) @map("sleeps_extra")
-  notes          String?
+  id          Int     @id @default(autoincrement())
+  roomId      Int     @map("room_id")
+  bedType     String  @map("bed_type") // single | double | queen | king | sofa_bed | bunk_bed | crib | arabic_floor_seating
+  count       Int     @default(1)
+  /// When true, this bed represents a rollaway / extra bed (sleeps one
+  /// additional guest). Enforced at the API level to AT MOST ONE bed per
+  /// `UnitTypeRoom` carrying this flag.
+  sleepsExtra Boolean @default(false) @map("sleeps_extra")
+  notes       String?
 
   room UnitTypeRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
 
   @@index([roomId])
   @@map("unit_type_beds")
+}
+
+/// Physical room-to-room merging via adjoining side door.
+///
+/// The hotel has pairs of neighbouring rooms with a door between them that
+/// can be opened to convert the pair into a family apartment. This table
+/// stores such pairs. Each Unit can participate in AT MOST one merge pair
+/// (enforced by the two `@unique` constraints below). We always normalize
+/// storage so unit_a_id < unit_b_id to avoid duplicate mirrored rows.
+model UnitMerge {
+  id        Int      @id @default(autoincrement())
+  unitAId   Int      @unique @map("unit_a_id")
+  unitBId   Int      @unique @map("unit_b_id")
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  unitA Unit @relation("UnitMergeA", fields: [unitAId], references: [id], onDelete: Cascade)
+  unitB Unit @relation("UnitMergeB", fields: [unitBId], references: [id], onDelete: Cascade)
+
+  @@unique([unitAId, unitBId])
+  @@map("unit_merges")
 }
 
 model Amenity {

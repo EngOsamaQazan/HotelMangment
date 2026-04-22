@@ -19,21 +19,96 @@ import {
 } from "lucide-react";
 import { PublicLayout } from "@/components/public/PublicLayout";
 import { RoomGallery, type RoomImage } from "@/components/public/RoomGallery";
+import { SITE, LOCALE } from "@/lib/seo/site";
+import {
+  hotelJsonLd,
+  breadcrumbsJsonLd,
+  faqJsonLd,
+  toJsonLdScript,
+} from "@/lib/seo/jsonld";
+
+const LANDING_TITLE = `${SITE.nameAr} — ${SITE.sloganAr} في المفرق`;
+const LANDING_DESC = SITE.descriptionAr;
 
 export const metadata: Metadata = {
-  title: "فندق المفرق — أفخم الغرف والشقق الفندقية في المفرق",
-  description:
-    "فندق المفرق يقدم أفخم الغرف والشقق الفندقية في مدينة المفرق — حي الزهور. كل غرفة تحتوي مطبخ صغير، تلفاز، تكييف، وإنترنت مجاني. إمكانية دمج غرفتين عبر الباب الجانبي لتكوين شقة عائلية متكاملة.",
-  alternates: { canonical: "/landing" },
+  title: LANDING_TITLE,
+  description: LANDING_DESC,
+  alternates: {
+    canonical: "/landing",
+    languages: {
+      "ar-JO": "/landing",
+      "x-default": "/landing",
+    },
+  },
   openGraph: {
-    title: "فندق المفرق",
-    description:
-      "غرف فندقية فاخرة مع مطبخ صغير داخل الغرفة. إقامة هادئة وخدمة ٢٤/٧ في قلب المفرق.",
-    images: ["/rooms/30.jpg"],
-    locale: "ar_JO",
+    title: LANDING_TITLE,
+    description: LANDING_DESC,
+    locale: LOCALE.primary,
+    alternateLocale: [LOCALE.alternate],
     type: "website",
+    siteName: SITE.nameAr,
+    countryName: "Jordan",
+    images: [
+      {
+        url: "/opengraph-image.png",
+        width: 1200,
+        height: 630,
+        alt: LANDING_TITLE,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: LANDING_TITLE,
+    description: LANDING_DESC,
+    images: ["/opengraph-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
 };
+
+// Structured content for the FAQ schema — these answer the queries most
+// travellers ask before booking. Google surfaces them as rich FAQ cards
+// under the main SERP entry.
+const FAQS: Array<{ question: string; answer: string }> = [
+  {
+    question: "أين يقع فندق المفرق؟",
+    answer:
+      "فندق المفرق في حي الزهور بمدينة المفرق، على بُعد دقائق من الدوائر الحكومية والمراكز الرئيسية.",
+  },
+  {
+    question: "هل تحتوي جميع الغرف على مطبخ؟",
+    answer:
+      "نعم، كل غرفة وكل شقة في فندق المفرق تحتوي مطبخاً حديثاً متكاملاً بتجهيزات كاملة.",
+  },
+  {
+    question: "هل يمكن حجز شقة بغرفتين متصلتين للعائلات؟",
+    answer:
+      "نعم. نوفر غرفتين متجاورتين يفتح بينهما باب داخلي لتكوين شقة عائلية بمطبخين وحمّامين ومساحة أوسع للإقامة.",
+  },
+  {
+    question: "ما هي سياسة الدفع وتأكيد الحجز؟",
+    answer:
+      "الحجز المباشر عبر موقعنا يصل تأكيده فوراً عبر واتساب، ويمكن الدفع عند الوصول إلى مكتب الاستقبال.",
+  },
+  {
+    question: "ما مواعيد الدخول والمغادرة؟",
+    answer:
+      "الدخول (Check-in) من الساعة 14:00، والمغادرة (Check-out) حتى الساعة 12:00 ظهراً. الاستقبال مفتوح ٢٤ ساعة.",
+  },
+  {
+    question: "هل واي فاي مجاني متوفر؟",
+    answer: "نعم، واي فاي عالي السرعة مجاني في جميع الغرف والمناطق المشتركة.",
+  },
+];
 
 /** Curated ordering: we lead with statement rooms, then mix bedrooms,
  *  kitchenettes, and family layouts so the gallery tells a story instead
@@ -41,7 +116,7 @@ export const metadata: Metadata = {
  *  to hero cells on md+ for visual rhythm. */
 const GALLERY: RoomImage[] = [
   { src: "/rooms/30.jpg", caption: "غرفة مزدوجة أنيقة بتفاصيل دافئة", span: 2 },
-  { src: "/rooms/01.jpg", caption: "مطبخ صغير مجهّز داخل الغرفة" },
+  { src: "/rooms/01.jpg", caption: "مطبخ حديث متكامل داخل الغرفة" },
   { src: "/rooms/10.jpg", caption: "غرفة واسعة مع شاشة ومنطقة جلوس" },
   { src: "/rooms/12.jpg", caption: "غرفة عائلية بأربعة أسرّة" },
   { src: "/rooms/02.jpg", caption: "غرفة بتشطيبات خشبية ومرآة توالِت" },
@@ -52,7 +127,7 @@ const GALLERY: RoomImage[] = [
   { src: "/rooms/22.jpg", caption: "غرفة بسريرين وشاشة كبيرة" },
   { src: "/rooms/17.jpg", caption: "تفاصيل غرفة النوم مع الإضاءة الجانبية" },
   { src: "/rooms/28.jpg", caption: "غرفة بثلاثة أسرّة بمساحة مريحة" },
-  { src: "/rooms/26.jpg", caption: "مطبخ صغير بتجهيزات كاملة" },
+  { src: "/rooms/26.jpg", caption: "مطبخ حديث متكامل بتجهيزات شاملة" },
   { src: "/rooms/20.jpg", caption: "منطقة نوم واسعة مع تلفاز" },
   { src: "/rooms/35.jpg", caption: "جناح بخزانة ملابس ومنطقة توالِت" },
   { src: "/rooms/14.jpg", caption: "غرفة عائلية من زاوية مختلفة" },
@@ -78,8 +153,24 @@ const GALLERY: RoomImage[] = [
 ];
 
 export default function LandingPage() {
+  const breadcrumbs = breadcrumbsJsonLd([
+    { name: SITE.nameAr, url: "/landing" },
+  ]);
   return (
     <PublicLayout activeHref="/landing" transparentHeader fullBleed>
+      {/* ---------- JSON-LD ---------- */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: toJsonLdScript(hotelJsonLd()) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: toJsonLdScript(breadcrumbs) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: toJsonLdScript(faqJsonLd(FAQS)) }}
+      />
       {/* ---------- HERO ---------- */}
       <section className="relative h-[92vh] min-h-[560px] w-full overflow-hidden">
         <Image
@@ -108,9 +199,9 @@ export default function LandingPage() {
               <span className="h-px w-10 md:w-16 bg-gold/80" />
             </div>
             <p className="text-white/90 text-base md:text-xl leading-relaxed max-w-2xl mx-auto mb-8">
-              غرف فندقية مؤثثة بالكامل، كل غرفة فيها مطبخ صغير، تلفاز، تكييف،
-              وإنترنت مجاني. وعند الحاجة تُدمج غرفتان عبر الباب الجانبي لتكوين
-              شقة عائلية متكاملة.
+              غرف وشقق فندقية مؤثثة بالكامل، كل وحدة فيها مطبخ حديث متكامل،
+              تلفاز، تكييف، وإنترنت مجاني. وعند الحاجة تُدمج غرفتان عبر الباب
+              الجانبي لتكوين شقة عائلية متكاملة.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
@@ -192,8 +283,8 @@ export default function LandingPage() {
             },
             {
               icon: Utensils,
-              title: "مطبخ صغير داخل كل غرفة",
-              body: "كاونتر، خزائن، ثلاجة، وتجهيزات أساسية — تحضّر قهوتك ووجباتك الخفيفة بخصوصية.",
+              title: "مطبخ حديث متكامل في كل وحدة",
+              body: "كاونتر واسع، خزائن، ثلاجة، موقد، وتجهيزات شاملة — تحضّر وجباتك كما في بيتك تماماً.",
             },
             {
               icon: Sparkles,
@@ -266,8 +357,8 @@ export default function LandingPage() {
                 بحماميْن منفصليْن.
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-gold mt-0.5">✓</span> مطبخ داخلي في كل
-                غرفة — تطبخ العائلة بكل راحة.
+                <span className="text-gold mt-0.5">✓</span> مطبخ حديث متكامل
+                في كل غرفة — تطبخ العائلة بكل راحة.
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-gold mt-0.5">✓</span> مرونة كاملة: احجز
@@ -320,7 +411,7 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { icon: Utensils, label: "مطبخ صغير مجهّز" },
+              { icon: Utensils, label: "مطبخ حديث متكامل" },
               { icon: Tv, label: "تلفاز بشاشة مسطحة" },
               { icon: Wind, label: "تكييف وتدفئة" },
               { icon: Wifi, label: "إنترنت مجاني" },

@@ -59,8 +59,6 @@ interface UnitTypeDetail {
     beds: {
       bedType: string;
       count: number;
-      combinable: boolean;
-      combinesToType: string | null;
       sleepsExtra: boolean;
       notes: string | null;
     }[];
@@ -187,8 +185,6 @@ export function UnitTypeFormModal({ id, onClose, onSaved }: Props) {
               beds: r.beds.map((b) => ({
                 bedType: b.bedType,
                 count: b.count,
-                combinable: b.combinable,
-                combinesToType: b.combinesToType,
                 sleepsExtra: b.sleepsExtra,
                 notes: b.notes,
               })),

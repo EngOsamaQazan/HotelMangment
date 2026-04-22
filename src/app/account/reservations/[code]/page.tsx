@@ -36,9 +36,9 @@ interface ReservationDetail {
 export default function ReservationDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ code: string }>;
 }) {
-  const { id } = use(params);
+  const { code } = use(params);
   const router = useRouter();
   const [reservation, setReservation] = useState<ReservationDetail | null>(
     null,
@@ -49,7 +49,7 @@ export default function ReservationDetailPage({
   const [cancelError, setCancelError] = useState("");
 
   useEffect(() => {
-    fetch(`/api/guest-me/reservations/${id}`)
+    fetch(`/api/guest-me/reservations/${code}`)
       .then(async (r) => {
         if (!r.ok) {
           const j = await r.json().catch(() => ({}));
@@ -60,14 +60,14 @@ export default function ReservationDetailPage({
       .then(setReservation)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [code]);
 
   async function handleCancel() {
     if (!confirm("هل أنت متأكد من إلغاء الحجز؟ لا يمكن التراجع عن هذه الخطوة."))
       return;
     setCancelling(true);
     setCancelError("");
-    const res = await fetch(`/api/guest-me/reservations/${id}`, {
+    const res = await fetch(`/api/guest-me/reservations/${code}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reason: "إلغاء من الضيف" }),

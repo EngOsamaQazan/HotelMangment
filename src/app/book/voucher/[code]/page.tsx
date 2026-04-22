@@ -8,7 +8,7 @@ import PrintButton from "./PrintButton";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "قسيمة الحجز | فندق فاخر",
+  title: "قسيمة الحجز | فندق المفرق",
   robots: { index: false, follow: false },
 };
 
@@ -91,7 +91,7 @@ export default async function VoucherPrintPage({
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-extrabold">قسيمة حجز</h1>
-                <p className="text-sm opacity-80 mt-1">فندق فاخر — عمّان</p>
+                <p className="text-sm opacity-80 mt-1">فندق المفرق — أفخم إقامة</p>
               </div>
               <div className="text-left">
                 <p className="text-xs opacity-80">رمز التأكيد</p>
@@ -236,7 +236,7 @@ export default async function VoucherPrintPage({
           </div>
 
           <footer className="bg-gold-soft/30 px-6 py-3 text-center text-[11px] text-gray-600">
-            شكراً لاختياركم فندق فاخر — نتمنّى لكم إقامة مميّزة.
+            شكراً لاختياركم فندق المفرق — نتمنّى لكم إقامة مميّزة.
           </footer>
         </article>
       </div>

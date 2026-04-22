@@ -105,7 +105,16 @@ export const RESOURCES: ResourceDef[] = [
     label: "الغرف والوحدات",
     category: "operations",
     actions: ACTIONS,
-    routes: ["/rooms", "/api/rooms", "/api/rooms/[id]", "/api/units"],
+    routes: [
+      "/rooms",
+      "/api/rooms",
+      "/api/rooms/[id]",
+      "/api/units",
+      "/api/units/[id]/merge-candidates",
+      "/api/unit-merges",
+      "/api/unit-merges/[id]",
+      "/settings/unit-merges",
+    ],
     sortOrder: 20,
   },
   {

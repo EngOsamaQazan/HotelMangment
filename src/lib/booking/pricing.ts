@@ -76,6 +76,103 @@ function addDays(d: Date, n: number): Date {
   return new Date(d.getTime() + n * MS_PER_DAY);
 }
 
+export interface MergeQuoteInput {
+  mergeId: number;
+  checkIn: Date;
+  checkOut: Date;
+  guests: number;
+}
+
+/**
+ * Server-authoritative pricing for a merged-pair booking — the guest is
+ * booking BOTH units as a single family-apartment offer. The combined
+ * nightly rate is the sum of each underlying `UnitType`'s rate for the
+ * same night (using the same seasonal-lookup algorithm as `calcQuote`).
+ *
+ * Returns a single `Quote`-shaped object whose `unitTypeId` is the A-side
+ * unit type id (purely symbolic; the real "what's being booked" identity
+ * lives on the merge record which the caller already has).
+ */
+export async function calcMergeQuote(input: MergeQuoteInput): Promise<Quote> {
+  const { mergeId, checkIn, checkOut, guests } = input;
+
+  const base = (typeId: number): Quote => ({
+    unitTypeId: typeId,
+    checkIn: checkIn.toISOString(),
+    checkOut: checkOut.toISOString(),
+    nights: 0,
+    guests,
+    currency: "JOD",
+    nightsBreakdown: [],
+    subtotal: 0,
+    taxes: 0,
+    total: 0,
+    unavailableReason: null,
+  });
+
+  if (checkOut <= checkIn) {
+    return { ...base(0), unavailableReason: "invalid_dates" };
+  }
+
+  const merge = await prisma.unitMerge.findUnique({
+    where: { id: mergeId },
+    select: {
+      unitA: { select: { unitTypeId: true } },
+      unitB: { select: { unitTypeId: true } },
+    },
+  });
+  if (!merge || !merge.unitA.unitTypeId || !merge.unitB.unitTypeId) {
+    return { ...base(0), unavailableReason: "unit_type_not_found" };
+  }
+
+  const [qA, qB] = await Promise.all([
+    calcQuote({
+      unitTypeId: merge.unitA.unitTypeId,
+      checkIn,
+      checkOut,
+      guests: Math.max(1, Math.ceil(guests / 2)),
+    }),
+    calcQuote({
+      unitTypeId: merge.unitB.unitTypeId,
+      checkIn,
+      checkOut,
+      guests: Math.max(1, Math.floor(guests / 2)),
+    }),
+  ]);
+  if (qA.unavailableReason) return { ...qA, unitTypeId: merge.unitA.unitTypeId };
+  if (qB.unavailableReason) return { ...qB, unitTypeId: merge.unitA.unitTypeId };
+
+  const nights = qA.nights;
+  const breakdown: QuoteNight[] = [];
+  for (let i = 0; i < nights; i++) {
+    const a = qA.nightsBreakdown[i];
+    const b = qB.nightsBreakdown[i];
+    breakdown.push({
+      date: a.date,
+      rate: round2(a.rate + b.rate),
+      source: a.source === b.source ? a.source : "base",
+      seasonName: a.seasonName ?? b.seasonName,
+    });
+  }
+  const subtotal = round2(qA.subtotal + qB.subtotal);
+  const taxes = round2(qA.taxes + qB.taxes);
+  const total = round2(qA.total + qB.total);
+
+  return {
+    unitTypeId: merge.unitA.unitTypeId,
+    checkIn: checkIn.toISOString(),
+    checkOut: checkOut.toISOString(),
+    nights,
+    guests,
+    currency: "JOD",
+    nightsBreakdown: breakdown,
+    subtotal,
+    taxes,
+    total,
+    unavailableReason: null,
+  };
+}
+
 export async function calcQuote(input: QuoteInput): Promise<Quote> {
   const { unitTypeId, checkIn, checkOut, guests } = input;
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Seeds the catalog of Unit Types (room types) + their rooms/beds,
  * plus the Amenity dictionary.
  *
@@ -52,8 +52,6 @@ export const AMENITIES: AmenityDef[] = [
 type BedDef = {
   bedType: string;
   count?: number;
-  combinable?: boolean;
-  combinesToType?: string;
   sleepsExtra?: boolean;
   notes?: string;
 };
@@ -130,7 +128,7 @@ export const UNIT_TYPES: UnitTypeDef[] = [
         kind: "bedroom",
         position: 1,
         beds: [
-          { bedType: "single", count: 2, combinable: true, combinesToType: "king" },
+          { bedType: "single", count: 2 },
         ],
       },
       {
@@ -176,7 +174,7 @@ export const UNIT_TYPES: UnitTypeDef[] = [
         nameEn: "Second Bedroom",
         kind: "bedroom",
         position: 2,
-        beds: [{ bedType: "single", count: 3, combinable: true, combinesToType: "king" }],
+        beds: [{ bedType: "single", count: 3 }],
       },
       {
         nameAr: "الصالة",
@@ -221,7 +219,7 @@ export const UNIT_TYPES: UnitTypeDef[] = [
         nameEn: "Second Bedroom",
         kind: "bedroom",
         position: 2,
-        beds: [{ bedType: "single", count: 2, combinable: true, combinesToType: "king" }],
+        beds: [{ bedType: "single", count: 2 }],
       },
       {
         nameAr: "الصالة",
@@ -311,7 +309,7 @@ export const UNIT_TYPES: UnitTypeDef[] = [
         kind: "bedroom",
         position: 1,
         beds: [
-          { bedType: "single", count: 2, combinable: true, combinesToType: "king" },
+          { bedType: "single", count: 2 },
         ],
       },
     ],
@@ -335,7 +333,7 @@ export const UNIT_TYPES: UnitTypeDef[] = [
         kind: "bedroom",
         position: 1,
         beds: [
-          { bedType: "single", count: 3, combinable: true, combinesToType: "king" },
+          { bedType: "single", count: 3 },
         ],
       },
     ],
@@ -359,7 +357,7 @@ export const UNIT_TYPES: UnitTypeDef[] = [
         kind: "bedroom",
         position: 1,
         beds: [
-          { bedType: "single", count: 4, combinable: true, combinesToType: "king" },
+          { bedType: "single", count: 4 },
         ],
       },
     ],
@@ -452,8 +450,6 @@ export async function seedUnitTypes(client: PrismaClient = prisma) {
             roomId: room.id,
             bedType: b.bedType,
             count: b.count ?? 1,
-            combinable: b.combinable ?? false,
-            combinesToType: b.combinesToType ?? null,
             sleepsExtra: b.sleepsExtra ?? false,
             notes: b.notes ?? null,
           })),
@@ -496,3 +492,4 @@ async function main() {
 if (require.main === module) {
   main();
 }
+

@@ -1,7 +1,18 @@
 import { NextResponse } from "next/server";
-import { findAvailableUnitTypes } from "@/lib/booking/availability";
+import {
+  findAvailableMergedPairs,
+  findAvailableUnitTypes,
+} from "@/lib/booking/availability";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { maybeSweepLazy } from "@/lib/reservations/sweeper";
+
+/**
+ * Guests count at which the public `/book` page starts surfacing merged
+ * pairs as a listing alongside single-room offers. Below this threshold
+ * guests are likely better served by a single room, so the merged option
+ * is hidden to avoid UI noise and up-sell pressure.
+ */
+const MERGED_PAIR_MIN_GUESTS = 3;
 
 /**
  * GET /api/book/availability?checkIn=&checkOut=&guests=
@@ -53,7 +64,12 @@ export async function GET(request: Request) {
     }
     const guests = Math.max(1, parseInt(guestsParam, 10) || 1);
 
-    const types = await findAvailableUnitTypes({ checkIn, checkOut, guests });
+    const [types, mergedPairs] = await Promise.all([
+      findAvailableUnitTypes({ checkIn, checkOut, guests }),
+      guests >= MERGED_PAIR_MIN_GUESTS
+        ? findAvailableMergedPairs({ checkIn, checkOut, guests })
+        : Promise.resolve([]),
+    ]);
 
     return NextResponse.json({
       checkIn: checkIn.toISOString(),
@@ -76,6 +92,21 @@ export async function GET(request: Request) {
         availableCount: t.availableCount,
         primaryPhotoUrl: t.primaryPhotoUrl,
         primaryPhotoId: t.primaryPhotoId,
+      })),
+      mergedPairs: mergedPairs.map((p) => ({
+        mergeId: p.mergeId,
+        unitANumber: p.unitANumber,
+        unitBNumber: p.unitBNumber,
+        unitTypeNamesAr: p.unitTypeNamesAr,
+        maxOccupancy: p.maxOccupancy,
+        maxAdults: p.maxAdults,
+        maxChildren: p.maxChildren,
+        sizeSqm: p.sizeSqm,
+        hasKitchen: p.hasKitchen,
+        hasBalcony: p.hasBalcony,
+        basePriceDaily: p.basePriceDaily,
+        primaryPhotoUrl: p.primaryPhotoUrl,
+        primaryPhotoId: p.primaryPhotoId,
       })),
     });
   } catch (error) {

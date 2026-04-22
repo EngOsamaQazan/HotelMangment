@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { calcQuote } from "@/lib/booking/pricing";
+import { calcMergeQuote, calcQuote } from "@/lib/booking/pricing";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 /**
@@ -27,21 +27,23 @@ export async function POST(request: Request) {
 
     const body = (await request.json().catch(() => ({}))) as {
       unitTypeId?: number;
+      mergeId?: number;
       checkIn?: string;
       checkOut?: string;
       guests?: number;
     };
     const unitTypeId = Number(body.unitTypeId);
+    const mergeId = Number(body.mergeId);
     const checkIn = body.checkIn ? new Date(body.checkIn) : null;
     const checkOut = body.checkOut ? new Date(body.checkOut) : null;
     const guests = Math.max(1, Number(body.guests) || 1);
 
     if (
-      !Number.isFinite(unitTypeId) ||
       !checkIn ||
       !checkOut ||
       Number.isNaN(checkIn.getTime()) ||
-      Number.isNaN(checkOut.getTime())
+      Number.isNaN(checkOut.getTime()) ||
+      (!Number.isFinite(unitTypeId) && !Number.isFinite(mergeId))
     ) {
       return NextResponse.json(
         { error: "بيانات الطلب غير مكتملة" },
@@ -49,7 +51,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const quote = await calcQuote({ unitTypeId, checkIn, checkOut, guests });
+    const quote = Number.isFinite(mergeId)
+      ? await calcMergeQuote({ mergeId, checkIn, checkOut, guests })
+      : await calcQuote({ unitTypeId, checkIn, checkOut, guests });
 
     if (quote.unavailableReason === "not_publicly_bookable") {
       return NextResponse.json(

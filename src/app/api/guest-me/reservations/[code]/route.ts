@@ -1,30 +1,58 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import type { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 /**
- * GET /api/guest-me/reservations/[id]
- * Returns the full detail of a guest's own reservation — guards against
- * enumerating other guests by checking `guestAccountId`.
+ * Build a Prisma `where` clause that resolves the URL segment — which is
+ * a `confirmationCode` in canonical URLs but may also be a numeric id in
+ * legacy bookmarks — into a single reservation owned by the signed-in
+ * guest. Returns `null` when the segment is obviously malformed.
+ */
+function buildReservationWhere(
+  segment: string,
+  guestAccountId: number,
+): Prisma.ReservationWhereInput | null {
+  const raw = (segment ?? "").trim();
+  if (!raw || raw.length > 40) return null;
+  const asId = Number(raw);
+  if (/^\d+$/.test(raw) && Number.isFinite(asId) && asId > 0) {
+    return {
+      guestAccountId,
+      OR: [{ id: asId }, { confirmationCode: raw }],
+    };
+  }
+  if (!/^[A-Za-z0-9_-]{4,40}$/.test(raw)) return null;
+  return { guestAccountId, confirmationCode: raw };
+}
+
+/**
+ * GET /api/guest-me/reservations/[code]
+ *
+ * Looks up a reservation by its public confirmation code (the one we
+ * display on the voucher / in the confirmation email). Falls back to
+ * numeric ids so any bookmarks from before the URL redesign keep
+ * working. Always scopes the lookup to the signed-in guest, so one
+ * guest can never enumerate another's reservations.
  */
 export async function GET(
   _request: Request,
-  ctx: { params: Promise<{ id: string }> },
+  ctx: { params: Promise<{ code: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user || session.user.audience !== "guest") {
     return NextResponse.json({ error: "غير مصرّح" }, { status: 401 });
   }
   const guestAccountId = Number(session.user.id);
-  const { id: idParam } = await ctx.params;
-  const id = Number(idParam);
-  if (!Number.isFinite(id)) {
+  const { code: codeParam } = await ctx.params;
+  const where = buildReservationWhere(codeParam, guestAccountId);
+  if (!where) {
     return NextResponse.json({ error: "معرّف غير صالح" }, { status: 400 });
   }
 
   const reservation = await prisma.reservation.findFirst({
-    where: { id, guestAccountId },
+    where,
     select: {
       id: true,
       status: true,
@@ -72,22 +100,22 @@ export async function GET(
 }
 
 /**
- * DELETE /api/guest-me/reservations/[id] — guest-initiated cancellation.
+ * DELETE /api/guest-me/reservations/[code] — guest-initiated cancellation.
  * Allowed only for `upcoming` or `pending_hold` stays where check-in is
  * still in the future. Active/completed stays cannot be self-cancelled.
  */
 export async function DELETE(
   request: Request,
-  ctx: { params: Promise<{ id: string }> },
+  ctx: { params: Promise<{ code: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user || session.user.audience !== "guest") {
     return NextResponse.json({ error: "غير مصرّح" }, { status: 401 });
   }
   const guestAccountId = Number(session.user.id);
-  const { id: idParam } = await ctx.params;
-  const id = Number(idParam);
-  if (!Number.isFinite(id)) {
+  const { code: codeParam } = await ctx.params;
+  const where = buildReservationWhere(codeParam, guestAccountId);
+  if (!where) {
     return NextResponse.json({ error: "معرّف غير صالح" }, { status: 400 });
   }
 
@@ -96,7 +124,7 @@ export async function DELETE(
   };
 
   const reservation = await prisma.reservation.findFirst({
-    where: { id, guestAccountId },
+    where,
     select: {
       id: true,
       status: true,
@@ -106,6 +134,7 @@ export async function DELETE(
   if (!reservation) {
     return NextResponse.json({ error: "الحجز غير موجود" }, { status: 404 });
   }
+  const id = reservation.id;
   if (
     !(
       reservation.status === "upcoming" ||

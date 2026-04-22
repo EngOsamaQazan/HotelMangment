@@ -36,6 +36,7 @@ const PUBLIC_PREFIXES = [
   "/api/book/quote",
   "/api/book/voucher",
   "/api/book/unit-types",
+  "/api/book/merges",
   // Public photo endpoints for UnitType / UnitPhoto galleries.
   "/api/files/unit-photo",
   "/api/files/unit-type-photo",
@@ -146,7 +147,7 @@ export async function middleware(req: NextRequest) {
     const isGuestArea = matchesPrefixList(pathname, GUEST_ONLY_PREFIXES);
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = isGuestArea ? "/signin" : "/login";
-    redirectUrl.searchParams.set("callbackUrl", pathname + req.nextUrl.search);
+    redirectUrl.searchParams.set("next", pathname + req.nextUrl.search);
     return NextResponse.redirect(redirectUrl);
   }
 
@@ -168,7 +169,7 @@ export async function middleware(req: NextRequest) {
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = audience === "staff" ? "/" : "/signin";
     if (audience !== "staff") {
-      redirectUrl.searchParams.set("callbackUrl", pathname + req.nextUrl.search);
+      redirectUrl.searchParams.set("next", pathname + req.nextUrl.search);
     } else {
       redirectUrl.search = "";
     }
@@ -186,7 +187,7 @@ export async function middleware(req: NextRequest) {
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = audience === "guest" ? "/account" : "/login";
     if (audience !== "guest") {
-      redirectUrl.searchParams.set("callbackUrl", pathname + req.nextUrl.search);
+      redirectUrl.searchParams.set("next", pathname + req.nextUrl.search);
     } else {
       redirectUrl.search = "";
     }

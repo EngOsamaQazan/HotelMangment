@@ -1,0 +1,90 @@
+{
+  "capturedAt": "2026-04-22T20:12:23.933Z",
+  "count": 6,
+  "rows": [
+    {
+      "unitTypeId": 2,
+      "unitTypeCode": "APT-1BR-TWIN",
+      "unitTypeNameAr": "شقة غرفة نوم — سريران مفردان",
+      "roomId": 2,
+      "roomNameAr": "غرفة النوم",
+      "bedId": 2,
+      "bedType": "single",
+      "count": 2,
+      "combinable": true,
+      "combinesToType": "king",
+      "sleepsExtra": false,
+      "notes": null
+    },
+    {
+      "unitTypeId": 3,
+      "unitTypeCode": "APT-2BR-MIX-A",
+      "unitTypeNameAr": "شقة غرفتين وصالة — مزدوج + ثلاثي مفرد",
+      "roomId": 5,
+      "roomNameAr": "غرفة النوم الثانية",
+      "bedId": 5,
+      "bedType": "single",
+      "count": 3,
+      "combinable": true,
+      "combinesToType": "king",
+      "sleepsExtra": false,
+      "notes": null
+    },
+    {
+      "unitTypeId": 4,
+      "unitTypeCode": "APT-2BR-MIX-B",
+      "unitTypeNameAr": "شقة غرفتين وصالة — مزدوج + ثنائي مفرد",
+      "roomId": 8,
+      "roomNameAr": "غرفة النوم الثانية",
+      "bedId": 8,
+      "bedType": "single",
+      "count": 2,
+      "combinable": true,
+      "combinesToType": "king",
+      "sleepsExtra": false,
+      "notes": null
+    },
+    {
+      "unitTypeId": 7,
+      "unitTypeCode": "HTL-TWIN",
+      "unitTypeNameAr": "غرفة ثنائية مفردة",
+      "roomId": 13,
+      "roomNameAr": "الغرفة",
+      "bedId": 12,
+      "bedType": "single",
+      "count": 2,
+      "combinable": true,
+      "combinesToType": "king",
+      "sleepsExtra": false,
+      "notes": null
+    },
+    {
+      "unitTypeId": 8,
+      "unitTypeCode": "HTL-TRIPLE",
+      "unitTypeNameAr": "غرفة ثلاثية مفردة",
+      "roomId": 14,
+      "roomNameAr": "الغرفة",
+      "bedId": 13,
+      "bedType": "single",
+      "count": 3,
+      "combinable": true,
+      "combinesToType": "king",
+      "sleepsExtra": false,
+      "notes": null
+    },
+    {
+      "unitTypeId": 9,
+      "unitTypeCode": "HTL-QUAD",
+      "unitTypeNameAr": "غرفة رباعية مفردة",
+      "roomId": 15,
+      "roomNameAr": "الغرفة",
+      "bedId": 14,
+      "bedType": "single",
+      "count": 4,
+      "combinable": true,
+      "combinesToType": "king",
+      "sleepsExtra": false,
+      "notes": null
+    }
+  ]
+}

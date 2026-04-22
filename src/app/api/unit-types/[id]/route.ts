@@ -5,8 +5,6 @@ import { handleAuthError, requirePermission } from "@/lib/permissions/guard";
 interface BedInput {
   bedType: string;
   count?: number;
-  combinable?: boolean;
-  combinesToType?: string | null;
   sleepsExtra?: boolean;
   notes?: string | null;
 }
@@ -77,11 +75,16 @@ function validateUpdate(data: UnitTypeUpdate): string | null {
       if (!r.nameAr?.trim() || !r.nameEn?.trim()) return "كل غرفة تحتاج اسم عربي وإنجليزي";
       if (!VALID_ROOM_KINDS.includes(r.kind)) return `نوع الغرفة غير صالح: ${r.kind}`;
       if (r.beds) {
+        let extraBedCount = 0;
         for (const b of r.beds) {
           if (!VALID_BED_TYPES.includes(b.bedType)) return `نوع السرير غير صالح: ${b.bedType}`;
           if (b.count !== undefined && (!Number.isInteger(b.count) || b.count < 1)) {
             return "عدد الأسرّة يجب أن يكون رقمًا موجبًا";
           }
+          if (b.sleepsExtra) extraBedCount += 1;
+        }
+        if (extraBedCount > 1) {
+          return `غرفة «${r.nameAr}»: لا يمكن أن يوجد أكثر من سرير إضافي واحد في نفس الغرفة`;
         }
       }
     }
@@ -179,8 +182,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
                     create: r.beds.map((b) => ({
                       bedType: b.bedType,
                       count: b.count ?? 1,
-                      combinable: b.combinable ?? false,
-                      combinesToType: b.combinesToType ?? null,
                       sleepsExtra: b.sleepsExtra ?? false,
                       notes: b.notes ?? null,
                     })),

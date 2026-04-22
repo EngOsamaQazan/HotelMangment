@@ -7,6 +7,11 @@ import Image from "next/image";
 import { GuestShell } from "@/components/public/GuestShell";
 import { publicPhotoUrl } from "@/lib/public-image";
 import {
+  buildUnitTypeSlug,
+  isCanonicalSlug,
+  parseIdFromSlug,
+} from "@/lib/booking/slug";
+import {
   Users,
   BedDouble,
   Maximize,
@@ -39,7 +44,7 @@ interface Amenity {
 interface Bed {
   bedType: string;
   count: number;
-  combinable: boolean;
+  sleepsExtra?: boolean;
 }
 interface Room {
   id: number;
@@ -111,10 +116,10 @@ function bedLabel(bt: string): string {
 }
 
 function DetailInner() {
-  const params = useParams<{ id: string }>();
+  const params = useParams<{ slug: string }>();
   const search = useSearchParams();
   const router = useRouter();
-  const unitTypeId = Number(params.id);
+  const unitTypeId = parseIdFromSlug(params.slug ?? "");
   const checkIn = search.get("checkIn") ?? "";
   const checkOut = search.get("checkOut") ?? "";
   const guests = Math.max(1, Number(search.get("guests") || 1));
@@ -127,6 +132,11 @@ function DetailInner() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   useEffect(() => {
+    if (!unitTypeId) {
+      setError("الرابط غير صالح.");
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     fetch(`/api/book/unit-types/${unitTypeId}`)
       .then(async (res) => {
@@ -136,15 +146,29 @@ function DetailInner() {
         }
         return (await res.json()) as UnitTypeDetail;
       })
-      .then((d) => setDetail(d))
+      .then((d) => {
+        setDetail(d);
+        // Canonical-slug redirect: if the visitor landed on /book/type/12
+        // (legacy shape) or a stale slug, rewrite the URL in place to the
+        // descriptive form so copied links stay clean.
+        if (params.slug && !isCanonicalSlug(params.slug, d.nameEn, d.code, d.id)) {
+          const canonical = buildUnitTypeSlug(d.nameEn, d.code, d.id);
+          const qs = search.toString();
+          router.replace(
+            qs ? `/book/type/${canonical}?${qs}` : `/book/type/${canonical}`,
+            { scroll: false },
+          );
+        }
+      })
       .catch((e: unknown) =>
         setError(e instanceof Error ? e.message : "خطأ غير متوقع."),
       )
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unitTypeId]);
 
   useEffect(() => {
-    if (!checkIn || !checkOut) return;
+    if (!checkIn || !checkOut || !unitTypeId) return;
     setQuoteLoading(true);
     fetch("/api/book/quote", {
       method: "POST",
@@ -163,7 +187,7 @@ function DetailInner() {
   const q = useMemo(
     () =>
       new URLSearchParams({
-        unitTypeId: String(unitTypeId),
+        unitTypeId: String(unitTypeId ?? ""),
         checkIn,
         checkOut,
         guests: String(guests),
@@ -182,7 +206,7 @@ function DetailInner() {
   }, [detail]);
 
   function reserve() {
-    if (!checkIn || !checkOut) {
+    if (!checkIn || !checkOut || !unitTypeId) {
       router.push("/book");
       return;
     }
@@ -201,15 +225,15 @@ function DetailInner() {
       {!loading && !error && detail && (
         <>
           <div className="mb-4 text-xs text-gray-500 flex items-center gap-2">
-            <Link href="/book" className="hover:text-primary">
-              حجز
-            </Link>
-            <span>/</span>
             <Link
-              href={`/book/results?${new URLSearchParams({ checkIn, checkOut, guests: String(guests) }).toString()}`}
+              href={
+                checkIn && checkOut
+                  ? `/book?${new URLSearchParams({ checkIn, checkOut, guests: String(guests) }).toString()}`
+                  : "/book"
+              }
               className="hover:text-primary"
             >
-              النتائج
+              حجز
             </Link>
             <span>/</span>
             <span className="text-primary font-medium">{detail.nameAr}</span>

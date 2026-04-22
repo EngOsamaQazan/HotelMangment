@@ -117,7 +117,10 @@ export function GuestShell({
               <Link
                 href={{
                   pathname: "/signin",
-                  query: { callbackUrl: pathname ?? "/" },
+                  query:
+                    pathname && pathname !== "/" && pathname !== "/signin"
+                      ? { next: pathname }
+                      : undefined,
                 }}
                 className="px-3 sm:px-4 py-2 rounded-lg bg-gold text-primary font-semibold hover:bg-gold-dark transition-colors text-xs sm:text-sm shadow-sm"
               >

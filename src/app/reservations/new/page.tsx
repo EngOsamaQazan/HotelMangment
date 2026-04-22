@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -38,8 +38,6 @@ interface UnitTypeBed {
   id: number;
   bedType: string;
   count: number;
-  combinable: boolean;
-  combinesToType: string | null;
   sleepsExtra: boolean;
 }
 
@@ -92,6 +90,15 @@ interface GuestEntry {
 
 export default function NewReservationPage() {
   const router = useRouter();
+  // URL prefill: the Guest CRM ("/guests") links here with `?guestName=..&idNumber=..&nationality=..&phone=..`
+  // so the operator can create a new booking for an existing guest without
+  // retyping anything. Also supports deep-linking from other surfaces.
+  const searchParams = useSearchParams();
+  const prefillGuestName = searchParams?.get("guestName") ?? "";
+  const prefillIdNumber = searchParams?.get("idNumber") ?? "";
+  const prefillNationality = searchParams?.get("nationality") ?? "";
+  const prefillPhone = searchParams?.get("phone") ?? "";
+
   const { can, isLoading: permsLoading } = usePermissions();
   const canCreate = can("reservations:create");
   const [submitting, setSubmitting] = useState(false);
@@ -103,10 +110,10 @@ export default function NewReservationPage() {
   const [unitType, setUnitType] = useState<string>("room");
   const [unitId, setUnitId] = useState<string>("");
   const [stayType, setStayType] = useState<string>("daily");
-  const [guestName, setGuestName] = useState("");
-  const [guestIdNumber, setGuestIdNumber] = useState("");
-  const [guestNationality, setGuestNationality] = useState("");
-  const [phone, setPhone] = useState("");
+  const [guestName, setGuestName] = useState(prefillGuestName);
+  const [guestIdNumber, setGuestIdNumber] = useState(prefillIdNumber);
+  const [guestNationality, setGuestNationality] = useState(prefillNationality);
+  const [phone, setPhone] = useState(prefillPhone);
   const [phoneDialCode, setPhoneDialCode] = useState("");
   const [numGuests, setNumGuests] = useState(1);
   const [numNights, setNumNights] = useState(1);
@@ -118,18 +125,17 @@ export default function NewReservationPage() {
   const [paidAmount, setPaidAmount] = useState<string>("0");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [notes, setNotes] = useState("");
-  const [bedSetupRequested, setBedSetupRequested] = useState<string>("");
   const [guests, setGuests] = useState<GuestEntry[]>([
-    { fullName: "", idNumber: "", nationality: "" },
+    {
+      fullName: prefillGuestName,
+      idNumber: prefillIdNumber,
+      nationality: prefillNationality,
+    },
   ]);
 
   const selectedUnit = units.find((u) => String(u.id) === unitId) ?? null;
   const selectedType = selectedUnit?.unitTypeRef ?? null;
   const overCapacity = selectedType ? numGuests > selectedType.maxOccupancy : false;
-  const hasCombinableBeds =
-    selectedType?.rooms.some((r) =>
-      r.beds.some((b) => b.combinable && b.count > 1),
-    ) ?? false;
 
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
@@ -401,7 +407,6 @@ export default function NewReservationPage() {
         paymentMethod,
         numGuests,
         notes: notes.trim() || null,
-        bedSetupRequested: bedSetupRequested || null,
         guests: guests
           .filter((g) => g.fullName.trim() || g.idNumber.trim())
           .map((g) => ({
@@ -617,35 +622,6 @@ export default function NewReservationPage() {
                   </div>
                 ))}
               </div>
-              {hasCombinableBeds && (
-                <div className="pt-2 border-t border-gold/20">
-                  <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                    ترتيب الأسرّة المطلوب
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { v: "", label: "بدون تفضيل" },
-                      { v: "default", label: "افتراضي" },
-                      { v: "separated", label: "مفصولة" },
-                      { v: "combined", label: "مدمجة" },
-                    ].map((opt) => (
-                      <button
-                        key={opt.v}
-                        type="button"
-                        onClick={() => setBedSetupRequested(opt.v)}
-                        className={cn(
-                          "text-xs px-3 py-1 rounded-full border transition-colors",
-                          bedSetupRequested === opt.v
-                            ? "bg-primary text-white border-primary"
-                            : "bg-white text-gray-600 border-gray-200 hover:border-primary/50",
-                        )}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           )}
 

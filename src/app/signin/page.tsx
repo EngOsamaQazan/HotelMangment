@@ -7,11 +7,12 @@ import Link from "next/link";
 import { GuestShell } from "@/components/public/GuestShell";
 import { PhoneInput } from "@/components/ui/PhoneInput";
 import { composePhone, formatPhoneDisplay } from "@/lib/phone";
+import { resolveNextPath } from "@/lib/auth/next-url";
 
 function SignInInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/account";
+  const next = resolveNextPath(searchParams, "/account");
 
   const [mode, setMode] = useState<"password" | "otp">("password");
   const [phone, setPhone] = useState("");
@@ -51,7 +52,7 @@ function SignInInner() {
       setError("بيانات الدخول غير صحيحة. تحقّق من الرقم وكلمة المرور.");
       return;
     }
-    router.push(callbackUrl);
+    router.push(next);
     router.refresh();
   }
 
@@ -116,7 +117,7 @@ function SignInInner() {
       );
       return;
     }
-    router.push(callbackUrl);
+    router.push(next);
     router.refresh();
   }
 
@@ -226,7 +227,7 @@ function SignInInner() {
                 <Link
                   href={{
                     pathname: "/signup",
-                    query: { callbackUrl },
+                    query: next !== "/account" ? { next } : undefined,
                   }}
                   className="text-primary hover:underline font-semibold"
                 >

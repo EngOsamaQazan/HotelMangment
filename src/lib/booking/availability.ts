@@ -148,3 +148,202 @@ export async function isUnitFree(params: {
   });
   return !conflict;
 }
+
+/**
+ * Represents a merged-pair listing surfaced to guests on `/book`.
+ *
+ * A merged pair combines two neighbouring `Unit` records (with an adjoining
+ * side door) into a single family-apartment offer. Price = sum of each
+ * unit's `basePriceDaily` (or fallback). Capacity = sum of `maxOccupancy`.
+ */
+export interface MergedPairAvailability {
+  mergeId: number;
+  unitAId: number;
+  unitBId: number;
+  unitANumber: string;
+  unitBNumber: string;
+  unitTypeCodes: string[];
+  unitTypeNamesAr: string[];
+  maxOccupancy: number;
+  maxAdults: number;
+  maxChildren: number;
+  sizeSqm: number | null;
+  hasKitchen: boolean;
+  hasBalcony: boolean;
+  basePriceDaily: number | null;
+  primaryPhotoUrl: string | null;
+  primaryPhotoId: number | null;
+}
+
+/**
+ * Find merged pairs where BOTH sides are free in [checkIn, checkOut) and
+ * the combined capacity accommodates `guests`.
+ *
+ * The guest-count threshold that decides whether to surface merged pairs
+ * at all is applied by the caller (API route) — this function assumes the
+ * caller already wants merged offers.
+ */
+export async function findAvailableMergedPairs(
+  input: AvailabilityInput,
+): Promise<MergedPairAvailability[]> {
+  const { checkIn, checkOut, guests } = input;
+  if (checkOut <= checkIn) return [];
+  const now = new Date();
+
+  const pairs = await prisma.unitMerge.findMany({
+    include: {
+      unitA: {
+        select: {
+          id: true,
+          unitNumber: true,
+          status: true,
+          unitTypeRef: {
+            select: {
+              code: true,
+              nameAr: true,
+              maxAdults: true,
+              maxChildren: true,
+              maxOccupancy: true,
+              sizeSqm: true,
+              hasKitchen: true,
+              hasBalcony: true,
+              basePriceDaily: true,
+              isActive: true,
+              publiclyBookable: true,
+              photos: {
+                orderBy: [
+                  { isPrimary: "desc" },
+                  { sortOrder: "asc" },
+                  { id: "asc" },
+                ],
+                take: 1,
+                select: { id: true, url: true },
+              },
+            },
+          },
+          reservations: {
+            where: {
+              OR: [
+                { status: { in: ["active", "upcoming"] } },
+                { status: "pending_hold", holdExpiresAt: { gt: now } },
+              ],
+              checkIn: { lt: checkOut },
+              checkOut: { gt: checkIn },
+            },
+            select: { id: true },
+          },
+        },
+      },
+      unitB: {
+        select: {
+          id: true,
+          unitNumber: true,
+          status: true,
+          unitTypeRef: {
+            select: {
+              code: true,
+              nameAr: true,
+              maxAdults: true,
+              maxChildren: true,
+              maxOccupancy: true,
+              sizeSqm: true,
+              hasKitchen: true,
+              hasBalcony: true,
+              basePriceDaily: true,
+              isActive: true,
+              publiclyBookable: true,
+              photos: {
+                orderBy: [
+                  { isPrimary: "desc" },
+                  { sortOrder: "asc" },
+                  { id: "asc" },
+                ],
+                take: 1,
+                select: { id: true, url: true },
+              },
+            },
+          },
+          reservations: {
+            where: {
+              OR: [
+                { status: { in: ["active", "upcoming"] } },
+                { status: "pending_hold", holdExpiresAt: { gt: now } },
+              ],
+              checkIn: { lt: checkOut },
+              checkOut: { gt: checkIn },
+            },
+            select: { id: true },
+          },
+        },
+      },
+    },
+  });
+
+  const result: MergedPairAvailability[] = [];
+  for (const p of pairs) {
+    const a = p.unitA;
+    const b = p.unitB;
+    if (a.status === "maintenance" || b.status === "maintenance") continue;
+    if (a.reservations.length > 0 || b.reservations.length > 0) continue;
+
+    const tA = a.unitTypeRef;
+    const tB = b.unitTypeRef;
+    if (!tA || !tB) continue;
+    if (!tA.isActive || !tB.isActive) continue;
+    // Surface the pair publicly only when both sides are individually
+    // bookable; if an admin hid one side, the merged offer is also hidden.
+    if (!tA.publiclyBookable || !tB.publiclyBookable) continue;
+
+    const maxOccupancy = tA.maxOccupancy + tB.maxOccupancy;
+    if (guests > maxOccupancy) continue;
+
+    const priceA = tA.basePriceDaily;
+    const priceB = tB.basePriceDaily;
+    const base =
+      priceA != null && priceB != null ? Number(priceA) + Number(priceB) : null;
+
+    const hero = tA.photos[0] ?? tB.photos[0] ?? null;
+
+    result.push({
+      mergeId: p.id,
+      unitAId: a.id,
+      unitBId: b.id,
+      unitANumber: a.unitNumber,
+      unitBNumber: b.unitNumber,
+      unitTypeCodes: [tA.code, tB.code],
+      unitTypeNamesAr: [tA.nameAr, tB.nameAr],
+      maxOccupancy,
+      maxAdults: tA.maxAdults + tB.maxAdults,
+      maxChildren: tA.maxChildren + tB.maxChildren,
+      sizeSqm:
+        tA.sizeSqm != null && tB.sizeSqm != null
+          ? tA.sizeSqm + tB.sizeSqm
+          : null,
+      hasKitchen: tA.hasKitchen || tB.hasKitchen,
+      hasBalcony: tA.hasBalcony || tB.hasBalcony,
+      basePriceDaily: base,
+      primaryPhotoUrl: hero?.url ?? null,
+      primaryPhotoId: hero?.id ?? null,
+    });
+  }
+  return result;
+}
+
+/** Asserts a merge pair (both units) is still fully bookable. */
+export async function isMergedPairFree(params: {
+  mergeId: number;
+  checkIn: Date;
+  checkOut: Date;
+}): Promise<boolean> {
+  const { mergeId, checkIn, checkOut } = params;
+  const merge = await prisma.unitMerge.findUnique({
+    where: { id: mergeId },
+    select: { unitAId: true, unitBId: true },
+  });
+  if (!merge) return false;
+  const [aOk, bOk] = await Promise.all([
+    isUnitFree({ unitId: merge.unitAId, checkIn, checkOut }),
+    isUnitFree({ unitId: merge.unitBId, checkIn, checkOut }),
+  ]);
+  return aOk && bOk;
+}

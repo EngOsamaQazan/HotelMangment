@@ -7,13 +7,14 @@ import Link from "next/link";
 import { GuestShell } from "@/components/public/GuestShell";
 import { PhoneInput } from "@/components/ui/PhoneInput";
 import { composePhone, formatPhoneDisplay } from "@/lib/phone";
+import { resolveNextPath } from "@/lib/auth/next-url";
 
 type Step = "info" | "otp" | "password";
 
 function SignUpInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/account";
+  const next = resolveNextPath(searchParams, "/account");
 
   const [step, setStep] = useState<Step>("info");
   const [fullName, setFullName] = useState("");
@@ -149,7 +150,7 @@ function SignUpInner() {
       router.push("/signin");
       return;
     }
-    router.push(callbackUrl);
+    router.push(next);
     router.refresh();
   }
 
@@ -235,7 +236,10 @@ function SignUpInner() {
               <p className="text-xs text-gray-500 text-center">
                 لديك حساب؟{" "}
                 <Link
-                  href={{ pathname: "/signin", query: { callbackUrl } }}
+                  href={{
+                    pathname: "/signin",
+                    query: next !== "/account" ? { next } : undefined,
+                  }}
                   className="text-primary font-semibold hover:underline"
                 >
                   سجّل دخولك

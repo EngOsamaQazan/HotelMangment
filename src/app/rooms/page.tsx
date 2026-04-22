@@ -20,13 +20,12 @@ import { cn, formatDate, statusLabels, unitTypeLabels } from "@/lib/utils";
 import { BedIcon } from "@/components/unit-types/shared";
 import { usePermissions } from "@/lib/permissions/client";
 import { UnitPhotosPanel } from "@/components/rooms/UnitPhotosPanel";
+import { UnitMergePanel } from "@/components/rooms/UnitMergePanel";
 
 interface UnitTypeBed {
   id: number;
   bedType: string;
   count: number;
-  combinable: boolean;
-  combinesToType: string | null;
   sleepsExtra: boolean;
 }
 
@@ -68,6 +67,8 @@ interface Unit {
   bedSetup: string;
   notes: string | null;
   bookingRoomCode: string | null;
+  floor: number;
+  mergedPartner: { id: number; unitNumber: string } | null;
   guestName?: string;
   checkOutDate?: string;
   phone?: string;
@@ -320,6 +321,7 @@ export default function RoomsPage() {
             setUnits((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
             setSelectedUnit(updated);
           }}
+          onRefresh={fetchUnits}
         />
       )}
     </div>
@@ -340,9 +342,19 @@ function UnitCard({ unit, onClick }: { unit: Unit; onClick: () => void }) {
       )}
     >
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xl sm:text-2xl font-bold text-primary">
-          {unit.unitNumber}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xl sm:text-2xl font-bold text-primary">
+            {unit.unitNumber}
+          </span>
+          {unit.mergedPartner && (
+            <span
+              className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full"
+              title={`مدمجة مع الوحدة ${unit.mergedPartner.unitNumber}`}
+            >
+              <Link2 size={10} /> {unit.mergedPartner.unitNumber}
+            </span>
+          )}
+        </div>
         <span
           className={cn(
             "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full",
@@ -413,28 +425,23 @@ function UnitModal({
   onStatusChange,
   updating,
   onUnitUpdate,
+  onRefresh,
 }: {
   unit: Unit;
   onClose: () => void;
   onStatusChange: (unitId: number, status: string) => void;
   updating: boolean;
   onUnitUpdate: (unit: Unit) => void;
+  onRefresh?: () => void;
 }) {
   const config = statusConfig[unit.status] || statusConfig.available;
   const [notes, setNotes] = useState(unit.notes ?? "");
-  const [bedSetup, setBedSetup] = useState(unit.bedSetup);
   const [saving, setSaving] = useState(false);
   const { can } = usePermissions();
   const canEdit = can("rooms:edit");
   const canUploadPhotos = can("unit-photos:upload");
   const canDeletePhotos = can("unit-photos:delete");
   const canViewPhotos = can("unit-photos:view");
-
-  // Does any bed in this unit type support combining?
-  const hasCombinable =
-    unit.unitType?.rooms.some((r) =>
-      r.beds.some((b) => b.combinable && b.count > 1),
-    ) ?? false;
 
   useEffect(() => {
     function handleEsc(e: KeyboardEvent) {
@@ -449,7 +456,6 @@ function UnitModal({
     try {
       const patch: Record<string, unknown> = {};
       if (notes !== (unit.notes ?? "")) patch.notes = notes || null;
-      if (bedSetup !== unit.bedSetup) patch.bedSetup = bedSetup;
       if (Object.keys(patch).length === 0) {
         setSaving(false);
         return;
@@ -469,7 +475,7 @@ function UnitModal({
     }
   }
 
-  const isDirty = notes !== (unit.notes ?? "") || bedSetup !== unit.bedSetup;
+  const isDirty = notes !== (unit.notes ?? "");
 
   return (
     <div
@@ -555,9 +561,9 @@ function UnitModal({
                             />
                             {b.count > 1 ? `${b.count}× ` : ""}
                             {bedTypeLabelAr(b.bedType)}
-                            {b.combinable && (
-                              <span className="text-[10px] text-blue-600">
-                                (قابل للدمج)
+                            {b.sleepsExtra && (
+                              <span className="text-[10px] text-amber-700">
+                                (+1 إضافي)
                               </span>
                             )}
                           </span>
@@ -615,36 +621,9 @@ function UnitModal({
             </div>
           )}
 
-          {/* Bed Setup (only if combinable) */}
-          {hasCombinable && (
-            <div className="pt-3 border-t border-gray-100">
-              <p className="text-sm font-medium text-gray-600 mb-2">
-                ترتيب الأسرّة
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { v: "default", label: "افتراضي" },
-                  { v: "separated", label: "مفصولة" },
-                  { v: "combined", label: "مدمجة" },
-                ].map((opt) => (
-                  <button
-                    key={opt.v}
-                    type="button"
-                    disabled={!canEdit}
-                    onClick={() => setBedSetup(opt.v)}
-                    className={cn(
-                      "text-xs font-medium py-2 rounded-lg border transition-colors",
-                      bedSetup === opt.v
-                        ? "bg-primary text-white border-primary"
-                        : "bg-white text-gray-600 border-gray-200 hover:border-primary/50",
-                      !canEdit && "cursor-not-allowed opacity-70",
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {/* Room-merge panel (physical pair with adjoining door) */}
+          {canEdit && (
+            <UnitMergePanel unit={unit} onUnitUpdate={onRefresh} />
           )}
 
           {/* Notes editor */}
@@ -723,7 +702,6 @@ function UnitModal({
               type="button"
               onClick={() => {
                 setNotes(unit.notes ?? "");
-                setBedSetup(unit.bedSetup);
               }}
               className="px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-white text-sm"
             >

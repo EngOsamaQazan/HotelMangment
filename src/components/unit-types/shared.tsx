@@ -59,7 +59,6 @@ export function categoryLabel(code: string): string {
 interface Bed {
   bedType: string;
   count: number;
-  combinable?: boolean;
   sleepsExtra?: boolean;
 }
 
@@ -68,7 +67,7 @@ interface Room {
   beds?: Bed[];
 }
 
-/** Short Arabic summary: e.g. "سرير Queen · 2× مفرد (قابلان للدمج)". */
+/** Short Arabic summary: e.g. "سرير Queen · 2× مفرد · +1 نوم إضافي". */
 export function summarizeBeds(rooms: Room[] | undefined | null): string {
   if (!rooms || rooms.length === 0) return "—";
   const parts: string[] = [];
@@ -82,7 +81,7 @@ export function summarizeBeds(rooms: Room[] | undefined | null): string {
       } else {
         const label = bedLabel(b.bedType);
         const prefix = b.count > 1 ? `${b.count}× ` : "";
-        const suffix = b.combinable ? " (قابل للدمج)" : "";
+        const suffix = b.sleepsExtra ? " (+1 نوم إضافي)" : "";
         parts.push(`${prefix}${label}${suffix}`);
       }
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -60,12 +60,31 @@ function formatDate(d: string): string {
   }).format(new Date(d));
 }
 
+/**
+ * Key used to stash the in-flight booking selection while the guest signs
+ * in or signs up. This keeps the /signin URL clean (just `?next=/book/checkout`
+ * instead of a fully-percent-encoded payload) and survives a full page reload.
+ */
+const PENDING_CHECKOUT_KEY = "fakher:pendingCheckout";
+
+interface PendingCheckout {
+  unitTypeId?: number;
+  mergeId?: number;
+  checkIn: string;
+  checkOut: string;
+  guests: number;
+}
+
 function CheckoutInner() {
   const search = useSearchParams();
   const router = useRouter();
   const { data: session, status } = useSession();
 
-  const unitTypeId = Number(search.get("unitTypeId"));
+  const unitTypeIdRaw = Number(search.get("unitTypeId"));
+  const mergeIdRaw = Number(search.get("mergeId"));
+  const isMerge = Number.isFinite(mergeIdRaw) && mergeIdRaw > 0;
+  const unitTypeId = isMerge ? 0 : unitTypeIdRaw;
+  const mergeId = isMerge ? mergeIdRaw : 0;
   const checkIn = search.get("checkIn") ?? "";
   const checkOut = search.get("checkOut") ?? "";
   const guests = Math.max(1, Number(search.get("guests") || 1));
@@ -74,6 +93,7 @@ function CheckoutInner() {
   const [summary, setSummary] = useState<TypeSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [hydrating, setHydrating] = useState(false);
 
   const [notes, setNotes] = useState("");
   const [agreed, setAgreed] = useState(false);
@@ -83,20 +103,50 @@ function CheckoutInner() {
   const [holding, setHolding] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
-  const callbackUrl = useMemo(() => {
-    const q = new URLSearchParams({
-      unitTypeId: String(unitTypeId),
-      checkIn,
-      checkOut,
-      guests: String(guests),
-    });
-    return `/book/checkout?${q.toString()}`;
-  }, [unitTypeId, checkIn, checkOut, guests]);
-
   const isGuest = session?.user?.audience === "guest";
 
+  // When the URL lacks booking context (e.g. guest just came back from
+  // /signin?next=/book/checkout), try to rehydrate it from the short-lived
+  // sessionStorage entry we wrote before redirecting away.
   useEffect(() => {
-    if (!unitTypeId || !checkIn || !checkOut) {
+    if ((unitTypeId || mergeId) && checkIn && checkOut) return;
+    if (typeof window === "undefined") return;
+    const raw = window.sessionStorage.getItem(PENDING_CHECKOUT_KEY);
+    if (!raw) return;
+    try {
+      const ctx = JSON.parse(raw) as PendingCheckout;
+      const hasTarget =
+        (ctx.unitTypeId && Number.isFinite(ctx.unitTypeId)) ||
+        (ctx.mergeId && Number.isFinite(ctx.mergeId));
+      if (ctx && hasTarget && ctx.checkIn && ctx.checkOut) {
+        setHydrating(true);
+        const q = new URLSearchParams({
+          checkIn: ctx.checkIn,
+          checkOut: ctx.checkOut,
+          guests: String(ctx.guests ?? 1),
+        });
+        if (ctx.mergeId) q.set("mergeId", String(ctx.mergeId));
+        else if (ctx.unitTypeId) q.set("unitTypeId", String(ctx.unitTypeId));
+        router.replace(`/book/checkout?${q.toString()}`, { scroll: false });
+      }
+    } catch {
+      // ignore malformed stash
+    }
+    // intentionally run only once on first mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Once the URL has a full booking context, the sessionStorage stash has
+  // done its job — clear it so it doesn't leak into later visits.
+  useEffect(() => {
+    if ((unitTypeId || mergeId) && checkIn && checkOut && typeof window !== "undefined") {
+      window.sessionStorage.removeItem(PENDING_CHECKOUT_KEY);
+    }
+  }, [unitTypeId, mergeId, checkIn, checkOut]);
+
+  useEffect(() => {
+    if ((!unitTypeId && !mergeId) || !checkIn || !checkOut) {
+      if (hydrating) return;
       setError("بيانات الحجز غير مكتملة. يُرجى العودة إلى صفحة البحث.");
       setLoading(false);
       return;
@@ -104,13 +154,19 @@ function CheckoutInner() {
     (async () => {
       try {
         setLoading(true);
+        const quoteBody = isMerge
+          ? { mergeId, checkIn, checkOut, guests }
+          : { unitTypeId, checkIn, checkOut, guests };
+        const summaryUrl = isMerge
+          ? `/api/book/merges/${mergeId}`
+          : `/api/book/unit-types/${unitTypeId}`;
         const [qRes, tRes] = await Promise.all([
           fetch("/api/book/quote", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ unitTypeId, checkIn, checkOut, guests }),
+            body: JSON.stringify(quoteBody),
           }),
-          fetch(`/api/book/unit-types/${unitTypeId}`),
+          fetch(summaryUrl),
         ]);
         if (!qRes.ok) {
           const j = await qRes.json().catch(() => ({}));
@@ -118,13 +174,17 @@ function CheckoutInner() {
         }
         const q = (await qRes.json()) as Quote;
         if (q.unavailableReason) {
-          throw new Error("نوع الوحدة غير متاح للتواريخ المحدّدة.");
+          throw new Error(
+            isMerge
+              ? "الشقة المدمجة غير متاحة للتواريخ المحدّدة."
+              : "نوع الوحدة غير متاح للتواريخ المحدّدة.",
+          );
         }
         setQuote(q);
         if (tRes.ok) {
           const t = (await tRes.json()) as TypeSummary;
           setSummary({
-            id: t.id,
+            id: t.id ?? 0,
             nameAr: t.nameAr,
             nameEn: t.nameEn,
             maxOccupancy: t.maxOccupancy,
@@ -136,7 +196,7 @@ function CheckoutInner() {
         setLoading(false);
       }
     })();
-  }, [unitTypeId, checkIn, checkOut, guests]);
+  }, [unitTypeId, mergeId, isMerge, checkIn, checkOut, guests, hydrating]);
 
   async function createHold() {
     if (!agreed) {
@@ -150,7 +210,7 @@ function CheckoutInner() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          unitTypeId,
+          ...(isMerge ? { mergeId } : { unitTypeId }),
           checkIn,
           checkOut,
           guests,
@@ -252,7 +312,14 @@ function CheckoutInner() {
                   <Loader2 size={16} className="animate-spin" /> جارٍ التحقّق من الجلسة…
                 </div>
               ) : !isGuest ? (
-                <SignInGate callbackUrl={callbackUrl} />
+                <SignInGate
+                  pending={{
+                    ...(isMerge ? { mergeId } : { unitTypeId }),
+                    checkIn,
+                    checkOut,
+                    guests,
+                  }}
+                />
               ) : (
                 <GuestDetails
                   session={session}
@@ -411,7 +478,21 @@ function Stat({
   );
 }
 
-function SignInGate({ callbackUrl }: { callbackUrl: string }) {
+function SignInGate({ pending }: { pending: PendingCheckout }) {
+  // Stash the booking context once when the gate mounts so /signin and
+  // /signup can return here with just `?next=/book/checkout` — no ugly
+  // double-encoded query payload in the address bar.
+  function stash() {
+    if (typeof window === "undefined") return;
+    try {
+      window.sessionStorage.setItem(
+        PENDING_CHECKOUT_KEY,
+        JSON.stringify(pending),
+      );
+    } catch {
+      /* sessionStorage unavailable (e.g. private mode) → silently fall back */
+    }
+  }
   return (
     <section className="bg-white rounded-2xl border border-gold/30 shadow-sm p-6 text-center">
       <h3 className="text-lg font-bold text-primary mb-1">
@@ -423,13 +504,15 @@ function SignInGate({ callbackUrl }: { callbackUrl: string }) {
       </p>
       <div className="flex flex-col sm:flex-row gap-2 justify-center">
         <Link
-          href={{ pathname: "/signin", query: { callbackUrl } }}
+          href={{ pathname: "/signin", query: { next: "/book/checkout" } }}
+          onClick={stash}
           className="px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary-dark shadow"
         >
           لديّ حساب — تسجيل الدخول
         </Link>
         <Link
-          href={{ pathname: "/signup", query: { callbackUrl } }}
+          href={{ pathname: "/signup", query: { next: "/book/checkout" } }}
+          onClick={stash}
           className="px-5 py-2.5 bg-white border border-primary text-primary text-sm font-bold rounded-lg hover:bg-gold-soft/40"
         >
           إنشاء حساب جديد

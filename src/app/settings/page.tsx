@@ -15,6 +15,7 @@ import {
   Calendar,
   Shield,
   BedDouble,
+  DoorOpen,
   Network,
   MessageCircle,
 } from "lucide-react";
@@ -278,6 +279,15 @@ export default function SettingsPage() {
               >
                 <BedDouble size={18} />
                 أنواع الوحدات
+              </Link>
+            </Can>
+            <Can permission="rooms:view">
+              <Link
+                href="/settings/unit-merges"
+                className="flex items-center gap-2 px-4 py-2.5 border border-primary text-primary rounded-lg hover:bg-gold-soft transition-colors text-sm font-medium flex-1 sm:flex-none justify-center"
+              >
+                <DoorOpen size={18} />
+                دمج الوحدات
               </Link>
             </Can>
             <Can permission="settings.prices:view">

@@ -1,20 +1,55 @@
 import type { Metadata } from "next";
+import { SITE, SITE_URL, LOCALE } from "@/lib/seo/site";
+import {
+  hotelJsonLd,
+  breadcrumbsJsonLd,
+  toJsonLdScript,
+} from "@/lib/seo/jsonld";
+
+const bookTitle = `احجز مباشرة — ${SITE.nameAr}`;
+const bookDescription = `احجز إقامتك في ${SITE.nameAr} مباشرة من الموقع الرسمي — أفضل الأسعار، تأكيد فوري عبر واتساب، دفع عند الوصول، ${SITE.descriptionAr.slice(0, 80)}`;
 
 export const metadata: Metadata = {
-  title: "احجز مباشرة | فندق فاخر",
-  description:
-    "احجز إقامتك في فندق فاخر مباشرة من موقعنا الرسمي — أفضل الأسعار، تأكيد فوري عبر واتساب، وتجربة حجز سهلة وآمنة.",
+  title: bookTitle,
+  description: bookDescription,
+  alternates: {
+    canonical: "/book",
+    languages: {
+      "ar-JO": "/book",
+      "x-default": "/book",
+    },
+  },
   openGraph: {
     type: "website",
-    title: "احجز مباشرة | فندق فاخر",
-    description:
-      "احجز إقامتك في فندق فاخر مباشرة من موقعنا الرسمي — أفضل الأسعار وتأكيد فوري.",
-    locale: "ar_JO",
-    siteName: "فندق فاخر",
+    title: bookTitle,
+    description: bookDescription,
+    url: `${SITE_URL}/book`,
+    locale: LOCALE.primary,
+    siteName: SITE.nameAr,
+    images: [
+      {
+        url: "/opengraph-image.png",
+        width: 1200,
+        height: 630,
+        alt: bookTitle,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: bookTitle,
+    description: bookDescription,
+    images: ["/opengraph-image.png"],
   },
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
 };
 
@@ -23,35 +58,19 @@ export default function BookLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const breadcrumbs = breadcrumbsJsonLd([
+    { name: SITE.nameAr, url: "/landing" },
+    { name: "الحجز المباشر", url: "/book" },
+  ]);
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "Hotel",
-            name: "فندق فاخر",
-            url: "https://mafhotel.com/book",
-            telephone: "+962781099910",
-            address: {
-              "@type": "PostalAddress",
-              addressLocality: "عمّان",
-              addressCountry: "JO",
-            },
-            amenityFeature: [
-              { "@type": "LocationFeatureSpecification", name: "Wi-Fi مجاني" },
-              {
-                "@type": "LocationFeatureSpecification",
-                name: "خدمة 24 ساعة",
-              },
-              {
-                "@type": "LocationFeatureSpecification",
-                name: "مواقف سيارات",
-              },
-            ],
-          }),
-        }}
+        dangerouslySetInnerHTML={{ __html: toJsonLdScript(hotelJsonLd()) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: toJsonLdScript(breadcrumbs) }}
       />
       {children}
     </>

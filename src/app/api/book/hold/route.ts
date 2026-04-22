@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { createHold, HoldError } from "@/lib/booking/hold";
+import { createHold, createMergeHold, HoldError } from "@/lib/booking/hold";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { normalizePhone } from "@/lib/phone";
 
@@ -51,6 +51,7 @@ export async function POST(request: Request) {
 
     const body = (await request.json().catch(() => ({}))) as {
       unitTypeId?: number;
+      mergeId?: number;
       checkIn?: string;
       checkOut?: string;
       guests?: number;
@@ -58,16 +59,17 @@ export async function POST(request: Request) {
       bedSetupRequested?: string | null;
     };
     const unitTypeId = Number(body.unitTypeId);
+    const mergeId = Number(body.mergeId);
     const checkIn = body.checkIn ? new Date(body.checkIn) : null;
     const checkOut = body.checkOut ? new Date(body.checkOut) : null;
     const guests = Math.max(1, Number(body.guests) || 1);
     if (
-      !Number.isFinite(unitTypeId) ||
       !checkIn ||
       !checkOut ||
       Number.isNaN(checkIn.getTime()) ||
       Number.isNaN(checkOut.getTime()) ||
-      checkOut <= checkIn
+      checkOut <= checkIn ||
+      (!Number.isFinite(unitTypeId) && !Number.isFinite(mergeId))
     ) {
       return NextResponse.json(
         { error: "بيانات الطلب غير مكتملة" },
@@ -90,25 +92,41 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "الحساب غير متاح" }, { status: 403 });
     }
 
-    const hold = await createHold({
-      unitTypeId,
-      checkIn,
-      checkOut,
-      guests,
-      guestAccountId: guest.id,
-      guestName: guest.fullName,
-      phone: normalizePhone(guest.phone) ?? guest.phone,
-      nationality: guest.nationality,
-      idNumber: guest.idNumber,
-      notes: body.notes ?? null,
-      bedSetupRequested: body.bedSetupRequested ?? null,
-    });
+    const hold = Number.isFinite(mergeId)
+      ? await createMergeHold({
+          mergeId,
+          checkIn,
+          checkOut,
+          guests,
+          guestAccountId: guest.id,
+          guestName: guest.fullName,
+          phone: normalizePhone(guest.phone) ?? guest.phone,
+          nationality: guest.nationality,
+          idNumber: guest.idNumber,
+          notes: body.notes ?? null,
+        })
+      : await createHold({
+          unitTypeId,
+          checkIn,
+          checkOut,
+          guests,
+          guestAccountId: guest.id,
+          guestName: guest.fullName,
+          phone: normalizePhone(guest.phone) ?? guest.phone,
+          nationality: guest.nationality,
+          idNumber: guest.idNumber,
+          notes: body.notes ?? null,
+          bedSetupRequested: body.bedSetupRequested ?? null,
+        });
 
     return NextResponse.json({
       ok: true,
       holdId: hold.holdId,
       expiresAt: hold.expiresAt.toISOString(),
       quote: hold.quote,
+      ...("siblingHoldId" in hold
+        ? { siblingHoldId: hold.siblingHoldId, groupId: hold.groupId }
+        : {}),
     });
   } catch (error) {
     if (error instanceof HoldError) {

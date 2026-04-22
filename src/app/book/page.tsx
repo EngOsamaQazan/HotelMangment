@@ -13,6 +13,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { GuestShell } from "@/components/public/GuestShell";
 import { publicPhotoUrl } from "@/lib/public-image";
+import { buildUnitTypeSlug } from "@/lib/booking/slug";
 import {
   CalendarRange,
   Users,
@@ -56,11 +57,28 @@ interface Result {
   primaryPhotoId: number | null;
 }
 
+interface MergedPair {
+  mergeId: number;
+  unitANumber: string;
+  unitBNumber: string;
+  unitTypeNamesAr: string[];
+  maxOccupancy: number;
+  maxAdults: number;
+  maxChildren: number;
+  sizeSqm: number | null;
+  hasKitchen: boolean;
+  hasBalcony: boolean;
+  basePriceDaily: number | null;
+  primaryPhotoUrl: string | null;
+  primaryPhotoId: number | null;
+}
+
 interface AvailabilityResponse {
   checkIn: string;
   checkOut: string;
   guests: number;
   results: Result[];
+  mergedPairs?: MergedPair[];
 }
 
 function toYMD(d: Date): string {
@@ -403,6 +421,39 @@ function BookInner() {
                   ))}
                 </div>
               )}
+
+            {!loading &&
+              !resultsError &&
+              data &&
+              (data.mergedPairs?.length ?? 0) > 0 && (
+                <div className="mt-8">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-[11px] font-bold text-gold uppercase tracking-wider">
+                      للعائلات
+                    </span>
+                    <h3 className="text-lg font-bold text-primary">
+                      شقق بغرفتين متصلتين
+                    </h3>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-4 max-w-2xl">
+                    غرفتان متجاورتان يفتح بينهما باب داخلي — مساحة عائليّة
+                    موحّدة مع مطبخين وحمّامين وأسرّة موزّعة. مناسبة خصوصاً
+                    للعائلات والمجموعات الصغيرة.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+                    {(data.mergedPairs ?? []).map((p) => (
+                      <MergedPairCard
+                        key={p.mergeId}
+                        p={p}
+                        checkIn={checkIn}
+                        checkOut={checkOut}
+                        guests={guests}
+                        nights={nights}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
           </>
         )}
 
@@ -610,7 +661,116 @@ function RoomResultCard({
             )}
           </div>
           <Link
-            href={`/book/type/${r.unitTypeId}?${q.toString()}`}
+            href={`/book/type/${buildUnitTypeSlug(r.nameEn, r.code, r.unitTypeId)}?${q.toString()}`}
+            className="px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary-dark shadow-sm transition"
+          >
+            اختر واحجز
+          </Link>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function MergedPairCard({
+  p,
+  checkIn,
+  checkOut,
+  guests,
+  nights,
+}: {
+  p: MergedPair;
+  checkIn: string;
+  checkOut: string;
+  guests: number;
+  nights: number;
+}) {
+  const photoUrl = publicPhotoUrl(
+    "unit-type-photo",
+    p.primaryPhotoId,
+    p.primaryPhotoUrl,
+  );
+  const estimate =
+    p.basePriceDaily && p.basePriceDaily > 0 ? p.basePriceDaily * nights : null;
+  const q = new URLSearchParams({
+    checkIn,
+    checkOut,
+    guests: String(guests),
+  });
+
+  return (
+    <article className="bg-white rounded-2xl border-2 border-gold/40 shadow-sm hover:shadow-lg transition overflow-hidden flex flex-col relative">
+      <div className="absolute top-3 left-3 z-10 bg-gold text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow">
+        زوج مدمج
+      </div>
+      <div className="relative aspect-[16/9] bg-gold-soft/40">
+        {photoUrl ? (
+          <Image
+            src={photoUrl}
+            alt={`شقة مدمجة ${p.unitANumber} + ${p.unitBNumber}`}
+            fill
+            sizes="(max-width: 768px) 100vw, 50vw"
+            className="object-cover"
+          />
+        ) : (
+          <div className="h-full flex items-center justify-center text-gold">
+            <BedDouble size={40} />
+          </div>
+        )}
+        <span className="absolute top-3 right-3 bg-primary text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-sm">
+          غرفتان متّصلتان
+        </span>
+      </div>
+      <div className="p-4 flex-1 flex flex-col gap-3">
+        <div>
+          <h3 className="font-bold text-primary text-lg">
+            شقة عائليّة · {p.unitANumber} + {p.unitBNumber}
+          </h3>
+          <p className="text-xs text-gray-500 line-clamp-1">
+            {p.unitTypeNamesAr.join(" + ")}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-gray-600">
+          <span className="flex items-center gap-1">
+            <Users size={13} /> حتى {p.maxOccupancy} ضيوف
+          </span>
+          {p.sizeSqm && (
+            <span className="flex items-center gap-1">
+              <Maximize size={13} /> {p.sizeSqm} م²
+            </span>
+          )}
+          {p.hasKitchen && (
+            <span className="flex items-center gap-1">
+              <Utensils size={13} /> مطبخ
+            </span>
+          )}
+          {p.hasBalcony && (
+            <span className="flex items-center gap-1">
+              <Sun size={13} /> شرفة
+            </span>
+          )}
+        </div>
+        <div className="mt-auto flex items-end justify-between pt-2 border-t border-gray-100">
+          <div>
+            {p.basePriceDaily && p.basePriceDaily > 0 ? (
+              <>
+                <p className="text-xs text-gray-500">ابتداءً من</p>
+                <p className="text-lg font-extrabold text-primary">
+                  {p.basePriceDaily.toFixed(2)}{" "}
+                  <span className="text-xs font-normal">د.أ/ليلة</span>
+                </p>
+                {estimate && (
+                  <p className="text-[11px] text-gray-500">
+                    ~ {estimate.toFixed(2)} د.أ لـ{nights} ليالٍ
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-xs text-gray-500">السعر حسب الموسم</p>
+            )}
+          </div>
+          <Link
+            href={`/book/checkout?mergeId=${p.mergeId}&${q.toString()}`}
             className="px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary-dark shadow-sm transition"
           >
             اختر واحجز

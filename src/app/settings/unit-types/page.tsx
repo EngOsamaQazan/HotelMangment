@@ -51,8 +51,6 @@ export interface UnitTypeListItem {
       id: number;
       bedType: string;
       count: number;
-      combinable: boolean;
-      combinesToType: string | null;
       sleepsExtra: boolean;
       notes: string | null;
     }[];

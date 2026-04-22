@@ -57,14 +57,27 @@ interface PermissionsContextValue {
 const PermissionsContext = createContext<PermissionsContextValue | null>(null);
 
 export function PermissionsProvider({ children }: { children: ReactNode }) {
-  const { status } = useSession();
+  const { status, data: session } = useSession();
+  const sessionUserId = (session?.user as { id?: string | number } | undefined)
+    ?.id;
+  const currentUserKey =
+    sessionUserId !== undefined && sessionUserId !== null
+      ? String(sessionUserId)
+      : null;
+
   const [permissions, setPermissions] = useState<Set<string>>(new Set());
   const [roles, setRoles] = useState<RoleSummary[]>([]);
-  const [hasFetched, setHasFetched] = useState(false);
+  // Tracks which user id the current `permissions` snapshot belongs to.
+  // `null` means "signed-out / not yet fetched for anyone". This replaces the
+  // old boolean `hasFetched` which was shared across sign-in/out transitions
+  // and caused the forbidden card to flash immediately after login (while
+  // NextAuth flipped status straight from "unauthenticated" to "authenticated"
+  // without passing through "loading").
+  const [fetchedForUser, setFetchedForUser] = useState<string | null>(null);
   const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchPermissions = useCallback(async () => {
+  const fetchPermissions = useCallback(async (userKey: string | null) => {
     setIsFetching(true);
     setError(null);
     try {
@@ -80,31 +93,33 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       const json: MeResponse = await res.json();
       setPermissions(new Set(json.permissions));
       setRoles(json.user?.roles ?? []);
+      setFetchedForUser(userKey);
     } catch (e) {
       setError(e instanceof Error ? e.message : "فشل تحميل الصلاحيات");
     } finally {
       setIsFetching(false);
-      setHasFetched(true);
     }
   }, []);
 
   useEffect(() => {
-    if (status === "authenticated") {
-      fetchPermissions();
+    if (status === "authenticated" && currentUserKey) {
+      if (fetchedForUser !== currentUserKey) {
+        fetchPermissions(currentUserKey);
+      }
     } else if (status === "unauthenticated") {
       setPermissions(new Set());
       setRoles([]);
-      setHasFetched(true);
+      setFetchedForUser(null);
     }
-  }, [status, fetchPermissions]);
+  }, [status, currentUserKey, fetchedForUser, fetchPermissions]);
 
-  // Treat session "loading", authenticated-but-not-yet-fetched, and any
-  // in-flight refetch as "loading" so consumers never see a false "denied"
-  // state during the initial hydration window (which previously caused the
-  // forbidden card to flash before permissions arrived).
+  // Treat session "loading", authenticated-but-not-yet-fetched-for-this-user,
+  // and any in-flight refetch as "loading" so consumers never see a false
+  // "denied" state during the sign-in hydration window (which previously
+  // caused the forbidden card to flash before permissions arrived).
   const isLoading =
     status === "loading" ||
-    (status === "authenticated" && !hasFetched) ||
+    (status === "authenticated" && fetchedForUser !== currentUserKey) ||
     isFetching;
 
   const can = useCallback(
@@ -122,17 +137,22 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     [permissions],
   );
 
+  const refetch = useCallback(
+    () => fetchPermissions(currentUserKey),
+    [fetchPermissions, currentUserKey],
+  );
+
   const value = useMemo<PermissionsContextValue>(
     () => ({
       permissions,
       roles,
       isLoading,
       error,
-      refetch: fetchPermissions,
+      refetch,
       can,
       canAll,
     }),
-    [permissions, roles, isLoading, error, fetchPermissions, can, canAll],
+    [permissions, roles, isLoading, error, refetch, can, canAll],
   );
 
   return (

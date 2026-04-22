@@ -54,7 +54,7 @@ async function main() {
         ? r.beds
             .map(
               (b) =>
-                `${b.count}×${b.bedType}${b.combinable ? " [combinable]" : ""}${b.sleepsExtra ? " [extra]" : ""}`,
+                `${b.count}×${b.bedType}${b.sleepsExtra ? " [extra]" : ""}`,
             )
             .join(", ")
         : "no beds";
