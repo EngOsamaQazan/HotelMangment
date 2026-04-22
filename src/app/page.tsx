@@ -258,7 +258,7 @@ export default function DashboardPage() {
                     <thead>
                       <tr className="border-b border-gray-100">
                         <th className="text-right py-2 px-3 text-gray-500 font-medium">
-                          النزيل
+                          الضيف
                         </th>
                         <th className="text-right py-2 px-3 text-gray-500 font-medium">
                           الوحدة

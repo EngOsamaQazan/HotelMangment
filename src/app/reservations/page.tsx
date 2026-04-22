@@ -44,6 +44,8 @@ interface Reservation {
   numGuests: number;
   notes: string | null;
   createdAt: string;
+  source?: string | null;
+  confirmationCode?: string | null;
   unit: Unit;
 }
 
@@ -69,13 +71,16 @@ interface CountsResponse {
   startingToday: number;
   endingToday: number;
   upcomingThisWeek: number;
+  onlineTotal?: number;
+  onlineToday?: number;
 }
 
-type TabKey = "active" | "upcoming" | "completed" | "cancelled" | "all";
+type TabKey = "active" | "upcoming" | "completed" | "cancelled" | "online" | "all";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "active", label: "سارية" },
   { key: "upcoming", label: "قادمة" },
+  { key: "online", label: "عبر الموقع" },
   { key: "completed", label: "منتهية" },
   { key: "cancelled", label: "ملغاة" },
   { key: "all", label: "الكل" },
@@ -95,7 +100,11 @@ export default function ReservationsPage() {
     try {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
-      if (statusFilter !== "all") params.set("status", statusFilter);
+      if (statusFilter === "online") {
+        params.set("source", "direct_web");
+      } else if (statusFilter !== "all") {
+        params.set("status", statusFilter);
+      }
       params.set("page", String(page));
       params.set("limit", String(limit));
 
@@ -187,7 +196,9 @@ export default function ReservationsPage() {
                 ? null
                 : t.key === "all"
                   ? summary.active + summary.upcoming + summary.completed + summary.cancelled
-                  : summary[t.key];
+                  : t.key === "online"
+                    ? (summary.onlineTotal ?? 0)
+                    : summary[t.key as "active" | "upcoming" | "completed" | "cancelled"];
             const isActive = statusFilter === t.key;
             return (
               <button
@@ -293,13 +304,27 @@ export default function ReservationsPage() {
                   {data.reservations.map((r) => (
                     <tr
                       key={r.id}
-                      className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
+                      className={cn(
+                        "border-b border-gray-50 hover:bg-gray-50/50 transition-colors",
+                        r.source === "direct_web" && "bg-amber-50/30",
+                      )}
                     >
                       <td className="px-4 py-3 font-medium text-gray-700">
-                        {r.id}
+                        <div className="flex items-center gap-1.5">
+                          <span>{r.id}</span>
+                          <SourceBadge source={r.source} />
+                        </div>
                       </td>
                       <td className="px-4 py-3 font-medium text-gray-800">
                         {r.guestName}
+                        {r.confirmationCode && (
+                          <div
+                            className="text-[10px] text-amber-700 font-mono mt-0.5"
+                            dir="ltr"
+                          >
+                            {r.confirmationCode}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-gray-600">
                         {r.unit.unitNumber}
@@ -377,11 +402,18 @@ export default function ReservationsPage() {
             {/* Mobile Cards */}
             <div className="lg:hidden divide-y divide-gray-100">
               {data.reservations.map((r) => (
-                <div key={r.id} className="p-4 space-y-3">
+                <div
+                  key={r.id}
+                  className={cn(
+                    "p-4 space-y-3",
+                    r.source === "direct_web" && "bg-amber-50/30",
+                  )}
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400">#{r.id}</span>
                       <span className="font-bold text-gray-800">{r.guestName}</span>
+                      <SourceBadge source={r.source} />
                     </div>
                     <span
                       className={cn(
@@ -477,6 +509,36 @@ function SummaryCard({
       <span className="text-sm font-medium">{label}</span>
       <span className="text-2xl font-bold">{value}</span>
     </div>
+  );
+}
+
+function SourceBadge({ source }: { source?: string | null }) {
+  if (!source || source === "staff") return null;
+  const map: Record<string, { label: string; className: string }> = {
+    direct_web: {
+      label: "عبر الموقع",
+      className: "bg-amber-100 text-amber-800 border border-amber-200",
+    },
+    booking_com: {
+      label: "Booking.com",
+      className: "bg-indigo-50 text-indigo-700 border border-indigo-200",
+    },
+    whatsapp: {
+      label: "واتساب",
+      className: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+    },
+  };
+  const cfg = map[source];
+  if (!cfg) return null;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full",
+        cfg.className,
+      )}
+    >
+      {cfg.label}
+    </span>
   );
 }
 

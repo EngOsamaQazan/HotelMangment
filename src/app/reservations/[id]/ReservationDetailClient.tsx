@@ -1231,7 +1231,7 @@ export default function ReservationDetailClient({ id }: { id: string }) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1.5">
-                  عدد النزلاء
+                  عدد الضيوف
                 </label>
                 <NumberInput
                   min={1}
@@ -1429,12 +1429,12 @@ export default function ReservationDetailClient({ id }: { id: string }) {
             </div>
           </div>
 
-          {/* بيانات النزلاء */}
+          {/* بيانات الضيوف */}
           <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-700 flex items-center gap-2">
                 <div className="w-1 h-6 bg-primary rounded-full" />
-                بيانات النزلاء
+                بيانات الضيوف
               </h2>
               <button
                 type="button"
@@ -1448,7 +1448,7 @@ export default function ReservationDetailClient({ id }: { id: string }) {
                 className="flex items-center gap-1 text-sm text-primary hover:text-primary-dark font-medium"
               >
                 <UserPlus size={16} />
-                إضافة نزيل
+                إضافة ضيف
               </button>
             </div>
             <div className="space-y-4">
@@ -1459,7 +1459,7 @@ export default function ReservationDetailClient({ id }: { id: string }) {
                 >
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm font-medium text-gray-500">
-                      النزيل {idx + 1}
+                      الضيف {idx + 1}
                     </span>
                     {guests.length > 1 && (
                       <button
@@ -1598,7 +1598,7 @@ export default function ReservationDetailClient({ id }: { id: string }) {
                 value={String(reservation.numNights)}
               />
               <DetailRow
-                label="عدد النزلاء"
+                label="عدد الضيوف"
                 value={String(reservation.numGuests)}
               />
               <DetailRow
@@ -1656,12 +1656,12 @@ export default function ReservationDetailClient({ id }: { id: string }) {
             )}
           </div>
 
-          {/* النزلاء */}
+          {/* الضيوف */}
           {reservation.guests.length > 0 && (
             <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 p-3 sm:p-6">
               <h2 className="text-base sm:text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
                 <div className="w-1 h-6 bg-primary rounded-full" />
-                النزلاء ({reservation.guests.length})
+                الضيوف ({reservation.guests.length})
               </h2>
               <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
                 <table className="w-full text-sm">

@@ -29,6 +29,8 @@ export async function GET() {
       startingToday,
       endingToday,
       upcomingThisWeek,
+      onlineTotal,
+      onlineToday,
     ] = await Promise.all([
       prisma.reservation.count({ where: { status: "active" } }),
       prisma.reservation.count({ where: { status: "upcoming" } }),
@@ -52,6 +54,18 @@ export async function GET() {
           checkIn: { gte: startOfDay, lt: endOfWeek },
         },
       }),
+      prisma.reservation.count({
+        where: {
+          source: "direct_web",
+          status: { not: "pending_hold" },
+        },
+      }),
+      prisma.reservation.count({
+        where: {
+          source: "direct_web",
+          createdAt: { gte: startOfDay, lt: endOfDay },
+        },
+      }),
     ]);
 
     return NextResponse.json({
@@ -62,6 +76,8 @@ export async function GET() {
       startingToday,
       endingToday,
       upcomingThisWeek,
+      onlineTotal,
+      onlineToday,
     });
   } catch (error) {
     const authErr = handleAuthError(error);

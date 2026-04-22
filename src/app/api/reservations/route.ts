@@ -13,6 +13,7 @@ export async function GET(request: Request) {
     await maybeSweepLazy();
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
+    const source = searchParams.get("source");
     const search = searchParams.get("search");
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "50");
@@ -23,6 +24,15 @@ export async function GET(request: Request) {
 
     if (status && status !== "all") {
       where.status = status;
+    } else {
+      // Hide pending holds from the general staff list — they become real
+      // bookings only after `POST /api/book/confirm`. Operations doesn't
+      // want a list noisy with 15-minute placeholders.
+      where.status = { not: "pending_hold" };
+    }
+
+    if (source && source !== "all") {
+      where.source = source;
     }
 
     if (search) {

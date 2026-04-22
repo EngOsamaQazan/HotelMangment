@@ -99,12 +99,12 @@ export default function GuestDebtsReportPage() {
           <div className="flex items-center gap-3">
             <span className="inline-block w-1 h-8 bg-gold rounded-full" />
             <h1 className="text-xl sm:text-2xl font-bold text-primary font-[family-name:var(--font-amiri)]">
-              تقرير ذمم النزلاء
+              تقرير ذمم الضيوف
             </h1>
           </div>
           <p className="text-xs text-gray-500 mt-1 ms-4">
-            الذمم المستحقة على النزلاء بتفصيل الحجز — مربوطة بحساب 1100 ذمم
-            النزلاء في النظام المحاسبي
+            الذمم المستحقة على الضيوف بتفصيل الحجز — مربوطة بحساب 1100 ذمم
+            الضيوف في النظام المحاسبي
           </p>
         </div>
         <button
@@ -185,7 +185,7 @@ export default function GuestDebtsReportPage() {
                     </span>
                   </p>
                   <p className="text-sky-200 text-xs mt-1">
-                    من قيود حساب ذمم النزلاء
+                    من قيود حساب ذمم الضيوف
                   </p>
                 </div>
                 <div className="bg-white/10 p-3 rounded-2xl shrink-0">
@@ -245,7 +245,7 @@ export default function GuestDebtsReportPage() {
                         <th className="text-right px-4 py-3 font-medium">
                           <span className="flex items-center gap-1">
                             <User size={14} />
-                            اسم النزيل
+                            اسم الضيف
                           </span>
                         </th>
                         <th className="text-right px-4 py-3 font-medium">
@@ -383,7 +383,7 @@ export default function GuestDebtsReportPage() {
                                   <Link
                                     href={`/accounting/parties/${r.partyId}`}
                                     className="p-1.5 text-gray-500 hover:text-primary hover:bg-gray-100 rounded transition-colors"
-                                    title="كشف حساب النزيل"
+                                    title="كشف حساب الضيف"
                                   >
                                     <ExternalLink size={14} />
                                   </Link>
@@ -509,7 +509,7 @@ export default function GuestDebtsReportPage() {
                                 href={`/accounting/parties/${r.partyId}`}
                                 className="text-primary underline"
                               >
-                                كشف النزيل
+                                كشف الضيف
                               </Link>
                             )}
                           </div>

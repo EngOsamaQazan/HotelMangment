@@ -39,6 +39,9 @@ interface UnitTypeUpdate {
   sortOrder?: number;
   rooms?: RoomInput[];
   amenityCodes?: string[];
+  /** Direct-booking fields */
+  publiclyBookable?: boolean;
+  basePriceDaily?: number | null;
 }
 
 const VALID_CATEGORIES = ["apartment", "hotel_room", "suite", "studio"];
@@ -61,6 +64,13 @@ function validateUpdate(data: UnitTypeUpdate): string | null {
   }
   if (data.maxOccupancy !== undefined && (!Number.isInteger(data.maxOccupancy) || data.maxOccupancy < 1)) {
     return "السعة القصوى يجب أن تكون >= 1";
+  }
+  if (
+    data.basePriceDaily !== undefined &&
+    data.basePriceDaily !== null &&
+    (!Number.isFinite(Number(data.basePriceDaily)) || Number(data.basePriceDaily) < 0)
+  ) {
+    return "السعر الأساسي اليومي يجب أن يكون رقمًا موجبًا";
   }
   if (data.rooms) {
     for (const r of data.rooms) {
@@ -141,6 +151,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       "channelSync",
       "isActive",
       "sortOrder",
+      "publiclyBookable",
+      "basePriceDaily",
     ];
     for (const k of simpleFields) {
       if (body[k] !== undefined) updateData[k] = body[k];

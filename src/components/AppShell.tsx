@@ -6,10 +6,19 @@ import { NotificationsBell } from "@/components/NotificationsBell";
 import { UserMenu } from "@/components/UserMenu";
 import { RoutePermissionGate } from "@/components/RoutePermissionGate";
 
-const AUTH_ROUTES = new Set(["/login"]);
+const AUTH_ROUTES = new Set(["/login", "/signin", "/signup"]);
 
-/** Public marketing / compliance routes: no sidebar, no permission gate. */
-const PUBLIC_PREFIXES = ["/landing", "/privacy", "/terms", "/about"];
+/** Public marketing / compliance / guest-facing routes: no staff sidebar. */
+const PUBLIC_PREFIXES = [
+  "/landing",
+  "/privacy",
+  "/terms",
+  "/about",
+  "/book",
+  "/signin",
+  "/signup",
+  "/account",
+];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

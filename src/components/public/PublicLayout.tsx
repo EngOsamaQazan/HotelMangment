@@ -69,12 +69,20 @@ export function PublicLayout({
             ))}
           </nav>
 
-          <Link
-            href="/login"
-            className="px-3 sm:px-4 py-2 rounded-lg bg-gold text-primary font-semibold hover:bg-gold-dark transition-colors text-xs sm:text-sm"
-          >
-            تسجيل الدخول
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/book"
+              className="hidden sm:inline-flex items-center gap-1 px-3 sm:px-4 py-2 rounded-lg bg-gold text-primary font-bold hover:bg-gold-dark transition-colors text-xs sm:text-sm shadow-sm"
+            >
+              احجز الآن
+            </Link>
+            <Link
+              href="/signin"
+              className="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white font-medium hover:bg-white/20 transition-colors text-xs sm:text-sm"
+            >
+              دخول
+            </Link>
+          </div>
         </div>
       </header>
 

@@ -62,10 +62,33 @@ model Unit {
   unitTypeRef  UnitType?     @relation(fields: [unitTypeId], references: [id])
   reservations Reservation[]
   maintenance  Maintenance[]
+  photos       UnitPhoto[]
 
   @@index([unitTypeId])
   @@index([status])
   @@map("units")
+}
+
+/// Per-unit (room-level) photos — optional overrides on top of UnitTypePhoto.
+/// Most properties will set photos at the UnitType level (one gallery per
+/// room category) and only add UnitPhoto rows when a specific room differs
+/// from the template (corner unit, upgraded finishes, balcony view, etc.).
+model UnitPhoto {
+  id        Int      @id @default(autoincrement())
+  unitId    Int      @map("unit_id")
+  /// Either a full URL ("https://...") or a stored path prefixed with
+  /// "stored:YYYY/MM/abcdef.jpg" — served via /api/files/unit-photo/<id>.
+  url       String
+  captionAr String?  @map("caption_ar")
+  captionEn String?  @map("caption_en")
+  isPrimary Boolean  @default(false) @map("is_primary")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@index([unitId, sortOrder])
+  @@map("unit_photos")
 }
 
 // ============================================================================
@@ -93,6 +116,15 @@ model UnitType {
 
   bookingRoomId String? @unique @map("booking_room_id")
   channelSync   Boolean @default(false) @map("channel_sync")
+
+  // ---- Direct-booking / public website (Phase 2) ----
+  /// Default nightly rate displayed publicly when no active SeasonalPrice /
+  /// UnitTypePrice row covers the date range. Nullable so legacy types that
+  /// rely solely on seasonal pricing keep working unchanged.
+  basePriceDaily   Float?  @map("base_price_daily")
+  /// Controls whether this room type surfaces on `/book` — admins can hide
+  /// a type from the public site without archiving it entirely.
+  publiclyBookable Boolean @default(true) @map("publicly_bookable")
 
   isActive  Boolean  @default(true) @map("is_active")
   sortOrder Int      @default(0) @map("sort_order")
@@ -204,6 +236,22 @@ model Reservation {
   bedSetupRequested String?  @map("bed_setup_requested") // default | combined | separated (null = no preference)
   createdAt         DateTime @default(now()) @map("created_at")
 
+  // ---- Direct-booking (Phase 2) ----
+  /// Channel the reservation came from. Used for reporting and for flagging
+  /// rows in the staff UI. Values: staff | direct_web | booking_com | whatsapp
+  source           String    @default("staff")
+  /// When non-null the row is a short-lived "hold" (status = pending_hold)
+  /// created by `/api/book/hold`. Overlap checks exclude holds that have
+  /// already expired. Cleared when the hold is confirmed or cancelled.
+  holdExpiresAt    DateTime? @map("hold_expires_at")
+  /// Short public-facing code shown to the guest once confirmed — e.g.
+  /// "FKH-A7B3X". Guests use it to pull up their reservation from /account
+  /// or from the confirmation page without authenticating.
+  confirmationCode String?   @unique @map("confirmation_code")
+  /// Optional link back to the GuestAccount that booked online. null for
+  /// staff-entered reservations (the guest may not have an account).
+  guestAccountId   Int?      @map("guest_account_id")
+
   // ---- Hotel-desk operational timestamps ----
   // Captured by front-desk actions (Check-In / Check-Out buttons). These are
   // distinct from `checkIn` / `checkOut`, which remain the *scheduled* window.
@@ -220,6 +268,7 @@ model Reservation {
   cancelledById      Int?      @map("cancelled_by")
 
   unit         Unit                   @relation(fields: [unitId], references: [id])
+  guestAccount GuestAccount?          @relation(fields: [guestAccountId], references: [id])
   guests       Guest[]
   transactions Transaction[]
   statusLogs   ReservationStatusLog[]
@@ -227,6 +276,9 @@ model Reservation {
 
   @@index([status])
   @@index([actualCheckInAt])
+  @@index([source, createdAt])
+  @@index([guestAccountId])
+  @@index([holdExpiresAt])
   @@map("reservations")
 }
 
@@ -306,6 +358,65 @@ model Guest {
   reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
 
   @@map("guests")
+}
+
+// ============================================================================
+// Guest accounts (direct booking — Phase 1)
+// ============================================================================
+//
+// Intentionally separate from `User` (staff) so the admin RBAC system stays
+// clean: guests have no role / no permissions — only ownership of their own
+// reservations. NextAuth has a dedicated "guest-credentials" provider that
+// reads this table and a JWT `audience: "guest"` claim to distinguish the
+// two audiences in middleware.
+
+model GuestAccount {
+  id              Int       @id @default(autoincrement())
+  /// E.164 digits without the leading "+" (e.g. "962781099910"). Primary
+  /// identifier for guests — we authenticate by phone + password and verify
+  /// ownership via a WhatsApp OTP.
+  phone           String    @unique
+  phoneVerifiedAt DateTime? @map("phone_verified_at")
+  email           String?   @unique
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  passwordHash    String    @map("password_hash")
+  fullName        String    @map("full_name")
+  nationality     String?
+  idNumber        String?   @map("id_number")
+  idDocImage      String?   @map("id_doc_image")
+  preferredLang   String    @default("ar") @map("preferred_lang") // ar | en
+  avatarUrl       String?   @map("avatar_url")
+  disabledAt      DateTime? @map("disabled_at")
+  lastLoginAt     DateTime? @map("last_login_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  reservations Reservation[]
+
+  @@index([createdAt])
+  @@map("guest_accounts")
+}
+
+/// Short-lived one-time passwords used for guest phone-verification flows:
+/// signup (own the phone), passwordless login, password reset, or
+/// change-phone. Codes are stored bcrypt-hashed; the plain code is sent
+/// only via WhatsApp.
+model GuestOtp {
+  id         Int       @id @default(autoincrement())
+  phone      String
+  /// Scrypt/bcrypt hash of the 6-digit code. Never store plain codes.
+  codeHash   String    @map("code_hash")
+  /// signup | login | reset | change_phone
+  purpose    String
+  expiresAt  DateTime  @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  attempts   Int       @default(0)
+  ip         String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([phone, purpose, expiresAt])
+  @@index([expiresAt])
+  @@map("guest_otps")
 }
 
 /// DEPRECATED: legacy per-category pricing. Kept for backward-compat while
@@ -1054,23 +1165,23 @@ model BookingInboxReservation {
 /// access token encrypted with the shared AES-256-GCM helper so it is never
 /// exposed in logs/backups in plaintext.
 model WhatsAppConfig {
-  id                 Int      @id @default(1)
-  appId              String?  @map("app_id")
+  id                 Int       @id @default(1)
+  appId              String?   @map("app_id")
   /// App Secret is needed to verify webhook signatures (X-Hub-Signature-256).
-  appSecretEnc       String?  @map("app_secret_enc")
-  wabaId             String?  @map("waba_id")
-  phoneNumberId      String?  @map("phone_number_id")
-  displayPhoneNumber String?  @map("display_phone_number")
+  appSecretEnc       String?   @map("app_secret_enc")
+  wabaId             String?   @map("waba_id")
+  phoneNumberId      String?   @map("phone_number_id")
+  displayPhoneNumber String?   @map("display_phone_number")
   /// System-User permanent token. Never returned to the client unmasked.
-  accessTokenEnc     String?  @map("access_token_enc")
-  webhookVerifyToken String?  @map("webhook_verify_token")
-  apiVersion         String   @default("v21.0") @map("api_version")
-  isActive           Boolean  @default(true) @map("is_active")
+  accessTokenEnc     String?   @map("access_token_enc")
+  webhookVerifyToken String?   @map("webhook_verify_token")
+  apiVersion         String    @default("v21.0") @map("api_version")
+  isActive           Boolean   @default(true) @map("is_active")
   lastVerifiedAt     DateTime? @map("last_verified_at")
   lastVerifyOk       Boolean?  @map("last_verify_ok")
   lastError          String?   @map("last_error")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
   @@map("whatsapp_config")
 }
@@ -1123,17 +1234,17 @@ model WhatsAppMessage {
 /// source of truth is Meta — we refresh via `GET /v{ver}/{WABA_ID}/message_templates`.
 /// Only APPROVED templates are usable for outbound sends outside the 24h window.
 model WhatsAppTemplate {
-  id              Int       @id @default(autoincrement())
+  id              Int      @id @default(autoincrement())
   /// Meta's template name (slug — lowercase snake_case).
   name            String
-  language        String    @default("ar")
-  category        String    @default("UTILITY") // AUTHENTICATION | MARKETING | UTILITY
+  language        String   @default("ar")
+  category        String   @default("UTILITY") // AUTHENTICATION | MARKETING | UTILITY
   /// APPROVED | PENDING | REJECTED | PAUSED | DISABLED
-  status          String    @default("PENDING")
+  status          String   @default("PENDING")
   components      Json?
-  metaId          String?   @unique @map("meta_id")
-  rejectionReason String?   @map("rejection_reason")
-  lastSyncedAt    DateTime  @default(now()) @map("last_synced_at")
+  metaId          String?  @unique @map("meta_id")
+  rejectionReason String?  @map("rejection_reason")
+  lastSyncedAt    DateTime @default(now()) @map("last_synced_at")
 
   @@unique([name, language])
   @@index([status])

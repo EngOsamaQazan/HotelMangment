@@ -40,6 +40,8 @@ interface UnitTypeInput {
   sortOrder?: number;
   rooms?: RoomInput[];
   amenityCodes?: string[];
+  publiclyBookable?: boolean;
+  basePriceDaily?: number | null;
 }
 
 const VALID_CATEGORIES = ["apartment", "hotel_room", "suite", "studio"];
@@ -159,6 +161,11 @@ export async function POST(request: Request) {
         channelSync: body.channelSync ?? false,
         isActive: body.isActive ?? true,
         sortOrder: body.sortOrder ?? 0,
+        publiclyBookable: body.publiclyBookable ?? true,
+        basePriceDaily:
+          body.basePriceDaily !== undefined && body.basePriceDaily !== null
+            ? Number(body.basePriceDaily)
+            : null,
         rooms: body.rooms
           ? {
               create: body.rooms.map((r, idx) => ({

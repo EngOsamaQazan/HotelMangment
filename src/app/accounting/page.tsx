@@ -88,7 +88,7 @@ const SECTIONS: Array<{
   },
   {
     href: "/accounting/reports/guest-debts",
-    title: "تقرير ذمم النزلاء",
+    title: "تقرير ذمم الضيوف",
     desc: "الحجوزات غير المسددة — مربوطة بحساب 1100",
     icon: AlertTriangle,
     permission: "accounting.reports:view",

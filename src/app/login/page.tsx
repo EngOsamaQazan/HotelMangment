@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
 
 export default function LoginPage() {
@@ -58,7 +59,13 @@ export default function LoginPage() {
 
         <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 border-t-4 border-gold">
           <div className="text-center mb-6">
+            <span className="inline-block bg-primary/10 text-primary text-[11px] font-bold tracking-widest px-3 py-1 rounded-full mb-3">
+              دخول فريق العمل
+            </span>
             <h2 className="text-lg font-bold text-primary">تسجيل الدخول</h2>
+            <p className="text-xs text-gray-500 mt-1">
+              بوابة إدارة الفندق — للموظفين المعتمدين
+            </p>
           </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -107,9 +114,16 @@ export default function LoginPage() {
           </button>
         </form>
 
-          <div className="mt-6 text-center text-xs text-gray-400">
-            <p>الحسابات الافتراضية:</p>
-            <p className="mt-1">admin@fakher.jo / admin123</p>
+          <div className="mt-6 pt-4 border-t border-gray-100 text-center">
+            <p className="text-xs text-gray-500">
+              ضيف؟{" "}
+              <Link
+                href="/signin"
+                className="text-primary font-bold hover:text-primary-dark underline underline-offset-2"
+              >
+                سجّل دخولك من هنا
+              </Link>
+            </p>
           </div>
         </div>
 

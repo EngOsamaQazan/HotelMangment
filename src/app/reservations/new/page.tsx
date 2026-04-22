@@ -653,7 +653,7 @@ export default function NewReservationPage() {
             <div className="mt-3 flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">
               <AlertTriangle size={16} className="shrink-0 mt-0.5" />
               <span>
-                عدد النزلاء ({numGuests}) يتجاوز السعة القصوى لهذا النوع ({selectedType.maxOccupancy}).
+                عدد الضيوف ({numGuests}) يتجاوز السعة القصوى لهذا النوع ({selectedType.maxOccupancy}).
               </span>
             </div>
           )}
@@ -724,7 +724,7 @@ export default function NewReservationPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1.5">عدد النزلاء</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1.5">عدد الضيوف</label>
               <NumberInput
                 min={1}
                 max={20}
@@ -926,12 +926,12 @@ export default function NewReservationPage() {
           </div>
         </div>
 
-        {/* بيانات النزلاء */}
+        {/* بيانات الضيوف */}
         <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-gray-700 flex items-center gap-2">
               <div className="w-1 h-6 bg-primary rounded-full" />
-              بيانات النزلاء
+              بيانات الضيوف
             </h2>
             <button
               type="button"
@@ -939,7 +939,7 @@ export default function NewReservationPage() {
               className="flex items-center gap-1 text-sm text-primary hover:text-primary-dark font-medium"
             >
               <UserPlus size={16} />
-              إضافة نزيل
+              إضافة ضيف
             </button>
           </div>
 
@@ -948,7 +948,7 @@ export default function NewReservationPage() {
               <div key={idx} className="border border-gray-100 rounded-lg p-4 bg-gray-50/50">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-medium text-gray-500">
-                    النزيل {idx + 1} {idx === 0 && "(المستأجر)"}
+                    الضيف {idx + 1} {idx === 0 && "(المستأجر)"}
                   </span>
                   <div className="flex items-center gap-2">
                     <IdScanner

@@ -24,7 +24,7 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: "/api/:path*",
+        source: "/api/:path((?!files/).*)",
         headers: NO_STORE_HEADERS,
       },
       {

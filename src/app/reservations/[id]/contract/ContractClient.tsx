@@ -213,7 +213,7 @@ export default function ContractClient({ id }: { id: string }) {
         </div>
 
         {/* ═══ GUESTS TABLE ═══ */}
-        <div className="section-title">ثانياً: بيانات النزلاء المسجلين (عدد النزلاء: {r.guests.length || r.numGuests})</div>
+        <div className="section-title">ثانياً: بيانات الضيوف المسجلين (عدد الضيوف: {r.guests.length || r.numGuests})</div>
         <table className="contract-table">
           <thead>
             <tr>
@@ -298,13 +298,13 @@ export default function ContractClient({ id }: { id: string }) {
 
         <div className="clause"><span className="clause-number">3</span> <strong>السداد:</strong> يلتزم المستأجر بسداد كامل قيمة الإيجار وقدرها <strong>{fmtAmount(r.totalAmount)} د.أ</strong>. تم استلام <strong>{fmtAmount(r.paidAmount)} د.أ</strong> عند التوقيع، والمتبقي <strong>{fmtAmount(r.remaining)} د.أ</strong> يُسدَّد قبل نهاية الإقامة أو وفق الاتفاق.</div>
 
-        <div className="clause"><span className="clause-number">4</span> <strong>تسجيل النزلاء:</strong> يلتزم المستأجر بتسجيل جميع المقيمين بالوحدة كما هو مبيّن أعلاه. <strong style={{ color: "#c0392b" }}>ويُمنع منعاً باتاً استقبال أي شخص غير مسجل في هذا العقد.</strong></div>
+        <div className="clause"><span className="clause-number">4</span> <strong>تسجيل الضيوف:</strong> يلتزم المستأجر بتسجيل جميع المقيمين بالوحدة كما هو مبيّن أعلاه. <strong style={{ color: "#c0392b" }}>ويُمنع منعاً باتاً استقبال أي شخص غير مسجل في هذا العقد.</strong></div>
 
         <div className="clause"><span className="clause-number">5</span> <strong>حظر المشروبات الكحولية:</strong> <strong style={{ color: "#c0392b" }}>يُمنع منعاً باتاً إدخال أو تناول أو حيازة أو تخزين المشروبات الكحولية بأنواعها كافة</strong> داخل الوحدة أو مرافق الفندق، وذلك التزاماً بأحكام الشريعة الإسلامية.</div>
 
         <div className="clause"><span className="clause-number">6</span> <strong>المحافظة على الوحدة:</strong> يلتزم المستأجر بالمحافظة على الوحدة ومحتوياتها بحالتها الأصلية، ويتحمل المسؤولية عن أي تلف (باستثناء الاستهلاك الطبيعي).</div>
 
-        <div className="clause"><span className="clause-number">7</span> <strong>الهدوء والنظام:</strong> يلتزم النزلاء بالمحافظة على الهدوء واحترام راحة الآخرين، ويُمنع الإزعاج خاصة من 10 مساءً حتى 8 صباحاً.</div>
+        <div className="clause"><span className="clause-number">7</span> <strong>الهدوء والنظام:</strong> يلتزم الضيوف بالمحافظة على الهدوء واحترام راحة الآخرين، ويُمنع الإزعاج خاصة من 10 مساءً حتى 8 صباحاً.</div>
 
         <div className="clause"><span className="clause-number">8</span> <strong>حظر التدخين:</strong> يُمنع التدخين داخل الوحدات والممرات والمرافق المغلقة. المخالف يتحمل تكاليف التنظيف والتعقيم.</div>
 
@@ -320,7 +320,7 @@ export default function ContractClient({ id }: { id: string }) {
 
         <div className="clause"><span className="clause-number">14</span> <strong>الصيانة:</strong> يلتزم الطرف الأول بالصيانة الأساسية (تكييف، سباكة، كهرباء). على المستأجر الإبلاغ فوراً عن أي عطل ولا يحق له الإصلاح بنفسه.</div>
 
-        <div className="clause"><span className="clause-number">15</span> <strong>إخلاء المسؤولية:</strong> لا تتحمل الإدارة مسؤولية فقدان أو تلف الممتلكات الشخصية للنزلاء.</div>
+        <div className="clause"><span className="clause-number">15</span> <strong>إخلاء المسؤولية:</strong> لا تتحمل الإدارة مسؤولية فقدان أو تلف الممتلكات الشخصية للضيوف.</div>
 
         <div className="clause"><span className="clause-number">16</span> <strong>فسخ العقد:</strong> يحق للإدارة فسخ العقد فوراً دون إنذار عند مخالفة أي بند، مع حقها في المطالبة بالتعويض.</div>
 
@@ -341,7 +341,7 @@ export default function ContractClient({ id }: { id: string }) {
           <div className="hadith-text" style={{ marginTop: 4 }}>قال رسول الله ﷺ: «كلُّ مُسكرٍ خمرٌ، وكلُّ خمرٍ حرامٌ»</div>
           <div className="hadith-ref">— رواه مسلم</div>
           <div style={{ marginTop: 4, fontSize: 10.5, color: "#5a4020", fontWeight: 500, lineHeight: 1.6 }}>
-            نذكّر نزلاءنا الكرام بتقوى الله عز وجل والالتزام بتعاليم الإسلام الحنيف، وأن هذا المكان أمانة في أعناقكم. فالله مطّلعٌ على كل خفيّة، وإنّ من صان عرضه ودينه في سفره وإقامته نال رضا الله وبركته. نسأل الله لكم إقامة طيبة مباركة.
+            نذكّر ضيوفنا الكرام بتقوى الله عز وجل والالتزام بتعاليم الإسلام الحنيف، وأن هذا المكان أمانة في أعناقكم. فالله مطّلعٌ على كل خفيّة، وإنّ من صان عرضه ودينه في سفره وإقامته نال رضا الله وبركته. نسأل الله لكم إقامة طيبة مباركة.
           </div>
         </div>
 

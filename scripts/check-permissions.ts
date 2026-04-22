@@ -42,6 +42,16 @@ const ALLOWLIST: string[] = [
   // Meta-called webhook, verified by GET challenge + HMAC-SHA256 signature on POST.
   // There is no user session, so RBAC does not apply.
   "/api/whatsapp/webhook",
+  // Direct-booking (Phase 2) — guest-facing pages + APIs. These authenticate
+  // guests via the "guest" NextAuth audience (see src/middleware.ts), which
+  // is orthogonal to the staff RBAC system.
+  "/signin",
+  "/signup",
+  "/book",
+  "/account",
+  "/api/guest-auth",
+  "/api/guest-me",
+  "/api/book",
 ];
 
 interface Finding {

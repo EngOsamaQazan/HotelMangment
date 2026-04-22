@@ -49,6 +49,8 @@ interface UnitTypeDetail {
   channelSync: boolean;
   isActive: boolean;
   sortOrder: number;
+  publiclyBookable: boolean;
+  basePriceDaily: number | null;
   rooms: {
     nameAr: string;
     nameEn: string;
@@ -88,6 +90,8 @@ interface FormState {
   sortOrder: number;
   rooms: RoomState[];
   amenityCodes: string[];
+  publiclyBookable: boolean;
+  basePriceDaily: string;
 }
 
 function emptyForm(): FormState {
@@ -112,6 +116,8 @@ function emptyForm(): FormState {
     sortOrder: 0,
     rooms: [emptyRoom(0)],
     amenityCodes: [],
+    publiclyBookable: true,
+    basePriceDaily: "",
   };
 }
 
@@ -188,6 +194,9 @@ export function UnitTypeFormModal({ id, onClose, onSaved }: Props) {
               })),
             })),
             amenityCodes: data.amenities.map((a) => a.amenity.code),
+            publiclyBookable: data.publiclyBookable ?? true,
+            basePriceDaily:
+              data.basePriceDaily != null ? String(data.basePriceDaily) : "",
           });
           setPhotos(data.photos);
         }
@@ -226,6 +235,10 @@ export function UnitTypeFormModal({ id, onClose, onSaved }: Props) {
         sortOrder: Number(form.sortOrder),
         rooms: form.rooms,
         amenityCodes: form.amenityCodes,
+        publiclyBookable: form.publiclyBookable,
+        basePriceDaily: form.basePriceDaily
+          ? Number(form.basePriceDaily)
+          : null,
       };
 
       const res = isEdit
@@ -530,6 +543,43 @@ export function UnitTypeFormModal({ id, onClose, onSaved }: Props) {
                       />
                       مُفعَّل
                     </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={form.publiclyBookable}
+                        onChange={(e) => setForm({ ...form, publiclyBookable: e.target.checked })}
+                        className="h-4 w-4 accent-primary"
+                      />
+                      قابل للحجز من الموقع العام
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gold-soft/30 border border-gold/20 rounded-lg p-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-primary mb-1">
+                        السعر الأساسي (يومي) بالدينار
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.5"
+                        value={form.basePriceDaily}
+                        onChange={(e) => setForm({ ...form, basePriceDaily: e.target.value })}
+                        placeholder="مثال: 45"
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                      <p className="mt-1 text-[11px] text-gray-500">
+                        يُستخدم كسعر افتراضي عند غياب سعر موسمي لهذا النوع.
+                      </p>
+                    </div>
+                    <div className="flex items-end">
+                      <p className="text-xs text-gray-600 leading-relaxed">
+                        <span className="font-bold text-primary">نصيحة:</span>{" "}
+                        لإدارة أسعار المواسم، استخدم شاشة
+                        <span className="mx-1 font-bold">الأسعار الموسمية</span>
+                        من الإعدادات.
+                      </p>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

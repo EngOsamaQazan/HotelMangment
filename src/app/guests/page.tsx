@@ -68,7 +68,7 @@ export default function GuestsPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <Users className="text-primary" size={24} />
-        <h1 className="text-xl sm:text-2xl font-bold text-primary">سجل النزلاء</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-primary">سجل الضيوف</h1>
       </div>
 
       {/* Search */}
@@ -93,16 +93,16 @@ export default function GuestsPage() {
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="animate-spin text-primary" size={32} />
-            <span className="mr-3 text-gray-500">جاري تحميل النزلاء...</span>
+            <span className="mr-3 text-gray-500">جاري تحميل الضيوف...</span>
           </div>
         ) : guests.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-gray-400">
             <Users size={48} className="mb-3 opacity-50" />
-            <p className="text-lg font-medium">لا يوجد نزلاء</p>
+            <p className="text-lg font-medium">لا يوجد ضيوف</p>
             <p className="text-sm mt-1">
               {search
                 ? "لم يتم العثور على نتائج مطابقة"
-                : "سيظهر النزلاء هنا عند إضافة حجوزات"}
+                : "سيظهر الضيوف هنا عند إضافة حجوزات"}
             </p>
           </div>
         ) : (

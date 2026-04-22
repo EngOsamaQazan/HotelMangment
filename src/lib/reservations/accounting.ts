@@ -87,7 +87,7 @@ export async function postReservationEntries(
           accountCode: ACCOUNT_CODES.AR_GUESTS,
           partyId,
           debit: totalAmount,
-          description: `ذمة النزيل ${guestName}`,
+          description: `ذمة الضيف ${guestName}`,
         },
         {
           accountCode: ACCOUNT_CODES.REVENUE_ROOMS,
@@ -115,7 +115,7 @@ export async function postReservationEntries(
           accountCode: ACCOUNT_CODES.AR_GUESTS,
           partyId,
           credit: paidAmount,
-          description: `سداد جزء من ذمة النزيل`,
+          description: `سداد جزء من ذمة الضيف`,
         },
       ],
     });
@@ -209,7 +209,7 @@ export async function postExtensionEntries(
           accountCode: ACCOUNT_CODES.AR_GUESTS,
           partyId,
           debit: addedAmount,
-          description: `زيادة ذمة النزيل ${guestName} - تمديد`,
+          description: `زيادة ذمة الضيف ${guestName} - تمديد`,
         },
         {
           accountCode: ACCOUNT_CODES.REVENUE_ROOMS,
@@ -238,7 +238,7 @@ export async function postExtensionEntries(
           accountCode: ACCOUNT_CODES.AR_GUESTS,
           partyId,
           credit: addedPaid,
-          description: `سداد جزء من ذمة النزيل - تمديد`,
+          description: `سداد جزء من ذمة الضيف - تمديد`,
         },
       ],
     });

@@ -41,7 +41,7 @@ interface Party {
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  guest: "نزيل",
+  guest: "ضيف",
   partner: "شريك",
   supplier: "مورّد",
   employee: "موظف",
@@ -278,7 +278,7 @@ export default function PartiesPage() {
             { key: "partner", label: "الشركاء" },
             { key: "supplier", label: "الموردين" },
             { key: "lender", label: "المُقرضين" },
-            { key: "guest", label: "النزلاء" },
+            { key: "guest", label: "الضيوف" },
             { key: "all", label: "الكل" },
             { key: "other", label: "أخرى" },
           ].map((t) => (
@@ -583,7 +583,7 @@ export default function PartiesPage() {
                     <option value="supplier">مورّد</option>
                     <option value="employee">موظف</option>
                     <option value="lender">مُقرض</option>
-                    <option value="guest">نزيل</option>
+                    <option value="guest">ضيف</option>
                     <option value="other">أخرى</option>
                   </select>
                 </div>

@@ -76,7 +76,7 @@ interface PayrollData {
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  guest: "نزيل",
+  guest: "ضيف",
   partner: "شريك",
   supplier: "مورّد",
   employee: "موظف",

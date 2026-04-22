@@ -1,0 +1,22 @@
+User-agent: *
+Allow: /landing
+Allow: /about
+Allow: /book
+Allow: /book/results
+Allow: /book/type/
+Disallow: /
+Disallow: /api/
+Disallow: /account/
+Disallow: /reservations/
+Disallow: /rooms/
+Disallow: /accounting/
+Disallow: /finance/
+Disallow: /reports/
+Disallow: /settings/
+Disallow: /tasks/
+Disallow: /maintenance/
+Disallow: /guests/
+Disallow: /chat/
+Disallow: /whatsapp/
+
+Sitemap: https://mafhotel.com/sitemap.xml

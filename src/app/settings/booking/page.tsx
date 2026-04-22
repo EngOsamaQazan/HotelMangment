@@ -827,7 +827,7 @@ function InboxTab() {
             <thead>
               <tr className="bg-gray-50 text-xs text-gray-600">
                 <th className="text-right px-3 py-2">Booking #</th>
-                <th className="text-right px-3 py-2">النزيل</th>
+                <th className="text-right px-3 py-2">الضيف</th>
                 <th className="text-right px-3 py-2">من</th>
                 <th className="text-right px-3 py-2">إلى</th>
                 <th className="text-right px-3 py-2">المبلغ</th>

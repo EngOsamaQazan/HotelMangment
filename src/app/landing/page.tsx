@@ -113,20 +113,27 @@ export default function LandingPage() {
               شقة عائلية متكاملة.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link
+                href="/book"
+                className="inline-flex items-center gap-2 px-7 py-3 rounded-lg bg-gold text-primary font-bold hover:bg-gold-dark transition shadow-lg ring-1 ring-gold-dark/30"
+              >
+                احجز الآن
+                <span aria-hidden>←</span>
+              </Link>
               <a
                 href="https://wa.me/962781099910?text=%D8%A7%D9%84%D8%B3%D9%84%D8%A7%D9%85%20%D8%B9%D9%84%D9%8A%D9%83%D9%85%D8%8C%20%D8%A3%D8%B1%D9%8A%D8%AF%20%D8%A7%D9%84%D8%A7%D8%B3%D8%AA%D9%81%D8%B3%D8%A7%D8%B1%20%D8%B9%D9%86%20%D8%AD%D8%AC%D8%B2"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-[#25D366] text-white font-semibold hover:opacity-90 transition shadow-lg"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-lg bg-white/10 border border-white/30 text-white font-semibold hover:bg-white/15 transition"
               >
-                <MessageCircle size={20} />
-                احجز الآن عبر واتساب
+                <MessageCircle size={18} />
+                استفسار عبر واتساب
               </a>
               <a
                 href="tel:+962781099910"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-gold text-primary font-semibold hover:bg-gold-dark transition shadow-lg"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-lg bg-white/10 border border-white/30 text-white font-semibold hover:bg-white/15 transition"
               >
-                <Phone size={20} />
+                <Phone size={18} />
                 ٠٧٨١٠٩٩٩١٠
               </a>
             </div>
@@ -352,24 +359,31 @@ export default function LandingPage() {
             جاهز تحجز إقامتك؟
           </h2>
           <p className="text-white/85 text-base md:text-lg leading-relaxed mb-8">
-            تواصل معنا مباشرةً عبر واتساب أو الهاتف، ونقترح لك أفضل الغرف
-            المتاحة حسب تاريخ وصولك وعدد ضيوفك. نؤكد الحجز خلال دقائق.
+            اختر تواريخك الآن وأكمل الحجز عبر الموقع في خطوات بسيطة — أو تواصل
+            معنا مباشرةً عبر واتساب أو الهاتف.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link
+              href="/book"
+              className="inline-flex items-center gap-2 px-7 py-3 rounded-lg bg-gold text-primary font-bold hover:bg-gold-dark transition shadow-lg ring-1 ring-gold-dark/30"
+            >
+              احجز الآن
+              <span aria-hidden>←</span>
+            </Link>
             <a
               href="https://wa.me/962781099910?text=%D8%A7%D9%84%D8%B3%D9%84%D8%A7%D9%85%20%D8%B9%D9%84%D9%8A%D9%83%D9%85%D8%8C%20%D8%A3%D8%B1%D9%8A%D8%AF%20%D8%A7%D9%84%D8%A7%D8%B3%D8%AA%D9%81%D8%B3%D8%A7%D8%B1%20%D8%B9%D9%86%20%D8%AD%D8%AC%D8%B2"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-[#25D366] text-white font-semibold hover:opacity-90 transition shadow-lg"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-lg bg-white/10 border border-white/30 text-white font-semibold hover:bg-white/15 transition"
             >
-              <MessageCircle size={20} />
-              واتساب: ٠٧٨١٠٩٩٩١٠
+              <MessageCircle size={18} />
+              استفسار عبر واتساب
             </a>
             <a
               href="tel:+962781099910"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-gold text-primary font-semibold hover:bg-gold-light transition shadow-lg"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-lg bg-white/10 border border-white/30 text-white font-semibold hover:bg-white/15 transition"
             >
-              <Phone size={20} />
+              <Phone size={18} />
               اتصل الآن
             </a>
             <Link

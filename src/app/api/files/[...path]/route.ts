@@ -9,40 +9,71 @@ import {
 import { resolveStoragePath } from "@/lib/uploads";
 
 /**
- * Authenticated file server for attachments. Path convention:
+ * File server for attachments + public hotel imagery. Path convention:
  *
- *   /api/files/task/<attachmentId>
- *   /api/files/chat/<attachmentId>
+ *   /api/files/task/<attachmentId>           (staff-only, board members)
+ *   /api/files/chat/<attachmentId>           (staff-only, conversation members)
+ *   /api/files/avatar/<userId>               (staff-only)
+ *   /api/files/unit-photo/<photoId>          (PUBLIC — no auth, CDN-friendly)
+ *   /api/files/unit-type-photo/<photoId>     (PUBLIC — no auth, CDN-friendly)
  *
- * The caller must either be a board member (task attachments) or a
- * conversation participant (chat attachments).
+ * Public kinds are required for the guest-facing `/book` pages to render
+ * without a session. All remote traversal protection still applies via
+ * `resolveStoragePath`.
  */
+
+const PUBLIC_KINDS = new Set(["unit-photo", "unit-type-photo"]);
+
+function mimeFromPath(p: string): string {
+  const ext = p.split(".").pop()?.toLowerCase() ?? "";
+  switch (ext) {
+    case "png":
+      return "image/png";
+    case "gif":
+      return "image/gif";
+    case "webp":
+      return "image/webp";
+    case "svg":
+      return "image/svg+xml";
+    case "avif":
+      return "image/avif";
+    default:
+      return "image/jpeg";
+  }
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ path: string[] }> },
 ) {
   try {
-    const session = await requirePermission("files:view");
     const { path: segments } = await params;
     if (!segments || segments.length < 2) {
       return NextResponse.json({ error: "مسار غير صالح" }, { status: 400 });
     }
     const [kind, rawId] = segments;
-    const attachmentId = Number(rawId);
-    if (!Number.isFinite(attachmentId)) {
+    const isPublic = PUBLIC_KINDS.has(kind);
+
+    // Staff-only kinds require a permission check up front. Public kinds
+    // (unit photos) are served to anonymous visitors.
+    const session = isPublic ? null : await requirePermission("files:view");
+    const userId = session
+      ? Number((session.user as { id?: string | number }).id)
+      : 0;
+
+    const rowId = Number(rawId);
+    if (!Number.isFinite(rowId)) {
       return NextResponse.json({ error: "معرف غير صالح" }, { status: 400 });
     }
-    const userId = Number(
-      (session.user as { id?: string | number }).id,
-    );
 
     let storagePath: string;
     let fileName: string;
     let mimeType: string;
+    let cacheControl = "private, max-age=3600";
 
     if (kind === "task") {
       const att = await prisma.taskAttachment.findUnique({
-        where: { id: attachmentId },
+        where: { id: rowId },
         include: { task: { include: { board: true } } },
       });
       if (!att) {
@@ -64,8 +95,8 @@ export async function GET(
       mimeType = att.mimeType;
     } else if (kind === "avatar") {
       const user = await prisma.user.findUnique({
-        where: { id: attachmentId },
-        select: { avatarUrl: true, name: true },
+        where: { id: rowId },
+        select: { avatarUrl: true },
       });
       if (!user || !user.avatarUrl) {
         return NextResponse.json(
@@ -74,22 +105,11 @@ export async function GET(
         );
       }
       storagePath = user.avatarUrl;
-      fileName = `avatar-${attachmentId}`;
-      // MIME is recorded neither here nor in `avatarUrl`; infer from extension.
-      const ext = storagePath.split(".").pop()?.toLowerCase() ?? "";
-      mimeType =
-        ext === "png"
-          ? "image/png"
-          : ext === "gif"
-            ? "image/gif"
-            : ext === "webp"
-              ? "image/webp"
-              : ext === "svg"
-                ? "image/svg+xml"
-                : "image/jpeg";
+      fileName = `avatar-${rowId}`;
+      mimeType = mimeFromPath(storagePath);
     } else if (kind === "chat") {
       const att = await prisma.chatMessageAttachment.findUnique({
-        where: { id: attachmentId },
+        where: { id: rowId },
         include: { message: true },
       });
       if (!att) {
@@ -112,6 +132,36 @@ export async function GET(
       storagePath = att.storagePath;
       fileName = att.fileName;
       mimeType = att.mimeType;
+    } else if (kind === "unit-photo") {
+      const photo = await prisma.unitPhoto.findUnique({
+        where: { id: rowId },
+        select: { url: true },
+      });
+      if (!photo) {
+        return NextResponse.json({ error: "الصورة غير موجودة" }, { status: 404 });
+      }
+      if (/^https?:\/\//i.test(photo.url)) {
+        return NextResponse.redirect(photo.url, 307);
+      }
+      storagePath = photo.url.replace(/^stored:/, "");
+      fileName = `unit-${rowId}.${storagePath.split(".").pop() ?? "jpg"}`;
+      mimeType = mimeFromPath(storagePath);
+      cacheControl = "public, max-age=86400, s-maxage=604800";
+    } else if (kind === "unit-type-photo") {
+      const photo = await prisma.unitTypePhoto.findUnique({
+        where: { id: rowId },
+        select: { url: true },
+      });
+      if (!photo) {
+        return NextResponse.json({ error: "الصورة غير موجودة" }, { status: 404 });
+      }
+      if (/^https?:\/\//i.test(photo.url)) {
+        return NextResponse.redirect(photo.url, 307);
+      }
+      storagePath = photo.url.replace(/^stored:/, "");
+      fileName = `unit-type-${rowId}.${storagePath.split(".").pop() ?? "jpg"}`;
+      mimeType = mimeFromPath(storagePath);
+      cacheControl = "public, max-age=86400, s-maxage=604800";
     } else {
       return NextResponse.json(
         { error: "نوع المرفق غير مدعوم" },
@@ -129,7 +179,7 @@ export async function GET(
         "Content-Type": mimeType || "application/octet-stream",
         "Content-Length": String(buf.length),
         "Content-Disposition": `inline; filename*=UTF-8''${encoded}`,
-        "Cache-Control": "private, max-age=3600",
+        "Cache-Control": cacheControl,
       },
     });
   } catch (error) {

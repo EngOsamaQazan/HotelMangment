@@ -61,7 +61,7 @@ const navGroups: NavGroup[] = [
       { href: "/", label: "لوحة التحكم", icon: LayoutDashboard, permission: "dashboard:view" },
       { href: "/reservations", label: "الحجوزات", icon: CalendarCheck, permission: "reservations:view" },
       { href: "/rooms", label: "حالة الغرف", icon: BedDouble, permission: "rooms:view" },
-      { href: "/guests", label: "النزلاء", icon: Users, permission: "guests:view" },
+      { href: "/guests", label: "الضيوف", icon: Users, permission: "guests:view" },
       { href: "/accounting", label: "المحاسبة", icon: Calculator, permission: "accounting:view" },
       { href: "/maintenance", label: "الصيانة", icon: Wrench, permission: "maintenance:view" },
     ],

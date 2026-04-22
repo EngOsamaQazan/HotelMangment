@@ -19,6 +19,7 @@ import {
 import { cn, formatDate, statusLabels, unitTypeLabels } from "@/lib/utils";
 import { BedIcon } from "@/components/unit-types/shared";
 import { usePermissions } from "@/lib/permissions/client";
+import { UnitPhotosPanel } from "@/components/rooms/UnitPhotosPanel";
 
 interface UnitTypeBed {
   id: number;
@@ -425,6 +426,9 @@ function UnitModal({
   const [saving, setSaving] = useState(false);
   const { can } = usePermissions();
   const canEdit = can("rooms:edit");
+  const canUploadPhotos = can("unit-photos:upload");
+  const canDeletePhotos = can("unit-photos:delete");
+  const canViewPhotos = can("unit-photos:view");
 
   // Does any bed in this unit type support combining?
   const hasCombinable =
@@ -568,7 +572,7 @@ function UnitModal({
 
           {unit.guestName && (
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-500">النزيل</span>
+              <span className="text-sm text-gray-500">الضيف</span>
               <span className="text-sm font-medium text-gray-800">
                 {unit.guestName}
               </span>
@@ -662,6 +666,16 @@ function UnitModal({
             <div className="flex items-center gap-2 text-xs text-gray-500">
               <Link2 size={12} />
               Booking Room: <span className="font-mono">{unit.bookingRoomCode}</span>
+            </div>
+          )}
+
+          {canViewPhotos && (
+            <div className="pt-4 border-t border-gray-100">
+              <UnitPhotosPanel
+                unitId={unit.id}
+                canUpload={canUploadPhotos}
+                canDelete={canDeletePhotos}
+              />
             </div>
           )}
 
