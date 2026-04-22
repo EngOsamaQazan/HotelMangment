@@ -260,6 +260,12 @@ export default function WhatsAppSettingsPage() {
       toast.success(
         `تم النشر — حُدِّث ${j.updatedSecrets?.length ?? 0} سر، وبدأ workflow على GitHub.`,
       );
+      if (j.webhookRepointed) {
+        toast.success(`Webhook مُوَجَّه الآن إلى: ${j.webhookRepointed}`);
+      }
+      if (j.webhookError) {
+        toast.warning(`تعذّر تحديث Webhook: ${j.webhookError}`);
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "فشل النشر");
     } finally {

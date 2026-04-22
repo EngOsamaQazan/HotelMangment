@@ -9,6 +9,52 @@ import {
 } from "@/lib/github/secrets";
 
 /**
+ * Point Meta's App-level webhook at the given URL. Uses an app access
+ * token (APP_ID|APP_SECRET), which is the only kind the Graph API
+ * accepts for /subscriptions. Returns the new callback URL as confirmed
+ * by Meta — or throws with the upstream error message.
+ *
+ * Scoped to the three fields our unverified App is actually allowed to
+ * subscribe to; adding more triggers error_subcode 1929002 until
+ * Business Verification is complete.
+ */
+async function pointWebhookAt(
+  appId: string,
+  appSecret: string,
+  verifyToken: string,
+  callbackUrl: string,
+  apiVersion: string,
+): Promise<string> {
+  const appAccessToken = `${appId}|${appSecret}`;
+  const body = new URLSearchParams({
+    object: "whatsapp_business_account",
+    callback_url: callbackUrl,
+    verify_token: verifyToken,
+    fields: "messages,message_template_status_update,account_update",
+    include_values: "true",
+    access_token: appAccessToken,
+  });
+  const res = await fetch(
+    `https://graph.facebook.com/${apiVersion}/${appId}/subscriptions`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    },
+  );
+  const text = await res.text();
+  const j = text ? JSON.parse(text) : {};
+  if (!res.ok) {
+    const msg =
+      j?.error?.error_user_msg ||
+      j?.error?.message ||
+      `HTTP ${res.status}`;
+    throw new Error(`فشل تحديث webhook لدى Meta: ${msg}`);
+  }
+  return callbackUrl;
+}
+
+/**
  * POST /api/whatsapp/deploy
  *
  * One-click "publish to production" button. It:
@@ -82,6 +128,31 @@ export async function POST() {
     await new Promise((r) => setTimeout(r, 1500));
     const run = await getLatestWorkflowRun("deploy.yml").catch(() => null);
 
+    // Repoint Meta's App webhook at the production URL. Without this,
+    // inbound messages keep flowing to whatever callback was last set
+    // (e.g. a stale cloudflared tunnel from local development), which
+    // is the #1 reason "prod can send but can't receive".
+    let webhookRepointed: string | null = null;
+    let webhookError: string | null = null;
+    const prodWebhookUrl =
+      process.env.PROD_WEBHOOK_URL ??
+      "https://mafhotel.com/api/whatsapp/webhook";
+    try {
+      if (cfg.appId && appSecret && cfg.webhookVerifyToken) {
+        webhookRepointed = await pointWebhookAt(
+          cfg.appId,
+          appSecret,
+          cfg.webhookVerifyToken,
+          prodWebhookUrl,
+          cfg.apiVersion || "v21.0",
+        );
+      } else {
+        webhookError = "ينقص App ID / App Secret / Webhook Verify Token لدى Meta.";
+      }
+    } catch (e) {
+      webhookError = e instanceof Error ? e.message : String(e);
+    }
+
     return NextResponse.json({
       ok: true,
       updatedSecrets: result.updated,
@@ -89,6 +160,8 @@ export async function POST() {
       workflowRun: run
         ? { id: run.id, url: run.html_url, status: run.status }
         : null,
+      webhookRepointed,
+      webhookError,
     });
   } catch (err) {
     console.error("[POST /api/whatsapp/deploy]", err);
