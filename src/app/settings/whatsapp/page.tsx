@@ -20,6 +20,8 @@ import {
   Building2,
   Upload,
   ImageIcon,
+  Rocket,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -90,6 +92,8 @@ export default function WhatsAppSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [probing, setProbing] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [deploying, setDeploying] = useState(false);
+  const [lastDeployUrl, setLastDeployUrl] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
   const [registerPin, setRegisterPin] = useState("");
   const [showRegisterDialog, setShowRegisterDialog] = useState(false);
@@ -235,6 +239,31 @@ export default function WhatsAppSettingsPage() {
       await load();
     } finally {
       setProbing(false);
+    }
+  }
+
+  async function deployToProduction() {
+    if (
+      !confirm(
+        "سيتم الآن:\n• تحديث GitHub Secrets بالإعدادات الحالية\n• تشغيل workflow النشر على mafhotel.com\n\nهل تريد المتابعة؟",
+      )
+    ) {
+      return;
+    }
+    setDeploying(true);
+    setLastDeployUrl(null);
+    try {
+      const res = await fetch("/api/whatsapp/deploy", { method: "POST" });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || "فشل النشر");
+      if (j.workflowRun?.url) setLastDeployUrl(j.workflowRun.url);
+      toast.success(
+        `تم النشر — حُدِّث ${j.updatedSecrets?.length ?? 0} سر، وبدأ workflow على GitHub.`,
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "فشل النشر");
+    } finally {
+      setDeploying(false);
     }
   }
 
@@ -462,8 +491,40 @@ export default function WhatsAppSettingsPage() {
                 اختبار الاتصال
               </button>
             </Can>
+            <Can permission="settings.whatsapp:deploy">
+              <button
+                type="button"
+                onClick={deployToProduction}
+                disabled={deploying || !cfg.hasAccessToken}
+                className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm disabled:opacity-50 shadow-sm"
+                title="يُرسل الإعدادات الحالية كأسرار إلى GitHub ويُشغّل workflow النشر على mafhotel.com"
+              >
+                {deploying ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Rocket size={14} />
+                )}
+                نشر إلى الإنتاج
+              </button>
+            </Can>
           </div>
         </div>
+
+        {lastDeployUrl && (
+          <div className="flex items-center gap-2 text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg px-3 py-2">
+            <CheckCircle2 size={14} className="shrink-0" />
+            <span>بدأ workflow النشر على GitHub. تابع التقدم:</span>
+            <a
+              href={lastDeployUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 underline font-medium"
+            >
+              فتح الصفحة
+              <ExternalLink size={12} />
+            </a>
+          </div>
+        )}
 
         <form onSubmit={save} className="grid gap-4 md:grid-cols-2">
           <Field label="App ID (Meta)">

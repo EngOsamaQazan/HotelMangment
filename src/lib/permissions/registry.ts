@@ -403,9 +403,11 @@ export const RESOURCES: ResourceDef[] = [
       "/settings/whatsapp",
       "/api/whatsapp/config",
       "/api/whatsapp/probe",
+      "/api/whatsapp/deploy",
     ],
     extraActions: [
       { key: "probe", label: "اختبار الاتصال بالـ API" },
+      { key: "deploy", label: "نشر الإعدادات إلى الإنتاج" },
     ],
     sortOrder: 360,
     description:
