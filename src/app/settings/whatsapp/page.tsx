@@ -859,7 +859,7 @@ export default function WhatsAppSettingsPage() {
         {templates.length === 0 ? (
           <div className="text-sm text-gray-500 py-8 text-center flex flex-col items-center gap-2">
             <AlertTriangle size={24} className="text-amber-400" />
-            لا توجد قوالب محفوظة — اضغط "مزامنة من Meta" بعد إعداد Access Token.
+            لا توجد قوالب محفوظة — اضغط &laquo;مزامنة من Meta&raquo; بعد إعداد Access Token.
           </div>
         ) : (
           <div className="overflow-x-auto">
