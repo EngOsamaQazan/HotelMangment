@@ -30,12 +30,25 @@ jobs:
     steps:
       - name: Deploy
         uses: appleboy/ssh-action@v1
+        env:
+          # WhatsApp / Meta secrets — pushed into the server's shared/.env
+          # and consumed by scripts/seed-whatsapp-config.ts so the DB
+          # singleton stays in sync across deploys. Missing secrets are
+          # skipped (the seed script noops on empty values).
+          META_APP_ID: ${{ secrets.META_APP_ID }}
+          META_APP_SECRET: ${{ secrets.META_APP_SECRET }}
+          WHATSAPP_WABA_ID: ${{ secrets.WHATSAPP_WABA_ID }}
+          WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
+          WHATSAPP_ACCESS_TOKEN: ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
+          WHATSAPP_WEBHOOK_VERIFY_TOKEN: ${{ secrets.WHATSAPP_WEBHOOK_VERIFY_TOKEN }}
+          WHATSAPP_API_VERSION: ${{ secrets.WHATSAPP_API_VERSION }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 22
           command_timeout: 12m
+          envs: META_APP_ID,META_APP_SECRET,WHATSAPP_WABA_ID,WHATSAPP_PHONE_NUMBER_ID,WHATSAPP_ACCESS_TOKEN,WHATSAPP_WEBHOOK_VERIFY_TOKEN,WHATSAPP_API_VERSION
           script: |
             set -euo pipefail
             export NVM_DIR="$HOME/.nvm"
@@ -108,6 +121,39 @@ jobs:
               echo "$NEW_SCHEMA" > "$STATE/schema-hash"
             else
               echo "==> [4/6] prisma schema unchanged -> skipping generate"
+            fi
+
+            # ───── 4b. Sync WhatsApp secrets from GH Secrets -> shared/.env
+            #        -> DB. Non-destructive: empty secrets are skipped, so
+            #        omitting a secret leaves the old value in place.
+            echo "==> [4b] Syncing WhatsApp / Meta secrets"
+            SHARED_ENV="$SHARED/.env"
+            touch "$SHARED_ENV"
+            upsert_env() {
+              local key="$1"
+              local val="$2"
+              [ -z "$val" ] && return 0
+              if grep -qE "^${key}=" "$SHARED_ENV"; then
+                # sed with '|' as delimiter so EAA... tokens with '/' are safe.
+                sed -i "s|^${key}=.*|${key}=${val}|" "$SHARED_ENV"
+              else
+                printf '%s=%s\n' "$key" "$val" >> "$SHARED_ENV"
+              fi
+            }
+            upsert_env META_APP_ID                   "$META_APP_ID"
+            upsert_env META_APP_SECRET               "$META_APP_SECRET"
+            upsert_env WHATSAPP_WABA_ID              "$WHATSAPP_WABA_ID"
+            upsert_env WHATSAPP_PHONE_NUMBER_ID      "$WHATSAPP_PHONE_NUMBER_ID"
+            upsert_env WHATSAPP_ACCESS_TOKEN         "$WHATSAPP_ACCESS_TOKEN"
+            upsert_env WHATSAPP_WEBHOOK_VERIFY_TOKEN "$WHATSAPP_WEBHOOK_VERIFY_TOKEN"
+            upsert_env WHATSAPP_API_VERSION          "${WHATSAPP_API_VERSION:-v21.0}"
+
+            # Re-source and run the idempotent seeder. It upserts the
+            # encrypted WhatsAppConfig singleton from whatever is in env now.
+            set -a; source "$SHARED_ENV"; set +a
+            if [ -f scripts/seed-whatsapp-config.ts ]; then
+              npx ts-node --project tsconfig.scripts.json scripts/seed-whatsapp-config.ts \
+                || echo "    (seed-whatsapp failed — will retry on next deploy)"
             fi
 
             # ───── 5. Build Next.js (incremental via .next/cache) ────
