@@ -144,26 +144,28 @@ jobs:
                 printf '%s=%s\n' "$key" "$val" >> "$SHARED_ENV"
               fi
             }
-            # Insert only when the key is missing OR its current value is
-            # empty. Never overwrites a real value — critical for
-            # BOOKING_ENC_KEY, since rotating it would make every existing
-            # encrypted credential on the server undecryptable.
+            # Insert only when the key is missing, empty, OR the current
+            # value fails the validator. Never overwrites a valid value —
+            # critical for BOOKING_ENC_KEY, since rotating it would make
+            # every existing encrypted credential on the server
+            # undecryptable.
             insert_env_once() {
               local key="$1"
               local val="$2"
+              local validator="${3:-.}"
               [ -z "$val" ] && return 0
               local current
-              current=$(grep -E "^${key}=" "$SHARED_ENV" | head -n1 | sed "s|^${key}=||" || echo "")
-              if [ -z "$current" ]; then
+              current=$(grep -E "^${key}=" "$SHARED_ENV" | head -n1 | sed "s|^${key}=||" | tr -d '"' | tr -d "'" || echo "")
+              if [ -z "$current" ] || ! printf '%s' "$current" | grep -qE "$validator"; then
                 if grep -qE "^${key}=" "$SHARED_ENV"; then
                   sed -i "s|^${key}=.*|${key}=${val}|" "$SHARED_ENV"
-                  echo "    seeded $key (was empty)"
+                  echo "    seeded $key (old value empty or invalid)"
                 else
                   printf '%s=%s\n' "$key" "$val" >> "$SHARED_ENV"
                   echo "    seeded $key (was missing)"
                 fi
               else
-                echo "    $key already set — leaving untouched"
+                echo "    $key already valid — leaving untouched"
               fi
             }
             upsert_env META_APP_ID                   "$META_APP_ID"
@@ -173,7 +175,7 @@ jobs:
             upsert_env WHATSAPP_ACCESS_TOKEN         "$WHATSAPP_ACCESS_TOKEN"
             upsert_env WHATSAPP_WEBHOOK_VERIFY_TOKEN "$WHATSAPP_WEBHOOK_VERIFY_TOKEN"
             upsert_env WHATSAPP_API_VERSION          "${WHATSAPP_API_VERSION:-v21.0}"
-            insert_env_once BOOKING_ENC_KEY          "$BOOKING_ENC_KEY"
+            insert_env_once BOOKING_ENC_KEY          "$BOOKING_ENC_KEY" "^[0-9a-fA-F]{64}$"
 
             # Re-source and run the idempotent seeder. It upserts the
             # encrypted WhatsAppConfig singleton from whatever is in env now.
