@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Loader2 } from "lucide-react";
 import { usePermissions } from "@/lib/permissions/client";
 import { ForbiddenCard } from "@/components/ForbiddenCard";
 
@@ -40,7 +41,13 @@ export function PermissionGate({
   const keys = Array.isArray(permission) ? permission : [permission];
   const ok = all ? canAll(keys) : can(keys);
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-gray-400">
+        <Loader2 size={22} className="animate-spin" />
+      </div>
+    );
+  }
   if (ok) return <>{children}</>;
   if (fallback !== undefined) return <>{fallback}</>;
 

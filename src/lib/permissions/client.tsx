@@ -60,11 +60,12 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const { status } = useSession();
   const [permissions, setPermissions] = useState<Set<string>>(new Set());
   const [roles, setRoles] = useState<RoleSummary[]>([]);
-  const [isLoading, setLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchPermissions = useCallback(async () => {
-    setLoading(true);
+    setIsFetching(true);
     setError(null);
     try {
       const res = await fetch("/api/me/permissions", { cache: "no-store" });
@@ -82,7 +83,8 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       setError(e instanceof Error ? e.message : "فشل تحميل الصلاحيات");
     } finally {
-      setLoading(false);
+      setIsFetching(false);
+      setHasFetched(true);
     }
   }, []);
 
@@ -92,8 +94,18 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     } else if (status === "unauthenticated") {
       setPermissions(new Set());
       setRoles([]);
+      setHasFetched(true);
     }
   }, [status, fetchPermissions]);
+
+  // Treat session "loading", authenticated-but-not-yet-fetched, and any
+  // in-flight refetch as "loading" so consumers never see a false "denied"
+  // state during the initial hydration window (which previously caused the
+  // forbidden card to flash before permissions arrived).
+  const isLoading =
+    status === "loading" ||
+    (status === "authenticated" && !hasFetched) ||
+    isFetching;
 
   const can = useCallback(
     (permission: string | string[]): boolean => {
