@@ -8,11 +8,17 @@ import { RoutePermissionGate } from "@/components/RoutePermissionGate";
 
 const AUTH_ROUTES = new Set(["/login"]);
 
+/** Public marketing / compliance routes: no sidebar, no permission gate. */
+const PUBLIC_PREFIXES = ["/landing", "/privacy", "/terms", "/about"];
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAuthRoute = AUTH_ROUTES.has(pathname);
+  const isPublicRoute = PUBLIC_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(p + "/"),
+  );
 
-  if (isAuthRoute) {
+  if (isAuthRoute || isPublicRoute) {
     return <>{children}</>;
   }
 

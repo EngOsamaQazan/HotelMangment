@@ -19,6 +19,7 @@ import {
   ChevronDown,
   KanbanSquare,
   MessageSquare,
+  MessageCircle,
   Users2,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
@@ -77,6 +78,12 @@ const navGroups: NavGroup[] = [
         icon: MessageSquare,
         permission: "chat:view",
         badgeKey: "chatUnread",
+      },
+      {
+        href: "/whatsapp",
+        label: "واتساب",
+        icon: MessageCircle,
+        permission: "whatsapp:view",
       },
     ],
   },

@@ -370,6 +370,48 @@ export const RESOURCES: ResourceDef[] = [
     sortOrder: 220,
   },
 
+  // ─────────────── WhatsApp ───────────────
+  {
+    key: "whatsapp",
+    label: "واتساب — المحادثات والقوالب",
+    category: "operations",
+    icon: "message-circle",
+    actions: ["view", "create"],
+    routes: [
+      "/whatsapp",
+      "/whatsapp/[contact]",
+      "/api/whatsapp/messages",
+      "/api/whatsapp/send",
+      "/api/whatsapp/send-template",
+      "/api/whatsapp/templates",
+    ],
+    extraActions: [
+      { key: "send", label: "إرسال رسالة" },
+      { key: "send_template", label: "إرسال قالب" },
+      { key: "sync_templates", label: "مزامنة القوالب من Meta" },
+    ],
+    sortOrder: 65,
+    description:
+      "إدارة محادثات العملاء عبر WhatsApp Business Cloud API وإرسال قوالب (تأكيد حجز، check-in/out، فاتورة، OTP).",
+  },
+  {
+    key: "settings.whatsapp",
+    label: "إعدادات واتساب (API)",
+    category: "admin",
+    actions: ACTIONS,
+    routes: [
+      "/settings/whatsapp",
+      "/api/whatsapp/config",
+      "/api/whatsapp/probe",
+    ],
+    extraActions: [
+      { key: "probe", label: "اختبار الاتصال بالـ API" },
+    ],
+    sortOrder: 360,
+    description:
+      "إعداد تكامل WhatsApp Business Cloud API: App ID/Secret, WABA ID, Phone Number ID, Access Token, Webhook verify token.",
+  },
+
   // ─────────────── Admin / Settings ───────────────
   {
     key: "settings",
@@ -570,6 +612,10 @@ export const DEFAULT_ROLES: RolePreset[] = [
       "tasks.cards:*",
       "chat:view",
       "chat:create",
+      "whatsapp:view",
+      "whatsapp:create",
+      "whatsapp:send",
+      "whatsapp:send_template",
       "notifications:view",
       "files:view",
       "chat.users:view",

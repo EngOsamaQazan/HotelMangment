@@ -34,6 +34,14 @@ const ALLOWLIST: string[] = [
   "/api/me/permissions",
   "/api/build-id",
   "/api/cron",
+  // Public marketing / compliance pages (required for Meta Business Verification).
+  "/landing",
+  "/privacy",
+  "/terms",
+  "/about",
+  // Meta-called webhook, verified by GET challenge + HMAC-SHA256 signature on POST.
+  // There is no user session, so RBAC does not apply.
+  "/api/whatsapp/webhook",
 ];
 
 interface Finding {

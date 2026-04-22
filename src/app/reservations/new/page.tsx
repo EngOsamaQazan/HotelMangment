@@ -24,6 +24,8 @@ import {
 import IdScanner from "@/components/IdScanner";
 import { NumberInput } from "@/components/ui/NumberInput";
 import { CountrySelect } from "@/components/ui/CountrySelect";
+import { PhoneInput } from "@/components/ui/PhoneInput";
+import { dialCodeForNationality } from "@/lib/dial-codes";
 import {
   BookedDatePicker,
   type BlockedRange,
@@ -105,6 +107,7 @@ export default function NewReservationPage() {
   const [guestIdNumber, setGuestIdNumber] = useState("");
   const [guestNationality, setGuestNationality] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneDialCode, setPhoneDialCode] = useState("");
   const [numGuests, setNumGuests] = useState(1);
   const [numNights, setNumNights] = useState(1);
   const [checkIn, setCheckIn] = useState("");
@@ -256,6 +259,15 @@ export default function NewReservationPage() {
     setUnitId("");
   }, [unitType]);
 
+  // Auto-populate the phone dial code from the tenant's nationality whenever
+  // the clerk picks/changes it (manually or via the ID scanner). The input
+  // itself stays editable — if this clerk's guest is, say, a Saudi citizen
+  // who hands over a Jordanian number, they can just overwrite it.
+  useEffect(() => {
+    const code = dialCodeForNationality(guestNationality);
+    if (code) setPhoneDialCode(code);
+  }, [guestNationality]);
+
   // Fetch the blocked windows for the selected unit so the date picker can
   // visually disable already-reserved days.
   useEffect(() => {
@@ -373,7 +385,12 @@ export default function NewReservationPage() {
         guestName: guestName.trim(),
         guestIdNumber: guestIdNumber.trim() || null,
         nationality: guestNationality.trim() || null,
-        phone: phone.trim() || null,
+        phone: (() => {
+          const local = phone.trim();
+          if (!local) return null;
+          const dial = phoneDialCode.trim();
+          return dial ? `${dial} ${local}` : local;
+        })(),
         numNights,
         stayType,
         checkIn: checkInIso,
@@ -697,12 +714,13 @@ export default function NewReservationPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1.5">رقم الهاتف</label>
-              <input
-                type="tel"
+              <PhoneInput
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onValueChange={setPhone}
+                dialCode={phoneDialCode}
+                onDialCodeChange={setPhoneDialCode}
                 placeholder="07XXXXXXXX"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
+                className="w-full text-sm"
               />
             </div>
             <div>

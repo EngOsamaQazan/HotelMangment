@@ -16,11 +16,12 @@ const IV_LENGTH = 12;
 
 function getKey(): Buffer {
   const raw = process.env.BOOKING_ENC_KEY;
-  if (raw) {
-    if (!/^[0-9a-f]{64}$/i.test(raw)) {
+  if (raw && raw.trim().length > 0) {
+    const clean = raw.trim();
+    if (!/^[0-9a-f]{64}$/i.test(clean)) {
       throw new Error("BOOKING_ENC_KEY must be 64 hex chars (32 bytes)");
     }
-    return Buffer.from(raw, "hex");
+    return Buffer.from(clean, "hex");
   }
   const fallback = process.env.NEXTAUTH_SECRET || "dev-insecure-secret";
   // In dev, derive a deterministic 32-byte key; never use this in production.

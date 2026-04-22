@@ -1044,3 +1044,98 @@ model BookingInboxReservation {
   @@index([checkIn, checkOut])
   @@map("booking_inbox_reservations")
 }
+
+// ============================================================================
+// WhatsApp Business Cloud API integration
+// ============================================================================
+
+/// Singleton row holding the active WhatsApp Business Cloud API credentials.
+/// We keep exactly one row (enforced in code) — `id = 1` — and store the
+/// access token encrypted with the shared AES-256-GCM helper so it is never
+/// exposed in logs/backups in plaintext.
+model WhatsAppConfig {
+  id                 Int      @id @default(1)
+  appId              String?  @map("app_id")
+  /// App Secret is needed to verify webhook signatures (X-Hub-Signature-256).
+  appSecretEnc       String?  @map("app_secret_enc")
+  wabaId             String?  @map("waba_id")
+  phoneNumberId      String?  @map("phone_number_id")
+  displayPhoneNumber String?  @map("display_phone_number")
+  /// System-User permanent token. Never returned to the client unmasked.
+  accessTokenEnc     String?  @map("access_token_enc")
+  webhookVerifyToken String?  @map("webhook_verify_token")
+  apiVersion         String   @default("v21.0") @map("api_version")
+  isActive           Boolean  @default(true) @map("is_active")
+  lastVerifiedAt     DateTime? @map("last_verified_at")
+  lastVerifyOk       Boolean?  @map("last_verify_ok")
+  lastError          String?   @map("last_error")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("whatsapp_config")
+}
+
+/// A WhatsApp message — inbound or outbound — logged for the inbox UI and
+/// for audit/compliance. Threaded by the contact E.164 phone number so we
+/// can also join against Reservation.phone / Guest without a formal FK.
+model WhatsAppMessage {
+  id              Int       @id @default(autoincrement())
+  /// "inbound" (from customer) | "outbound" (from hotel)
+  direction       String
+  /// Meta message ID (wamid.xxxx) — unique per message, used for dedupe.
+  wamid           String?   @unique
+  /// E.164 contact phone (no "+"). For outbound = to, for inbound = from.
+  contactPhone    String    @map("contact_phone")
+  /// Display name of the WhatsApp profile (inbound only).
+  contactName     String?   @map("contact_name")
+  /// "text" | "image" | "document" | "template" | "audio" | "video" | "sticker" | "location" | "interactive" | "reaction" | "unknown"
+  type            String    @default("text")
+  /// Plain text body (for text messages OR the caption of media messages).
+  body            String?
+  /// When type="template", the template name used for the outbound send.
+  templateName    String?   @map("template_name")
+  /// Raw payload (Meta webhook message or send-response) for forensics.
+  rawJson         Json?     @map("raw_json")
+  /// Lifecycle for outbound: "queued" | "sent" | "delivered" | "read" | "failed".
+  /// For inbound, usually "received".
+  status          String    @default("queued")
+  errorCode       String?   @map("error_code")
+  errorMessage    String?   @map("error_message")
+  /// Meta pricing category — passed through from the statuses webhook.
+  pricingCategory String?   @map("pricing_category")
+  /// When Meta marked the message sent / delivered / read.
+  sentAt          DateTime? @map("sent_at")
+  deliveredAt     DateTime? @map("delivered_at")
+  readAt          DateTime? @map("read_at")
+  /// Optional soft-link to a reservation (resolved on send / on inbound by phone match).
+  reservationId   Int?      @map("reservation_id")
+  /// Who triggered the send (for outbound). Null for webhook-originated rows.
+  sentByUserId    Int?      @map("sent_by_user_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@index([contactPhone, createdAt])
+  @@index([direction, status])
+  @@index([reservationId])
+  @@map("whatsapp_messages")
+}
+
+/// Cached snapshot of the message templates registered on the WABA. The
+/// source of truth is Meta — we refresh via `GET /v{ver}/{WABA_ID}/message_templates`.
+/// Only APPROVED templates are usable for outbound sends outside the 24h window.
+model WhatsAppTemplate {
+  id              Int       @id @default(autoincrement())
+  /// Meta's template name (slug — lowercase snake_case).
+  name            String
+  language        String    @default("ar")
+  category        String    @default("UTILITY") // AUTHENTICATION | MARKETING | UTILITY
+  /// APPROVED | PENDING | REJECTED | PAUSED | DISABLED
+  status          String    @default("PENDING")
+  components      Json?
+  metaId          String?   @unique @map("meta_id")
+  rejectionReason String?   @map("rejection_reason")
+  lastSyncedAt    DateTime  @default(now()) @map("last_synced_at")
+
+  @@unique([name, language])
+  @@index([status])
+  @@map("whatsapp_templates")
+}

@@ -80,3 +80,9 @@ backup/
 # Whitelist scripts/ by default; add specific one-shots here as needed.
 scripts/fix-voided-entries-status.cjs
 scripts/rollback-reservations-after-adjustment.cjs
+
+# Local dev artifacts — session cookies captured for API probing, and
+# cloudflared tunnel logs used while testing WhatsApp webhooks.
+cookies.txt
+tunnel.log
+cloudflared*.log

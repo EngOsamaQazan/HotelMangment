@@ -28,6 +28,7 @@ import {
 import { NumberInput } from "@/components/ui/NumberInput";
 import { CountrySelect } from "@/components/ui/CountrySelect";
 import { Can } from "@/components/Can";
+import { WhatsAppQuickSendButton } from "@/components/whatsapp/QuickSendButton";
 import { UserAvatar } from "@/components/tasks/shared";
 import {
   cn,
@@ -1558,7 +1559,24 @@ export default function ReservationDetailClient({ id }: { id: string }) {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-5 gap-x-8">
               <DetailRow label="اسم الضيف" value={reservation.guestName} />
-              <DetailRow label="رقم الهاتف" value={reservation.phone || "—"} />
+              <div>
+                <dt className="text-xs font-medium text-gray-400 mb-1">
+                  رقم الهاتف
+                </dt>
+                <dd className="text-sm font-medium text-gray-800 flex items-center gap-2 flex-wrap">
+                  <span className="direction-ltr">
+                    {reservation.phone || "—"}
+                  </span>
+                  {reservation.phone && (
+                    <WhatsAppQuickSendButton
+                      phone={reservation.phone}
+                      reservationId={reservation.id}
+                      variant="pill"
+                      defaultText={`مرحبًا ${reservation.guestName}،`}
+                    />
+                  )}
+                </dd>
+              </div>
               <DetailRow
                 label="الوحدة"
                 value={`${reservation.unit.unitNumber} (${unitTypeLabels[reservation.unit.unitType] || reservation.unit.unitType})`}

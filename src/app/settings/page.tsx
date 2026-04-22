@@ -16,6 +16,7 @@ import {
   Shield,
   BedDouble,
   Network,
+  MessageCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { cn, formatDate, roleLabels } from "@/lib/utils";
@@ -295,6 +296,15 @@ export default function SettingsPage() {
               >
                 <Network size={18} />
                 Booking.com
+              </Link>
+            </Can>
+            <Can permission="settings.whatsapp:view">
+              <Link
+                href="/settings/whatsapp"
+                className="flex items-center gap-2 px-4 py-2.5 border border-primary text-primary rounded-lg hover:bg-gold-soft transition-colors text-sm font-medium flex-1 sm:flex-none justify-center"
+              >
+                <MessageCircle size={18} />
+                واتساب
               </Link>
             </Can>
             <Can permission="settings.roles:view">

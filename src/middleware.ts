@@ -14,6 +14,14 @@ const PUBLIC_PREFIXES = [
   "/_next",
   "/favicon",
   "/public",
+  // Public marketing / compliance pages (required for Meta Business Verification).
+  "/landing",
+  "/privacy",
+  "/terms",
+  "/about",
+  // Meta WhatsApp Webhook: verified by hub.challenge (GET) and
+  // X-Hub-Signature-256 HMAC (POST). There is no user session here.
+  "/api/whatsapp/webhook",
 ];
 
 const PUBLIC_FILES = new Set([
@@ -53,6 +61,14 @@ export async function middleware(req: NextRequest) {
         { error: "غير مصرّح — يجب تسجيل الدخول أولاً" },
         { status: 401 },
       );
+    }
+    // Anonymous visitors hitting the root get the public landing page
+    // (so Meta reviewers and SEO crawlers see real business content),
+    // not the login screen. Deep links still route through /login.
+    if (pathname === "/") {
+      const landingUrl = req.nextUrl.clone();
+      landingUrl.pathname = "/landing";
+      return NextResponse.redirect(landingUrl);
     }
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = "/login";
