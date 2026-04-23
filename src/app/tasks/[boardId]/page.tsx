@@ -23,6 +23,7 @@ import {
   Plus,
   Filter,
   MessageCircle,
+  KanbanSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { TaskBoardFull, TaskCard } from "@/lib/collab/types";
@@ -286,22 +287,29 @@ export default function BoardPage({
           aria-label="أقسام اللوحة"
           className="flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden text-[11px] sm:text-xs md:text-sm shrink-0"
         >
-          {(["board", "members", "labels"] as const).map((t) => (
+          {(
+            [
+              { key: "board", label: "اللوحة", Icon: KanbanSquare },
+              { key: "members", label: "الأعضاء", Icon: UsersIcon },
+              { key: "labels", label: "التسميات", Icon: TagIcon },
+            ] as const
+          ).map(({ key, label, Icon }) => (
             <button
-              key={t}
+              key={key}
               role="tab"
-              aria-selected={tab === t}
-              onClick={() => setTab(t)}
+              aria-selected={tab === key}
+              aria-label={label}
+              title={label}
+              onClick={() => setTab(key)}
               className={cn(
-                "px-2 sm:px-3 py-1.5 sm:py-2 min-h-[36px] sm:min-h-[40px] transition-colors whitespace-nowrap touch-manipulation font-medium",
-                tab === t
+                "flex items-center justify-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 min-h-[36px] min-w-[36px] sm:min-h-[40px] transition-colors whitespace-nowrap touch-manipulation font-medium",
+                tab === key
                   ? "bg-primary text-white"
                   : "text-gray-600 hover:bg-gray-50 active:bg-gray-100",
               )}
             >
-              {t === "board" && "اللوحة"}
-              {t === "members" && "الأعضاء"}
-              {t === "labels" && "التسميات"}
+              <Icon size={14} aria-hidden="true" />
+              <span className="hidden sm:inline">{label}</span>
             </button>
           ))}
         </div>
@@ -327,7 +335,7 @@ export default function BoardPage({
                   v === "all" ? "all" : v === "me" ? "me" : Number(v),
                 );
               }}
-              className="flex-1 min-w-[110px] text-[11px] sm:text-xs md:text-sm border border-gray-200 rounded-md px-1.5 sm:px-2 py-1 min-h-[32px] sm:min-h-[34px] focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+              className="flex-1 min-w-[90px] sm:min-w-[120px] text-[11px] sm:text-xs md:text-sm border border-gray-200 rounded-md px-1.5 sm:px-2 py-1 min-h-[32px] sm:min-h-[34px] focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
             >
               <option value="all">كل المُسندين</option>
               <option value="me">المُسندة إليّ</option>
@@ -348,7 +356,7 @@ export default function BoardPage({
                   e.target.value === "all" ? "all" : Number(e.target.value),
                 )
               }
-              className="flex-1 min-w-[110px] text-[11px] sm:text-xs md:text-sm border border-gray-200 rounded-md px-1.5 sm:px-2 py-1 min-h-[32px] sm:min-h-[34px] focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+              className="flex-1 min-w-[90px] sm:min-w-[120px] text-[11px] sm:text-xs md:text-sm border border-gray-200 rounded-md px-1.5 sm:px-2 py-1 min-h-[32px] sm:min-h-[34px] focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
             >
               <option value="all">كل التسميات</option>
               {board.labels.map((l) => (
