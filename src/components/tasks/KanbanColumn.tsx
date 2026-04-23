@@ -45,7 +45,7 @@ export function KanbanColumn({
   });
 
   return (
-    <div className="kanban-col-w shrink-0 snap-start md:snap-align-none flex flex-col bg-gray-100 rounded-lg max-h-[70dvh] md:max-h-[calc(100dvh-12rem)]">
+    <div className="kanban-col-w shrink-0 snap-start md:snap-align-none flex flex-col bg-gray-100 rounded-lg h-full min-h-[280px] max-h-full">
       <div className="px-3 py-2.5 flex items-center justify-between gap-2 border-b border-gray-200">
         {editing ? (
           <input

@@ -256,69 +256,64 @@ export default function BoardPage({
   const accent = board.color || "#1e3a8a";
 
   return (
-    <div className="space-y-3 sm:space-y-4 pb-[calc(env(safe-area-inset-bottom)+0.25rem)]">
-      {/* Top bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 sm:gap-3">
-        <div className="flex items-start gap-1.5 sm:gap-2 min-w-0">
-          <Link
-            href="/tasks"
-            aria-label="العودة للّوحات"
-            className="tap-44 mt-0.5 p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0"
-          >
-            <ArrowRight size={18} />
-          </Link>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span
-                className="inline-block w-3 h-3 rounded-full shrink-0"
-                style={{ background: accent }}
-                aria-hidden="true"
-              />
-              <h1 className="text-base sm:text-xl md:text-2xl font-bold text-primary truncate">
-                {board.name}
-              </h1>
-            </div>
-            {board.description && (
-              <p className="hide-xs text-[11px] sm:text-xs text-gray-500 mt-0.5 line-clamp-2">
-                {board.description}
-              </p>
-            )}
-          </div>
+    <div className="board-page flex flex-col gap-2 sm:gap-3 pb-[env(safe-area-inset-bottom)]">
+      {/* Top bar — single compact row on all sizes */}
+      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+        <Link
+          href="/tasks"
+          aria-label="العودة للّوحات"
+          className="tap-44 p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0 inline-flex items-center justify-center"
+        >
+          <ArrowRight size={18} />
+        </Link>
+        <span
+          className="inline-block w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full shrink-0"
+          style={{ background: accent }}
+          aria-hidden="true"
+        />
+        <div className="min-w-0 flex-1">
+          <h1 className="text-sm sm:text-lg md:text-xl lg:text-2xl font-bold text-primary truncate leading-tight">
+            {board.name}
+          </h1>
+          {board.description && (
+            <p className="hidden sm:block text-[11px] md:text-xs text-gray-500 line-clamp-1 leading-tight">
+              {board.description}
+            </p>
+          )}
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <div
-            role="tablist"
-            aria-label="أقسام اللوحة"
-            className="flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden text-xs sm:text-sm w-full md:w-auto"
-          >
-            {(["board", "members", "labels"] as const).map((t) => (
-              <button
-                key={t}
-                role="tab"
-                aria-selected={tab === t}
-                onClick={() => setTab(t)}
-                className={cn(
-                  "flex-1 md:flex-none px-2.5 sm:px-3 py-2 min-h-[40px] transition-colors whitespace-nowrap touch-manipulation",
-                  tab === t
-                    ? "bg-primary text-white"
-                    : "text-gray-600 hover:bg-gray-50 active:bg-gray-100",
-                )}
-              >
-                {t === "board" && "اللوحة"}
-                {t === "members" && "الأعضاء"}
-                {t === "labels" && "التسميات"}
-              </button>
-            ))}
-          </div>
+        <div
+          role="tablist"
+          aria-label="أقسام اللوحة"
+          className="flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden text-[11px] sm:text-xs md:text-sm shrink-0"
+        >
+          {(["board", "members", "labels"] as const).map((t) => (
+            <button
+              key={t}
+              role="tab"
+              aria-selected={tab === t}
+              onClick={() => setTab(t)}
+              className={cn(
+                "px-2 sm:px-3 py-1.5 sm:py-2 min-h-[36px] sm:min-h-[40px] transition-colors whitespace-nowrap touch-manipulation font-medium",
+                tab === t
+                  ? "bg-primary text-white"
+                  : "text-gray-600 hover:bg-gray-50 active:bg-gray-100",
+              )}
+            >
+              {t === "board" && "اللوحة"}
+              {t === "members" && "الأعضاء"}
+              {t === "labels" && "التسميات"}
+            </button>
+          ))}
         </div>
       </div>
 
       {tab === "board" && (
         <>
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:flex-wrap bg-card-bg rounded-lg p-2 shadow-sm">
-            <span className="text-xs text-gray-500 flex items-center gap-1 px-2 shrink-0">
-              <Filter size={12} aria-hidden="true" /> فلاتر:
+          {/* Filters — horizontal on all sizes, compact height */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap bg-card-bg rounded-lg px-2 py-1.5 shadow-sm">
+            <span className="text-[11px] sm:text-xs text-gray-500 flex items-center gap-1 px-1 shrink-0">
+              <Filter size={12} aria-hidden="true" />
+              <span className="hidden sm:inline">فلاتر</span>
             </span>
             <label className="sr-only" htmlFor="assignee-filter">
               فلتر المُسندين
@@ -332,7 +327,7 @@ export default function BoardPage({
                   v === "all" ? "all" : v === "me" ? "me" : Number(v),
                 );
               }}
-              className="text-xs sm:text-sm border border-gray-200 rounded-lg px-2 py-2 min-h-[40px] focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white min-w-0 w-full sm:w-auto sm:flex-none"
+              className="flex-1 min-w-[110px] text-[11px] sm:text-xs md:text-sm border border-gray-200 rounded-md px-1.5 sm:px-2 py-1 min-h-[32px] sm:min-h-[34px] focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
             >
               <option value="all">كل المُسندين</option>
               <option value="me">المُسندة إليّ</option>
@@ -353,7 +348,7 @@ export default function BoardPage({
                   e.target.value === "all" ? "all" : Number(e.target.value),
                 )
               }
-              className="text-xs sm:text-sm border border-gray-200 rounded-lg px-2 py-2 min-h-[40px] focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white min-w-0 w-full sm:w-auto sm:flex-none"
+              className="flex-1 min-w-[110px] text-[11px] sm:text-xs md:text-sm border border-gray-200 rounded-md px-1.5 sm:px-2 py-1 min-h-[32px] sm:min-h-[34px] focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
             >
               <option value="all">كل التسميات</option>
               {board.labels.map((l) => (
@@ -372,7 +367,7 @@ export default function BoardPage({
             onDragEnd={handleDragEnd}
             onDragCancel={() => setActiveCard(null)}
           >
-            <div className="kanban-scroll flex gap-3 overflow-x-auto overscroll-x-contain pb-4 -mx-4 px-4 md:-mx-6 md:px-6 snap-x snap-mandatory md:snap-none scroll-smooth">
+            <div className="kanban-scroll flex-1 min-h-0 flex gap-2.5 sm:gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain pb-3 -mx-4 md:-mx-6 px-4 md:px-6 snap-x snap-mandatory md:snap-none scroll-smooth">
               {board.columns.map((col) => (
                 <KanbanColumn
                   key={col.id}

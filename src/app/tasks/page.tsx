@@ -78,23 +78,24 @@ export default function TasksBoardsPage() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-primary truncate">
+    <div className="space-y-3 sm:space-y-5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-base sm:text-xl md:text-2xl font-bold text-primary truncate leading-tight">
             لوحات المهام
           </h1>
-          <p className="hide-xs text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1 line-clamp-2">
+          <p className="hidden sm:block text-xs sm:text-sm text-gray-500 mt-0.5 line-clamp-1">
             نظّم فريقك بطريقة كانبان مع تعيين، أولويات، وتواريخ استحقاق.
           </p>
         </div>
         <Can permission="tasks.boards:create">
           <button
             onClick={() => setShowForm(true)}
-            className="tap-44 flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark active:scale-[0.98] transition-[transform,background] text-sm font-medium w-full sm:w-auto justify-center shrink-0"
+            className="tap-44 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark active:scale-[0.98] transition-[transform,background] text-xs sm:text-sm font-medium justify-center shrink-0"
           >
-            <Plus size={18} />
-            لوحة جديدة
+            <Plus size={16} className="sm:hidden" />
+            <Plus size={18} className="hidden sm:inline" />
+            <span className="whitespace-nowrap">لوحة جديدة</span>
           </button>
         </Can>
       </div>

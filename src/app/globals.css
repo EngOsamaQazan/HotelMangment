@@ -242,44 +242,71 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
 }
 
-/* Kanban column width: adapts to viewport without creating horizontal
-   overflow on foldable cover displays (down to 280px / 240px). */
+/* Board page shell — stretches to fill the AppShell content area so the
+   kanban column gets whatever vertical space is left over.
+   Mobile: compensates pt-16 (fixed top nav) + p-4 page padding.
+   Desktop: compensates user-menu bar + p-6 page padding. */
+.board-page {
+  min-height: calc(100dvh - 6rem);
+}
+@media (min-width: 768px) {
+  .board-page {
+    min-height: calc(100dvh - 7rem);
+  }
+}
+
+/* Kanban column width: tuned so a meaningful peek of the next column
+   is always visible and we never overflow the viewport (down to 240px). */
 .kanban-col-w {
-  width: 85vw;
-  max-width: 288px;
+  width: 82vw;
+  max-width: 280px;
+}
+@media (min-width: 480px) {
+  .kanban-col-w {
+    width: 16rem; /* 256px */
+    max-width: 16rem;
+  }
 }
 @media (min-width: 640px) {
   .kanban-col-w {
-    width: 18rem; /* sm:w-72 */
+    width: 17rem; /* 272px */
+    max-width: 17rem;
+  }
+}
+@media (min-width: 1024px) {
+  .kanban-col-w {
+    width: 18rem; /* 288px */
     max-width: 18rem;
   }
 }
 /* Galaxy Z Fold outer / very narrow devices */
-@media (max-width: 320px) {
+@media (max-width: 360px) {
   .kanban-col-w {
-    width: 90vw;
-    max-width: 270px;
+    width: 85vw;
+    max-width: 260px;
   }
 }
 @media (max-width: 280px) {
   .kanban-col-w {
-    width: calc(100vw - 1.75rem);
-    max-width: calc(100vw - 1.75rem);
+    width: calc(100vw - 1.5rem);
+    max-width: calc(100vw - 1.5rem);
   }
 }
 
-/* Kanban horizontal scroller: smooth touch scroll + safe-area aware */
+/* Kanban horizontal scroller: smooth touch scroll + safe-area aware.
+   The page wrapper already adds edge padding (-mx-*/px-*) so the scroll
+   bleeds to the viewport edges but the first column stays inset. */
 .kanban-scroll {
   -webkit-overflow-scrolling: touch;
   scroll-padding-inline: 1rem;
-  padding-inline-start: max(1rem, env(safe-area-inset-right));
-  padding-inline-end: max(1rem, env(safe-area-inset-left));
+  scrollbar-width: thin;
 }
-@media (min-width: 768px) {
-  .kanban-scroll {
-    padding-inline-start: max(1.5rem, env(safe-area-inset-right));
-    padding-inline-end: max(1.5rem, env(safe-area-inset-left));
-  }
+.kanban-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.kanban-scroll::-webkit-scrollbar-thumb {
+  background: rgba(14, 59, 51, 0.25);
+  border-radius: 3px;
 }
 
 /* Foldable unfolded (dual-screen spanning): let the board take the full
