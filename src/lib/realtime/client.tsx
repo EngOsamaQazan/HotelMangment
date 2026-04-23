@@ -133,12 +133,17 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       transports: ["websocket", "polling"],
       withCredentials: true,
       reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 8000,
+      // Cap retries so broken realtime infra doesn't spam the console forever.
+      // After ~1 min of failures we give up silently; the UI still works via
+      // plain HTTP polling and push notifications remain unaffected.
+      reconnectionAttempts: 8,
+      reconnectionDelay: 1500,
+      reconnectionDelayMax: 10000,
     });
+    let connectErrorCount = 0;
     s.on("connect", () => {
       setConnected(true);
+      connectErrorCount = 0;
       // Re-join rooms after reconnect.
       for (const cid of rooms.current.conversations) s.emit("conv:join", cid);
       for (const bid of rooms.current.boards) s.emit("board:join", bid);
@@ -148,7 +153,19 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     });
     s.on("disconnect", () => setConnected(false));
     s.on("connect_error", (err) => {
-      console.warn("[realtime] connect_error:", err.message);
+      connectErrorCount++;
+      // Log only the first 2 failures — after that the cause is clearly
+      // infra (service down / proxy misconfigured), and the socket.io client
+      // will stop retrying once reconnectionAttempts is exhausted.
+      if (connectErrorCount <= 2) {
+        console.warn("[realtime] connect_error:", err.message);
+      }
+    });
+    s.on("reconnect_failed", () => {
+      console.warn(
+        "[realtime] gave up reconnecting. Live updates are disabled; " +
+          "the inbox will still work via HTTP refresh.",
+      );
     });
     setSocket(s);
     return () => {
