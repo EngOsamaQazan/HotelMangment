@@ -411,13 +411,21 @@ export default function WhatsAppSettingsPage() {
             </p>
           </div>
         </div>
-        <Link
-          href="/settings"
-          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-primary"
-        >
-          <ArrowLeft size={16} />
-          الرجوع للإعدادات
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/settings/whatsapp/notifications"
+            className="flex items-center gap-2 px-3 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-gold-soft"
+          >
+            إعدادات الإشعارات
+          </Link>
+          <Link
+            href="/settings"
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-primary"
+          >
+            <ArrowLeft size={16} />
+            الرجوع للإعدادات
+          </Link>
+        </div>
       </div>
 
       {/* Status card */}

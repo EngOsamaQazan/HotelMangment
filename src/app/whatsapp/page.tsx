@@ -1,845 +1,552 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  MessageCircle,
-  Send,
-  Loader2,
-  Search,
-  CheckCheck,
-  Check,
-  Clock,
-  AlertTriangle,
-  Phone,
-  FileText,
-  X,
-} from "lucide-react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { Loader2, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { Can } from "@/components/Can";
-import { CombinedPhoneInput } from "@/components/ui/CombinedPhoneInput";
 
-interface Thread {
-  contactPhone: string;
-  contactName: string | null;
-  lastId: number;
-  lastBody: string | null;
-  lastType: string;
-  lastDirection: "inbound" | "outbound";
-  lastStatus: string;
-  lastAt: string;
-  unreadCount: number;
-  totalCount: number;
-}
+import type {
+  ConversationSummary,
+  Message,
+  ScopeFilter,
+  StatusFilter,
+  TemplateRow,
+} from "./_types";
+import {
+  conversationDisplayName,
+  humanizeWaError,
+  isReengagementError,
+  messagePreview,
+  readJsonSafe,
+} from "./_utils";
 
-interface TemplateRow {
-  id: number;
-  name: string;
-  language: string;
-  category: string;
-  status: string;
-}
+import { InboxHeader } from "./_components/InboxHeader";
+import { FilterTabs } from "./_components/FilterTabs";
+import { ThreadList } from "./_components/ThreadList";
+import { ConversationHeader } from "./_components/ConversationHeader";
+import { MessageBubble } from "./_components/MessageBubble";
+import { Composer } from "./_components/Composer";
+import { ContactPanel } from "./_components/ContactPanel";
+import { NewMessagePane } from "./_components/NewMessagePane";
+import { TemplateSendModal } from "./_components/TemplateSendModal";
+import { PushBadge } from "./_components/PushBadge";
 
-interface Message {
-  id: number;
-  direction: "inbound" | "outbound";
-  contactPhone: string;
-  contactName: string | null;
-  type: string;
-  body: string | null;
-  templateName: string | null;
-  status: string;
-  errorCode: string | null;
-  errorMessage: string | null;
-  sentAt: string | null;
-  deliveredAt: string | null;
-  readAt: string | null;
-  createdAt: string;
-}
+import { useInboxData } from "./_hooks/useInboxData";
+import { useWhatsAppRealtime } from "@/lib/whatsapp/hooks/useWhatsAppRealtime";
+import { useWhatsAppPush } from "@/lib/whatsapp/hooks/useWhatsAppPush";
+import { useWhatsAppSound } from "@/lib/whatsapp/hooks/useWhatsAppSound";
+import { useTabAttention } from "@/lib/whatsapp/hooks/useTabAttention";
+import { useHasPermission } from "@/lib/permissions/client";
 
+/**
+ * Modular WhatsApp Business inbox.
+ *
+ *   ┌─────────────────── InboxHeader ───────────────────┐
+ *   │  FilterTabs │                                     │
+ *   │  ThreadList │  ConversationHeader  │ContactPanel? │
+ *   │             │  [messages]          │              │
+ *   │             │  Composer            │              │
+ *   └─────────────┴──────────────────────┴──────────────┘
+ *
+ * Realtime updates from Socket.IO + Service Worker push land in the callbacks
+ * below and mutate the two main state slices (`conversations` / `messages`).
+ */
 export default function WhatsAppInboxPage() {
-  const [threads, setThreads] = useState<Thread[]>([]);
-  const [loadingThreads, setLoadingThreads] = useState(true);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [loadingMessages, setLoadingMessages] = useState(false);
-  const [composer, setComposer] = useState("");
-  const [sending, setSending] = useState(false);
-  const [newTo, setNewTo] = useState("");
-  const [showNew, setShowNew] = useState(false);
+  return (
+    <Suspense fallback={null}>
+      <WhatsAppInboxInner />
+    </Suspense>
+  );
+}
+
+function WhatsAppInboxInner() {
+  const { data: session } = useSession();
+  const currentUserId = Number(
+    (session?.user as { id?: string | number })?.id ?? 0,
+  );
+  const canSend = useHasPermission("whatsapp:send");
+  const canAssign = useHasPermission("whatsapp:assign");
+  const canNotes = useHasPermission("whatsapp:notes");
+
+  // ─── Filters ──────────────────────────────────────────────
+  const [scope, setScope] = useState<ScopeFilter>("mine");
+  const [status, setStatus] = useState<StatusFilter>("open");
   const [search, setSearch] = useState("");
+
+  // ─── Data layer ───────────────────────────────────────────
+  const data = useInboxData({ scope, status, search });
+
+  // ─── Deep link via ?contact=<phone> ───────────────────────
+  const searchParams = useSearchParams();
+  const deepLinkPhone = searchParams.get("contact");
+  useEffect(() => {
+    if (!deepLinkPhone) return;
+    const normalized = deepLinkPhone.replace(/\D/g, "");
+    if (normalized) data.setSelectedPhone(normalized);
+    // one-shot: don't re-run when the search string stays the same.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkPhone]);
+
+  // ─── Right-pane modes ─────────────────────────────────────
+  const [showNew, setShowNew] = useState(false);
+  const [newTo, setNewTo] = useState("");
+  const [composerText, setComposerText] = useState("");
+  const [sending, setSending] = useState(false);
+  const [showDetails, setShowDetails] = useState(true);
+
+  // ─── Templates ────────────────────────────────────────────
   const [templates, setTemplates] = useState<TemplateRow[]>([]);
-  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [templateTo, setTemplateTo] = useState("");
   const [sendingTemplate, setSendingTemplate] = useState(false);
-  const threadEndRef = useRef<HTMLDivElement>(null);
 
-  const loadThreads = useCallback(async () => {
-    setLoadingThreads(true);
-    try {
-      const res = await fetch("/api/whatsapp/messages", { cache: "no-store" });
-      const data = await readJsonSafe<Thread[]>(res, "فشل تحميل المحادثات");
-      setThreads(data);
-      if (!selected && data.length > 0) setSelected(data[0].contactPhone);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "فشل التحميل");
-    } finally {
-      setLoadingThreads(false);
-    }
-  }, [selected]);
-
-  const loadMessages = useCallback(async (contact: string) => {
-    setLoadingMessages(true);
-    try {
-      const res = await fetch(
-        `/api/whatsapp/messages?contact=${encodeURIComponent(contact)}&limit=100`,
-        { cache: "no-store" },
-      );
-      const data = await readJsonSafe<Message[]>(res, "فشل تحميل الرسائل");
-      setMessages(data);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "فشل التحميل");
-    } finally {
-      setLoadingMessages(false);
-    }
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/whatsapp/templates", { cache: "no-store" });
+        if (!res.ok) return;
+        const body = (await res.json()) as TemplateRow[];
+        if (!cancelled) setTemplates(body.filter((t) => t.status === "APPROVED"));
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const markThreadRead = useCallback(async (contact: string) => {
-    try {
-      const res = await fetch("/api/whatsapp/messages/read", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contact }),
+  // ─── Notifications plumbing ───────────────────────────────
+  const push = useWhatsAppPush();
+  const sound = useWhatsAppSound(true);
+  const attention = useTabAttention();
+
+  // Prime the Web Audio ctx on any click inside the page.
+  useEffect(() => {
+    const onClick = () => sound.prime();
+    window.addEventListener("click", onClick, { once: true });
+    return () => window.removeEventListener("click", onClick);
+  }, [sound]);
+
+  // ─── Scroll to bottom on new messages ─────────────────────
+  const bottomRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [data.messages]);
+
+  // ─── Realtime hookup ──────────────────────────────────────
+  useWhatsAppRealtime({
+    conversationId: data.activeConversation?.id ?? null,
+    onMessageNew: (p) => {
+      // If it's for the open thread, append immediately.
+      if (
+        data.selectedPhone &&
+        p.contactPhone === data.selectedPhone &&
+        !showNew
+      ) {
+        data.mergeIncomingMessage({
+          id: p.messageId,
+          direction:
+            p.op === "message:new" && p.type && p.type !== "template"
+              ? "inbound"
+              : "inbound",
+          contactPhone: p.contactPhone,
+          contactName: p.contactName ?? null,
+          type: p.type ?? "text",
+          body: p.body ?? null,
+          templateName: null,
+          status: p.status ?? "received",
+          errorCode: null,
+          errorMessage: null,
+          sentAt: null,
+          deliveredAt: null,
+          readAt: null,
+          createdAt: p.createdAt ?? new Date().toISOString(),
+        });
+        // Auto-mark read since the user is looking at it.
+        data.markRead(p.contactPhone);
+      }
+
+      // Refresh list order and counts.
+      data.loadList();
+      data.loadCounts();
+
+      // In-app attention (sound + tab flash) — only for inbound.
+      if (p.op === "message:new") {
+        sound.play();
+        attention.flash(`● ${p.contactName ?? `+${p.contactPhone}`}`);
+        toast(p.contactName ?? `+${p.contactPhone}`, {
+          description: (p.body ?? "رسالة جديدة").slice(0, 120),
+          action: {
+            label: "فتح",
+            onClick: () => {
+              setShowNew(false);
+              data.setSelectedPhone(p.contactPhone);
+            },
+          },
+        });
+      }
+    },
+    onMessageStatus: (p) => {
+      data.patchMessageStatus(p.messageId, {
+        status: p.status ?? "sent",
+        errorCode: p.errorCode ?? null,
       });
-      if (!res.ok) return;
-      // Optimistically clear the unread badge in the sidebar so it feels
-      // instant — the next poll will confirm from server.
-      setThreads((prev) =>
-        prev.map((t) =>
-          t.contactPhone === contact ? { ...t, unreadCount: 0 } : t,
-        ),
-      );
-    } catch {
-      // Non-fatal; unread will clear on next server poll anyway.
-    }
-  }, []);
+    },
+    onConversationUpdate: () => {
+      data.loadList();
+      data.loadCounts();
+    },
+    onContactUpdate: () => {
+      data.loadList();
+    },
+    onTabPush: () => {
+      sound.play();
+      attention.flash();
+    },
+  });
 
-  useEffect(() => {
-    loadThreads();
-    const int = setInterval(loadThreads, 10_000);
-    return () => clearInterval(int);
-  }, [loadThreads]);
-
-  const loadTemplates = useCallback(async () => {
-    try {
-      const res = await fetch("/api/whatsapp/templates", { cache: "no-store" });
-      if (!res.ok) return;
-      const data: TemplateRow[] = await res.json();
-      setTemplates(data.filter((t) => t.status === "APPROVED"));
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  useEffect(() => {
-    loadTemplates();
-  }, [loadTemplates]);
-
-  useEffect(() => {
-    if (!selected) {
-      setMessages([]);
-      return;
-    }
-    loadMessages(selected);
-    markThreadRead(selected);
-    // Poll the active thread so new inbound messages appear without manual
-    // refresh, and mark them read as they come in.
-    const int = setInterval(() => {
-      loadMessages(selected);
-      markThreadRead(selected);
-    }, 5_000);
-    return () => clearInterval(int);
-  }, [selected, loadMessages, markThreadRead]);
-
-  useEffect(() => {
-    threadEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const filteredThreads = useMemo(() => {
-    if (!search.trim()) return threads;
-    const q = search.trim().toLowerCase();
-    return threads.filter(
-      (t) =>
-        t.contactPhone.includes(q) ||
-        (t.contactName ?? "").toLowerCase().includes(q),
-    );
-  }, [threads, search]);
-
-  const activeThread = useMemo(
-    () => threads.find((t) => t.contactPhone === selected) ?? null,
-    [threads, selected],
+  // ─── Sending ──────────────────────────────────────────────
+  const send = useCallback(
+    async (to: string, text: string) => {
+      setSending(true);
+      try {
+        const res = await fetch("/api/whatsapp/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to, text }),
+        });
+        await readJsonSafe<unknown>(res, "فشل الإرسال");
+        toast.success("تم الإرسال");
+        setComposerText("");
+        const normalized = to.replace(/\D/g, "");
+        data.setSelectedPhone(normalized);
+        await Promise.all([data.loadMessages(normalized), data.loadList()]);
+      } catch (err) {
+        const raw = err instanceof Error ? err.message : "فشل الإرسال";
+        if (isReengagementError(null, raw)) {
+          toast.error(
+            "مضى أكثر من 24 ساعة — استخدم زر «📋 قالب» بالأعلى.",
+            { duration: 6000 },
+          );
+          setTemplateTo(to.startsWith("+") ? to : `+${to}`);
+          setTemplateModalOpen(true);
+          setShowNew(false);
+        } else {
+          toast.error(humanizeWaError(null, raw));
+        }
+      } finally {
+        setSending(false);
+      }
+    },
+    [data],
   );
 
-  async function send(to: string, text: string) {
-    setSending(true);
-    try {
-      const res = await fetch("/api/whatsapp/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to, text }),
-      });
-      await readJsonSafe<unknown>(res, "فشل الإرسال");
-      toast.success("تم الإرسال");
-      setComposer("");
-      // Refresh the active thread & the thread list.
-      await Promise.all([loadMessages(to), loadThreads()]);
-    } catch (err) {
-      const rawMsg = err instanceof Error ? err.message : "فشل الإرسال";
-      // Intercept the 24 h window rejection so the user gets a clickable
-      // path forward instead of a cryptic Meta string.
-      if (isReengagementError(null, rawMsg)) {
-        toast.error(
-          "مضى أكثر من 24 ساعة — استخدم زر «📋 إرسال قالب» بالأعلى.",
-          { duration: 6000 },
+  const sendNote = useCallback(
+    async (text: string) => {
+      if (!data.selectedPhone) return;
+      setSending(true);
+      try {
+        const res = await fetch(
+          `/api/whatsapp/conversations/${encodeURIComponent(data.selectedPhone)}/notes`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ body: text, mirrorToConversation: true }),
+          },
         );
-        setTemplateTo(to.startsWith("+") ? to : `+${to}`);
-        setShowTemplateModal(true);
-        setShowNew(false);
-      } else {
-        toast.error(humanizeWaError(null, rawMsg));
+        await readJsonSafe(res, "فشل إضافة الملاحظة");
+        await Promise.all([
+          data.loadMessages(data.selectedPhone),
+          data.loadList(),
+        ]);
+        toast.success("تمت إضافة الملاحظة الداخلية");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "فشل");
+      } finally {
+        setSending(false);
       }
-    } finally {
-      setSending(false);
-    }
-  }
+    },
+    [data],
+  );
 
-  function submitComposer(e: React.FormEvent) {
-    e.preventDefault();
-    if (!selected || !composer.trim()) return;
-    send(selected, composer.trim());
-  }
+  const sendTemplate = useCallback(
+    async (to: string, name: string, language: string) => {
+      setSendingTemplate(true);
+      try {
+        const res = await fetch("/api/whatsapp/send-template", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to, templateName: name, language }),
+        });
+        await readJsonSafe(res, "فشل إرسال القالب");
+        toast.success(`تم إرسال القالب "${name}"`);
+        setTemplateModalOpen(false);
+        const normalized = to.replace(/\D/g, "");
+        data.setSelectedPhone(normalized);
+        await Promise.all([data.loadMessages(normalized), data.loadList()]);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "فشل إرسال القالب");
+      } finally {
+        setSendingTemplate(false);
+      }
+    },
+    [data],
+  );
 
-  async function submitNew(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newTo.trim() || !composer.trim()) return;
-    await send(newTo.trim(), composer.trim());
-    setSelected(newTo.trim().replace(/\D/g, ""));
-    setShowNew(false);
-    setNewTo("");
-  }
+  // ─── Derived UI state ─────────────────────────────────────
+  const active = data.activeConversation;
+  const assignedToMe = active?.assignedToUserId === currentUserId;
+  const canReply = useMemo(() => {
+    if (!active) return false;
+    if (!canSend) return false;
+    if (active.contact?.isBlocked) return false;
+    if (active.status === "archived") return false;
+    if (!active.assignedToUserId) return true; // anyone can claim+reply
+    return assignedToMe || canAssign; // managers can override
+  }, [active, canSend, canAssign, assignedToMe]);
 
-  async function sendTemplateTo(to: string, templateName: string, language: string) {
-    setSendingTemplate(true);
-    try {
-      const res = await fetch("/api/whatsapp/send-template", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to, templateName, language }),
-      });
-      await readJsonSafe<unknown>(res, "فشل إرسال القالب");
-      toast.success(`تم إرسال القالب "${templateName}" بنجاح`);
-      setShowTemplateModal(false);
-      const normalized = to.replace(/\D/g, "");
-      setSelected(normalized);
-      await Promise.all([loadMessages(normalized), loadThreads()]);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "فشل إرسال القالب");
-    } finally {
-      setSendingTemplate(false);
-    }
-  }
+  const replyDisabledReason = useMemo(() => {
+    if (!active) return null;
+    if (!canSend) return "ليس لديك صلاحية الإرسال.";
+    if (active.contact?.isBlocked)
+      return "جهة الاتصال محظورة — لا يمكن الإرسال.";
+    if (active.status === "archived")
+      return "المحادثة مؤرشفة — أعد فتحها للرد.";
+    if (
+      active.assignedToUserId &&
+      active.assignedToUserId !== currentUserId &&
+      !canAssign
+    )
+      return `مُسنَدة إلى ${active.assignedTo?.name ?? "موظف آخر"} — لا يمكنك الرد إلا إذا أسندت إليك.`;
+    return null;
+  }, [active, canSend, canAssign, currentUserId]);
 
+  // ─── Render ───────────────────────────────────────────────
   return (
     <div className="space-y-4">
-      <div className="pt-2 sm:pt-4 border-b-2 border-gold/30 pb-4 flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <span aria-hidden className="inline-block w-1 h-8 bg-gold rounded-full" />
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-green-50 border border-green-200">
-            <MessageCircle size={22} className="text-green-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-primary font-[family-name:var(--font-amiri)] tracking-tight">
-              واتساب
-            </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              محادثات العملاء عبر WhatsApp Business Cloud
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Can permission="whatsapp:send_template">
-            <button
-              onClick={() => {
-                setTemplateTo(selected ? `+${selected}` : "");
-                setShowTemplateModal(true);
-              }}
-              className="flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-lg hover:bg-gold-soft text-sm font-medium"
-              title="إرسال قالب معتمد — مناسب لأول رسالة خارج نافذة 24 ساعة"
-            >
-              <FileText size={16} />
-              إرسال قالب
-            </button>
-          </Can>
-          <Can permission="whatsapp:send">
-            <button
-              onClick={() => {
-                setShowNew(true);
-                setSelected(null);
-                setComposer("");
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm font-medium"
-            >
-              <Phone size={16} />
-              رسالة لرقم جديد
-            </button>
-          </Can>
-        </div>
-      </div>
+      <InboxHeader
+        onNewMessage={() => {
+          setShowNew(true);
+          data.setSelectedPhone(null);
+          setComposerText("");
+        }}
+        onUseTemplate={() => {
+          setTemplateTo(data.selectedPhone ? `+${data.selectedPhone}` : "");
+          setTemplateModalOpen(true);
+        }}
+        pushBadge={<PushBadge push={push} />}
+      />
 
-      <div className="grid md:grid-cols-[320px_1fr] gap-3 h-[calc(100vh-14rem)] min-h-[500px]">
-        {/* Threads */}
+      <div className="grid md:grid-cols-[320px_1fr] gap-3 h-[calc(100vh-14rem)] min-h-[520px]">
+        {/* Thread list */}
         <aside className="bg-card-bg rounded-xl shadow-sm overflow-hidden flex flex-col">
-          <div className="p-3 border-b border-gray-100">
-            <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
-              <Search size={14} className="text-gray-400" />
-              <input
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="ابحث برقم أو اسم…"
-                className="bg-transparent text-sm w-full focus:outline-none"
-              />
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto scrollbar-thin">
-            {loadingThreads && threads.length === 0 ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 size={24} className="animate-spin text-primary" />
-              </div>
-            ) : filteredThreads.length === 0 ? (
-              <div className="text-sm text-gray-400 text-center p-6">
-                لا توجد محادثات بعد.
-              </div>
-            ) : (
-              filteredThreads.map((t) => (
-                <button
-                  key={t.contactPhone}
-                  onClick={() => {
-                    setSelected(t.contactPhone);
-                    setShowNew(false);
-                  }}
-                  className={cn(
-                    "w-full text-right px-4 py-3 border-b border-gray-50 transition-colors flex items-start gap-3",
-                    selected === t.contactPhone
-                      ? "bg-gold-soft"
-                      : "hover:bg-gray-50",
-                  )}
-                >
-                  <div className="w-10 h-10 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center shrink-0">
-                    {(t.contactName ?? t.contactPhone).slice(0, 2)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium text-sm text-gray-800 truncate">
-                        {t.contactName ?? `+${t.contactPhone}`}
-                      </span>
-                      <span className="text-[10px] text-gray-400 shrink-0">
-                        {new Date(t.lastAt).toLocaleTimeString("ar", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs text-gray-500 truncate">
-                        {previewText(t)}
-                      </span>
-                      {t.unreadCount > 0 && (
-                        <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-green-500 text-white text-[10px] font-bold flex items-center justify-center">
-                          {t.unreadCount}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
+          <FilterTabs
+            scope={scope}
+            setScope={setScope}
+            status={status}
+            setStatus={setStatus}
+            counts={data.counts}
+          />
+          <ThreadList
+            conversations={data.conversations}
+            selectedPhone={data.selectedPhone}
+            search={search}
+            setSearch={setSearch}
+            loading={data.loadingList}
+            onSelect={(phone) => {
+              setShowNew(false);
+              data.setSelectedPhone(phone);
+            }}
+          />
         </aside>
 
-        {/* Active thread */}
-        <section className="bg-card-bg rounded-xl shadow-sm overflow-hidden flex flex-col">
-          {showNew ? (
-            <NewMessagePane
-              templatesCount={templates.length}
-              onUseTemplate={() => {
-                setTemplateTo(newTo || "");
-                setShowTemplateModal(true);
+        {/* Active conversation */}
+        <section className="bg-card-bg rounded-xl shadow-sm overflow-hidden flex">
+          <div className="flex-1 min-w-0 flex flex-col">
+            {showNew ? (
+              <NewMessagePane
+                to={newTo}
+                setTo={setNewTo}
+                text={composerText}
+                setText={setComposerText}
+                sending={sending}
+                templatesCount={templates.length}
+                onUseTemplate={() => {
+                  setTemplateTo(newTo || "");
+                  setTemplateModalOpen(true);
+                }}
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!newTo.trim() || !composerText.trim()) return;
+                  await send(newTo.trim(), composerText.trim());
+                  setShowNew(false);
+                  setNewTo("");
+                }}
+                onCancel={() => setShowNew(false)}
+              />
+            ) : active ? (
+              <ActiveConversation
+                conversation={active}
+                messages={data.messages}
+                loadingMessages={data.loadingMessages}
+                currentUserId={currentUserId}
+                showDetails={showDetails}
+                setShowDetails={setShowDetails}
+                canReply={canReply}
+                replyDisabledReason={replyDisabledReason}
+                canNotes={canNotes}
+                sending={sending}
+                onSend={(t) => send(active.contactPhone, t)}
+                onSendNote={sendNote}
+                onOpenTemplate={() => {
+                  setTemplateTo(`+${active.contactPhone}`);
+                  setTemplateModalOpen(true);
+                }}
+                onConversationChanged={() => {
+                  data.loadList();
+                  data.loadCounts();
+                  if (data.selectedPhone)
+                    data.loadMessages(data.selectedPhone);
+                }}
+                bottomRef={bottomRef}
+              />
+            ) : (
+              <EmptyState />
+            )}
+          </div>
+
+          {/* Contact details drawer */}
+          {active && showDetails && !showNew && (
+            <ContactPanel
+              phone={active.contactPhone}
+              onClose={() => setShowDetails(false)}
+              onChange={() => {
+                data.loadList();
+                if (data.selectedPhone) data.loadMessages(data.selectedPhone);
               }}
-              to={newTo}
-              setTo={setNewTo}
-              text={composer}
-              setText={setComposer}
-              sending={sending}
-              onSubmit={submitNew}
-              onCancel={() => setShowNew(false)}
             />
-          ) : activeThread ? (
-            <>
-              <header className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center">
-                  {(activeThread.contactName ?? activeThread.contactPhone).slice(0, 2)}
-                </div>
-                <div>
-                  <div className="font-medium text-sm text-gray-800">
-                    {activeThread.contactName ?? `+${activeThread.contactPhone}`}
-                  </div>
-                  <div className="text-[11px] text-gray-500 direction-ltr text-right">
-                    +{activeThread.contactPhone}
-                  </div>
-                </div>
-              </header>
-
-              <div className="flex-1 overflow-y-auto p-4 bg-gray-50/50 scrollbar-thin">
-                {loadingMessages && messages.length === 0 ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 size={24} className="animate-spin text-primary" />
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {messages.map((m) => (
-                      <MessageBubble key={m.id} m={m} />
-                    ))}
-                    <div ref={threadEndRef} />
-                  </div>
-                )}
-              </div>
-
-              <Can
-                permission="whatsapp:send"
-                fallback={
-                  <div className="p-3 text-xs text-gray-400 text-center border-t border-gray-100">
-                    ليس لديك صلاحية الإرسال.
-                  </div>
-                }
-              >
-                <form
-                  onSubmit={submitComposer}
-                  className="p-3 border-t border-gray-100 flex items-end gap-2"
-                >
-                  <textarea
-                    value={composer}
-                    onChange={(e) => setComposer(e.target.value)}
-                    placeholder="اكتب رسالة…"
-                    rows={2}
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        submitComposer(e as unknown as React.FormEvent);
-                      }
-                    }}
-                  />
-                  <button
-                    type="submit"
-                    disabled={sending || !composer.trim()}
-                    className="h-[40px] px-3 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 flex items-center gap-1 text-sm"
-                  >
-                    {sending ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <Send size={16} />
-                    )}
-                  </button>
-                </form>
-              </Can>
-            </>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8 gap-2">
-              <MessageCircle size={48} className="opacity-40" />
-              <p className="text-sm">اختر محادثة من القائمة أو ابدأ رسالة جديدة.</p>
-            </div>
           )}
         </section>
       </div>
 
-      {showTemplateModal && (
+      {templateModalOpen && (
         <TemplateSendModal
           templates={templates}
           initialTo={templateTo}
           sending={sendingTemplate}
-          onClose={() => setShowTemplateModal(false)}
-          onSend={sendTemplateTo}
+          onClose={() => setTemplateModalOpen(false)}
+          onSend={sendTemplate}
         />
       )}
     </div>
   );
 }
 
-function TemplateSendModal({
-  templates,
-  initialTo,
+// ───────────────── Active conversation shell ─────────────────
+function ActiveConversation({
+  conversation,
+  messages,
+  loadingMessages,
+  currentUserId,
+  showDetails,
+  setShowDetails,
+  canReply,
+  replyDisabledReason,
+  canNotes,
   sending,
-  onClose,
   onSend,
+  onSendNote,
+  onOpenTemplate,
+  onConversationChanged,
+  bottomRef,
 }: {
-  templates: TemplateRow[];
-  initialTo: string;
+  conversation: ConversationSummary;
+  messages: Message[];
+  loadingMessages: boolean;
+  currentUserId: number;
+  showDetails: boolean;
+  setShowDetails: (v: boolean) => void;
+  canReply: boolean;
+  replyDisabledReason: string | null;
+  canNotes: boolean;
   sending: boolean;
-  onClose: () => void;
-  onSend: (to: string, name: string, language: string) => void;
+  onSend: (t: string) => Promise<void>;
+  onSendNote: (t: string) => Promise<void>;
+  onOpenTemplate: () => void;
+  onConversationChanged: () => void;
+  bottomRef: React.RefObject<HTMLDivElement | null>;
 }) {
-  const [to, setTo] = useState(initialTo);
-  const [selectedId, setSelectedId] = useState<number | null>(
-    templates[0]?.id ?? null,
-  );
-  const current = templates.find((t) => t.id === selectedId);
-
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!current || !to.trim()) return;
-    onSend(to.trim(), current.name, current.language);
-  }
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <form
-        onSubmit={submit}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4"
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FileText size={22} className="text-primary" />
-            <h3 className="text-lg font-bold text-gray-800">إرسال قالب معتمد</h3>
+    <>
+      <ConversationHeader
+        conversation={conversation}
+        currentUserId={currentUserId}
+        showDetails={showDetails}
+        setShowDetails={setShowDetails}
+        onChange={onConversationChanged}
+      />
+      <div className="flex-1 overflow-y-auto p-4 bg-gray-50/60 scrollbar-thin">
+        {loadingMessages && messages.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 size={24} className="animate-spin text-primary" />
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 rounded-lg hover:bg-gray-100 text-gray-500"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {templates.length === 0 ? (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-700 flex items-start gap-2">
-            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-            <div>
-              لا توجد قوالب معتمدة بعد. اذهب إلى{" "}
-              <strong>الإعدادات ← واتساب ← قوالب الرسائل</strong> واضغط
-              «مزامنة من Meta».
-            </div>
+        ) : messages.length === 0 ? (
+          <div className="text-sm text-gray-400 text-center py-8">
+            لا توجد رسائل بعد — ابدأ بإرسال رد أو ملاحظة داخلية.
           </div>
         ) : (
-          <>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
-              القوالب المعتمدة تُرسَل بدون الحاجة لنافذة 24 ساعة، وهي الطريقة
-              الصحيحة لأول تواصل مع عميل.
-            </div>
-            <div>
-              <label className="text-sm text-gray-600 block mb-1">رقم المستلم</label>
-              <CombinedPhoneInput
-                value={to}
-                onChange={setTo}
-                placeholder="07XXXXXXXX"
-                className="text-sm"
-              />
-            </div>
-            <label className="block">
-              <span className="text-sm text-gray-600">القالب</span>
-              <select
-                value={selectedId ?? ""}
-                onChange={(e) => setSelectedId(Number(e.target.value))}
-                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              >
-                {templates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} — {t.language} ({t.category})
-                  </option>
-                ))}
-              </select>
-            </label>
-            {current && current.name === "hello_world" && (
-              <div className="text-[11px] text-gray-500">
-                محتوى القالب: «Hello World — Welcome and congratulations!!…».
-              </div>
-            )}
-          </>
+          <div className="space-y-2">
+            {messages.map((m) => (
+              <MessageBubble key={m.id} m={m} />
+            ))}
+            <div ref={bottomRef} />
+          </div>
         )}
+      </div>
 
-        <div className="flex items-center justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 text-sm"
-          >
-            إلغاء
-          </button>
-          <button
-            type="submit"
-            disabled={sending || !current || !to.trim()}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 text-sm"
-          >
-            {sending ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <Send size={14} />
-            )}
-            إرسال القالب
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-/** Read a fetch Response as JSON without throwing on empty/HTML bodies.
- *  - On `res.ok`: parses JSON (returns [] if empty).
- *  - On `!res.ok`: throws Error with the API's `error` field, the response
- *    text, or a generic fallback — never "Unexpected end of JSON input". */
-async function readJsonSafe<T>(res: Response, fallbackMsg: string): Promise<T> {
-  const text = await res.text();
-  let parsed: unknown = null;
-  if (text) {
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      // not JSON
-    }
-  }
-  if (!res.ok) {
-    const msg =
-      (parsed && typeof parsed === "object" && "error" in parsed
-        ? String((parsed as { error?: string }).error ?? "")
-        : "") ||
-      text ||
-      `${fallbackMsg} (HTTP ${res.status})`;
-    throw new Error(msg);
-  }
-  return (parsed ?? ([] as unknown)) as T;
-}
-
-/**
- * True when Meta's rejection is due to the 24 h customer-service window
- * (error 131047) — i.e. we tried to send free-form text to someone who
- * hasn't messaged us recently.
- */
-function isReengagementError(
-  code: string | null | undefined,
-  message: string | null | undefined,
-): boolean {
-  if (code === "131047") return true;
-  const m = (message ?? "").toLowerCase();
-  return (
-    m.includes("re-engagement") ||
-    m.includes("more than 24 hours") ||
-    m.includes("24 hour")
-  );
-}
-
-/**
- * Turn Meta's terse English error strings into actionable Arabic guidance.
- * Falls back to the original message for anything we don't recognise.
- */
-function humanizeWaError(
-  code: string | null | undefined,
-  message: string | null | undefined,
-): string {
-  if (isReengagementError(code, message)) {
-    return "لم تصل — مضى أكثر من 24 ساعة على آخر رسالة منه، يلزم إرسال قالب معتمد.";
-  }
-  if (code === "131051" || /unsupported message type/i.test(message ?? "")) {
-    return "نوع الرسالة غير مدعوم.";
-  }
-  if (code === "131026" || /recipient.+not.+whatsapp/i.test(message ?? "")) {
-    return "هذا الرقم غير مسجّل على WhatsApp.";
-  }
-  if (code === "131056" || /rate.?limit/i.test(message ?? "")) {
-    return "تجاوزت حد معدل الإرسال مؤقتًا — جرّب لاحقًا.";
-  }
-  if (code === "190" || /access token/i.test(message ?? "")) {
-    return "انتهت صلاحية التوكن — راجع «إعدادات واتساب».";
-  }
-  return message ?? "فشل الإرسال";
-}
-
-function previewText(t: Thread): string {
-  if (t.lastType === "template") return `📋 قالب: ${t.lastBody ?? ""}`;
-  if (t.lastType === "image") return "📷 صورة";
-  if (t.lastType === "document") return `📎 ${t.lastBody ?? "ملف"}`;
-  if (t.lastType === "audio") return "🎵 مقطع صوتي";
-  if (t.lastType === "video") return "🎬 فيديو";
-  if (t.lastType === "location") return "📍 موقع";
-  return t.lastBody ?? "";
-}
-
-function MessageBubble({ m }: { m: Message }) {
-  const outbound = m.direction === "outbound";
-  return (
-    <div className={cn("flex", outbound ? "justify-start" : "justify-end")}>
-      <div
-        className={cn(
-          "max-w-[80%] rounded-2xl px-3 py-2 text-sm shadow-sm",
-          outbound
-            ? "bg-green-100 text-gray-800 rounded-bl-sm"
-            : "bg-white text-gray-800 rounded-br-sm border border-gray-100",
-          m.status === "failed" && "bg-red-50 border border-red-200",
-        )}
+      <Can
+        permission="whatsapp:send"
+        fallback={
+          <div className="p-3 text-xs text-gray-400 text-center border-t border-gray-100">
+            ليس لديك صلاحية الإرسال.
+          </div>
+        }
       >
-        {m.type === "template" && (
-          <div className="text-[11px] font-medium text-gray-500 mb-1">
-            📋 قالب: {m.templateName}
-          </div>
-        )}
-        <div className="whitespace-pre-wrap break-words">{m.body ?? ""}</div>
-        <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mt-1 justify-end">
-          <span>
-            {new Date(m.createdAt).toLocaleTimeString("ar", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </span>
-          {outbound && <StatusIcon status={m.status} />}
+        <Composer
+          disabled={!canReply && !canNotes}
+          disabledReason={replyDisabledReason}
+          sending={sending}
+          onSend={onSend}
+          onSendNote={onSendNote}
+          onOpenTemplate={onOpenTemplate}
+        />
+      </Can>
+    </>
+  );
+}
+
+// ───────────────── Empty state ─────────────────
+function EmptyState() {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8 gap-3 text-center">
+      <div className="w-16 h-16 rounded-2xl bg-green-50 border border-green-200 flex items-center justify-center">
+        <MessageCircle size={32} className="text-green-500" />
+      </div>
+      <div>
+        <div className="text-gray-600 font-medium text-sm">
+          اختر محادثة من القائمة
         </div>
-        {m.status === "failed" && (
-          <div className="text-[11px] text-red-600 mt-1 flex flex-col gap-0.5">
-            <div className="flex items-center gap-1">
-              <AlertTriangle size={12} />
-              <span>{humanizeWaError(m.errorCode, m.errorMessage)}</span>
-            </div>
-            {isReengagementError(m.errorCode, m.errorMessage) && (
-              <span className="text-[10px] text-red-500/80 pr-4">
-                💡 لأول رسالة لهذا الرقم استخدم زر «📋 إرسال قالب» بالأعلى.
-              </span>
-            )}
-          </div>
-        )}
+        <div className="text-xs text-gray-400 mt-1">
+          أو ابدأ رسالة جديدة لرقم لم يراسلنا من قبل.
+        </div>
       </div>
     </div>
   );
 }
 
-function StatusIcon({ status }: { status: string }) {
-  switch (status) {
-    case "read":
-      return <CheckCheck size={12} className="text-blue-500" />;
-    case "delivered":
-      return <CheckCheck size={12} />;
-    case "sent":
-      return <Check size={12} />;
-    case "queued":
-      return <Clock size={12} />;
-    default:
-      return null;
-  }
-}
-
-function NewMessagePane({
-  to,
-  setTo,
-  text,
-  setText,
-  sending,
-  templatesCount,
-  onUseTemplate,
-  onSubmit,
-  onCancel,
-}: {
-  to: string;
-  setTo: (s: string) => void;
-  text: string;
-  setText: (s: string) => void;
-  sending: boolean;
-  templatesCount: number;
-  onUseTemplate: () => void;
-  onSubmit: (e: React.FormEvent) => void;
-  onCancel: () => void;
-}) {
-  return (
-    <form onSubmit={onSubmit} className="flex-1 flex flex-col">
-      <header className="px-4 py-3 border-b border-gray-100 font-medium text-sm">
-        رسالة جديدة
-      </header>
-
-      {/*
-        Prominent guidance: sending free-form text to a contact who has not
-        messaged us in the last 24 h is *guaranteed* to be rejected by Meta
-        with error #131047. Steer the user to the template picker up front
-        instead of burying the warning underneath the textarea.
-      */}
-      <div className="mx-4 mt-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-[12.5px] leading-relaxed text-amber-900">
-        <div className="flex items-start gap-2">
-          <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-600" />
-          <div className="space-y-1.5 flex-1">
-            <p>
-              <span className="font-semibold">قاعدة WhatsApp:</span>{" "}
-              الرسائل النصية الحرة لا تصل إلا لعميل راسلك خلال آخر 24 ساعة.
-              لأول محادثة مع رقم جديد استخدم <strong>قالبًا معتمدًا</strong>.
-            </p>
-            {templatesCount > 0 ? (
-              <button
-                type="button"
-                onClick={onUseTemplate}
-                className="inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium rounded-md px-2.5 py-1.5"
-              >
-                <FileText size={13} />
-                استخدم قالبًا معتمدًا بدل النص الحر ({templatesCount})
-              </button>
-            ) : (
-              <p className="text-[11.5px] text-amber-800">
-                لا توجد قوالب معتمدة بعد — أضفها من «إعدادات واتساب».
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="p-4 space-y-3 flex-1">
-        <div>
-          <label className="text-xs text-gray-500 block mb-1">
-            رقم الهاتف
-          </label>
-          <CombinedPhoneInput
-            value={to}
-            onChange={setTo}
-            placeholder="07XXXXXXXX"
-            className="text-sm"
-          />
-        </div>
-        <label className="block">
-          <span className="text-xs text-gray-500">
-            نص الرسالة (فقط إذا راسلك العميل خلال آخر 24 ساعة)
-          </span>
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={5}
-            className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            required
-          />
-        </label>
-      </div>
-      <footer className="p-3 border-t border-gray-100 flex items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 text-sm"
-        >
-          إلغاء
-        </button>
-        <button
-          type="submit"
-          disabled={sending || !to || !text}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 text-sm"
-        >
-          {sending ? (
-            <Loader2 size={16} className="animate-spin" />
-          ) : (
-            <Send size={16} />
-          )}
-          إرسال
-        </button>
-      </footer>
-    </form>
-  );
-}
+/** Re-export util so tree-shaking keeps it if referenced elsewhere. */
+export { messagePreview, conversationDisplayName };

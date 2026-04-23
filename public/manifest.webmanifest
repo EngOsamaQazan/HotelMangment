@@ -1,0 +1,27 @@
+{
+  "name": "Fakher Hotel — WhatsApp Inbox",
+  "short_name": "Fakher WhatsApp",
+  "description": "Unified hotel WhatsApp Business inbox with realtime updates and push notifications.",
+  "start_url": "/whatsapp",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b1014",
+  "theme_color": "#25d366",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

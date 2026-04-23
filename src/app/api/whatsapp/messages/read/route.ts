@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 import { markMessageRead } from "@/lib/whatsapp/client";
+import { notifyConversationUpdated } from "@/lib/whatsapp/fanout";
 
 /**
  * POST /api/whatsapp/messages/read
@@ -42,10 +43,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, marked: 0 });
     }
 
+    const now = new Date();
     await prisma.whatsAppMessage.updateMany({
       where: { id: { in: toMark.map((m) => m.id) } },
-      data: { status: "read", readAt: new Date() },
+      data: { status: "read", readAt: now },
     });
+
+    // Clear the conversation unread counter + remember who read it when.
+    const conv = await prisma.whatsAppConversation.findUnique({
+      where: { contactPhone: contact },
+      select: { id: true },
+    });
+    if (conv) {
+      await prisma.whatsAppConversation.update({
+        where: { id: conv.id },
+        data: { unreadCount: 0, lastReadByAssigneeAt: now },
+      });
+      await notifyConversationUpdated({
+        conversationId: conv.id,
+        contactPhone: contact,
+        reason: "read",
+        extra: { unreadCount: 0 },
+      });
+    }
 
     // Best-effort read-receipts to Meta. Only the LATEST message needs the
     // receipt — WhatsApp marks all earlier ones as read once a later one is

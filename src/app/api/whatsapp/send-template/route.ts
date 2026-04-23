@@ -4,6 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 import { sendTemplate, isWhatsAppApiError } from "@/lib/whatsapp/client";
 import { normalizeWhatsAppPhone } from "@/lib/whatsapp/phone";
+import {
+  upsertContact,
+  upsertConversationForOutbound,
+} from "@/lib/whatsapp/conversations";
+import { notifyMessageStatus, notifyConversationUpdated } from "@/lib/whatsapp/fanout";
 
 interface SendTemplateBody {
   to?: string;
@@ -36,6 +41,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "اسم القالب مطلوب" }, { status: 400 });
 
     const userId = Number((session.user as { id?: string | number }).id);
+
+    const contact = await upsertContact({
+      phone: to,
+      optedIn: true,
+      updatedByUserId: Number.isFinite(userId) ? userId : null,
+    });
+    const conversation = await upsertConversationForOutbound(
+      to,
+      new Date(),
+      contact.id,
+      Number.isFinite(userId) ? userId : null,
+    );
+
     const row = await prisma.whatsAppMessage.create({
       data: {
         direction: "outbound",
@@ -46,6 +64,7 @@ export async function POST(req: Request) {
         status: "queued",
         reservationId: body.reservationId ?? null,
         sentByUserId: Number.isFinite(userId) ? userId : null,
+        conversationId: conversation.id,
       },
     });
 
@@ -66,6 +85,18 @@ export async function POST(req: Request) {
           rawJson: resp as unknown as Prisma.InputJsonValue,
         },
       });
+      await notifyMessageStatus({
+        messageId: row.id,
+        conversationId: conversation.id,
+        contactPhone: to,
+        status: "sent",
+      });
+      await notifyConversationUpdated({
+        conversationId: conversation.id,
+        contactPhone: to,
+        reason: "new_outbound",
+        actorUserId: Number.isFinite(userId) ? userId : null,
+      });
       return NextResponse.json({ ok: true, id: row.id, wamid }, { status: 201 });
     } catch (err) {
       const apiErr = isWhatsAppApiError(err) ? err : null;
@@ -76,6 +107,14 @@ export async function POST(req: Request) {
           errorCode: apiErr?.code ? String(apiErr.code) : null,
           errorMessage: apiErr?.message ?? (err as Error).message,
         },
+      });
+      await notifyMessageStatus({
+        messageId: row.id,
+        conversationId: conversation.id,
+        contactPhone: to,
+        status: "failed",
+        errorCode: apiErr?.code ? String(apiErr.code) : null,
+        errorMessage: apiErr?.message ?? (err as Error).message,
       });
       const message = apiErr?.message ?? (err as Error).message ?? "تعذّر إرسال القالب";
       return NextResponse.json(

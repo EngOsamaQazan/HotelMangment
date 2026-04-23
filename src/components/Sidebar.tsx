@@ -29,8 +29,11 @@ import { NotificationsBell } from "@/components/NotificationsBell";
 import { UserMenu } from "@/components/UserMenu";
 import {
   useRealtimeEvent,
+  useWhatsAppInboxRoom,
   type ChatEventPayload,
   type ChatReadPayload,
+  type WhatsAppMessagePayload,
+  type WhatsAppConversationPayload,
 } from "@/lib/realtime/client";
 import { useSession } from "next-auth/react";
 
@@ -41,7 +44,7 @@ interface NavItem {
   /** Required permission key — user needs at least one to see the item. */
   permission: string | string[];
   /** Optional key used by the sidebar to attach a dynamic badge count. */
-  badgeKey?: "chatUnread";
+  badgeKey?: "chatUnread" | "whatsappUnread";
 }
 
 interface NavGroup {
@@ -84,6 +87,7 @@ const navGroups: NavGroup[] = [
         label: "واتساب",
         icon: MessageCircle,
         permission: "whatsapp:view",
+        badgeKey: "whatsappUnread",
       },
     ],
   },
@@ -103,6 +107,7 @@ export function Sidebar() {
   const { can, isLoading } = usePermissions();
   const { status } = useSession();
   const [chatUnread, setChatUnread] = useState(0);
+  const [whatsappUnread, setWhatsappUnread] = useState(0);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const visibleGroups = useMemo(
@@ -195,10 +200,44 @@ export function Sidebar() {
     [refreshChatUnread],
   );
 
+  // WhatsApp unread count — sidebar badge.
+  const canSeeWhatsApp = can("whatsapp:view");
+  useWhatsAppInboxRoom();
+  const refreshWhatsappUnread = useCallback(async () => {
+    if (!canSeeWhatsApp) return;
+    try {
+      const res = await fetch("/api/whatsapp/unread-count", {
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as { mineAndUnassigned?: number };
+      setWhatsappUnread(Number(data.mineAndUnassigned) || 0);
+    } catch {
+      /* ignore */
+    }
+  }, [canSeeWhatsApp]);
+  useEffect(() => {
+    if (status !== "authenticated" || !canSeeWhatsApp) return;
+    refreshWhatsappUnread();
+    const int = setInterval(refreshWhatsappUnread, 60_000);
+    return () => clearInterval(int);
+  }, [status, canSeeWhatsApp, refreshWhatsappUnread]);
+  useRealtimeEvent<WhatsAppMessagePayload>(
+    "wa:message:new",
+    () => refreshWhatsappUnread(),
+    [refreshWhatsappUnread],
+  );
+  useRealtimeEvent<WhatsAppConversationPayload>(
+    "wa:conversation:update",
+    () => refreshWhatsappUnread(),
+    [refreshWhatsappUnread],
+  );
+
   if (pathname === "/login") return null;
 
   const badgeFor = (key?: NavItem["badgeKey"]): number => {
     if (key === "chatUnread") return chatUnread;
+    if (key === "whatsappUnread") return whatsappUnread;
     return 0;
   };
 

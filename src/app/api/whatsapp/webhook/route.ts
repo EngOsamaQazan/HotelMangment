@@ -8,6 +8,15 @@ import {
   type WebhookInboundMessage,
   type WebhookStatus,
 } from "@/lib/whatsapp/client";
+import {
+  upsertContact,
+  upsertConversationForInbound,
+  findReservationIdByPhone,
+} from "@/lib/whatsapp/conversations";
+import {
+  fanoutInboundMessage,
+  notifyMessageStatus,
+} from "@/lib/whatsapp/fanout";
 
 /**
  * WhatsApp Business Cloud webhook.
@@ -94,10 +103,48 @@ export async function POST(req: Request) {
 async function handleInbound(msg: WebhookInboundMessage, contactName: string | null) {
   const { type, body, template } = extractInboundContent(msg);
 
-  // Try to link to a reservation by phone number (best-effort).
+  // 1. Phonebook: ensure a contact row exists and is up to date.
+  const contact = await upsertContact({
+    phone: msg.from,
+    displayName: contactName,
+    source: "whatsapp",
+    optedIn: true, // messaging us IS the opt-in per Meta policy
+  });
+
+  if (contact.isBlocked) {
+    // Still store the message for audit, but skip the fan-out / unread bump.
+    await prisma.whatsAppMessage.upsert({
+      where: { wamid: msg.id },
+      create: {
+        direction: "inbound",
+        wamid: msg.id,
+        contactPhone: msg.from,
+        contactName,
+        type,
+        body,
+        templateName: template,
+        rawJson: msg as unknown as object,
+        status: "received",
+        sentAt: new Date(Number(msg.timestamp) * 1000),
+      },
+      update: { contactName: contactName ?? undefined },
+    });
+    return;
+  }
+
+  // 2. Conversation: upsert + auto-reopen + unread++.
+  const messageAt = new Date(Number(msg.timestamp) * 1000);
+  const conversation = await upsertConversationForInbound(
+    msg.from,
+    messageAt,
+    contact.id,
+  );
+
+  // 3. Best-effort reservation link.
   const reservationId = await findReservationIdByPhone(msg.from);
 
-  await prisma.whatsAppMessage.upsert({
+  // 4. Persist the message row.
+  const stored = await prisma.whatsAppMessage.upsert({
     where: { wamid: msg.id },
     create: {
       direction: "inbound",
@@ -110,12 +157,31 @@ async function handleInbound(msg: WebhookInboundMessage, contactName: string | n
       rawJson: msg as unknown as object,
       status: "received",
       reservationId,
-      sentAt: new Date(Number(msg.timestamp) * 1000),
+      conversationId: conversation.id,
+      sentAt: messageAt,
     },
     update: {
       // Idempotency — Meta may redeliver the same message id.
       contactName: contactName ?? undefined,
+      conversationId: conversation.id,
     },
+  });
+
+  // Bump contact.lastMessageAt so phonebook sort stays fresh.
+  await prisma.whatsAppContact.update({
+    where: { id: contact.id },
+    data: { lastMessageAt: messageAt },
+  });
+
+  // 5. Fan-out (notifications + pg_notify + Web Push). Never throws.
+  await fanoutInboundMessage({
+    messageId: stored.id,
+    conversationId: conversation.id,
+    contactPhone: msg.from,
+    contactName,
+    body,
+    type,
+    createdAt: messageAt,
   });
 }
 
@@ -123,6 +189,12 @@ async function handleStatus(st: WebhookStatus) {
   const ts = new Date(Number(st.timestamp) * 1000);
   const errors = st.errors ?? [];
   const first = errors[0];
+
+  // Find the row so we can emit a realtime status update with its id/phone.
+  const row = await prisma.whatsAppMessage.findUnique({
+    where: { wamid: st.id },
+    select: { id: true, contactPhone: true, conversationId: true },
+  });
 
   await prisma.whatsAppMessage.updateMany({
     where: { wamid: st.id },
@@ -136,6 +208,17 @@ async function handleStatus(st: WebhookStatus) {
       errorMessage: first ? (first.message ?? first.title) : undefined,
     },
   });
+
+  if (row) {
+    await notifyMessageStatus({
+      messageId: row.id,
+      conversationId: row.conversationId,
+      contactPhone: row.contactPhone,
+      status: st.status,
+      errorCode: first ? String(first.code) : null,
+      errorMessage: first ? (first.message ?? first.title) : null,
+    });
+  }
 }
 
 function extractInboundContent(msg: WebhookInboundMessage): {
@@ -182,17 +265,4 @@ function extractInboundContent(msg: WebhookInboundMessage): {
     default:
       return { type: msg.type || "unknown", body: null, template: null };
   }
-}
-
-async function findReservationIdByPhone(phone: string): Promise<number | null> {
-  if (!phone) return null;
-  // Match against stored phones with a suffix heuristic: user may have
-  // stored the number as "0781099910" while Meta reports "962781099910".
-  const tail = phone.slice(-9);
-  const row = await prisma.reservation.findFirst({
-    where: { phone: { contains: tail } },
-    orderBy: { createdAt: "desc" },
-    select: { id: true },
-  });
-  return row?.id ?? null;
 }

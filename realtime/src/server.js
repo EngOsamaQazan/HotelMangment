@@ -148,6 +148,22 @@ io.on("connection", (socket) => {
     socket.leave(`board:${id}`);
   });
 
+  // ── WhatsApp rooms ───────────────────────────────────────────
+  // `wa:inbox`  — everyone looking at /whatsapp (gets thread-list updates).
+  // `wa:conv:{id}` — tabs that have one thread open (get message events).
+  socket.on("wa:inbox:join", () => socket.join("wa:inbox"));
+  socket.on("wa:inbox:leave", () => socket.leave("wa:inbox"));
+  socket.on("wa:conv:join", (conversationId) => {
+    const id = Number(conversationId);
+    if (!Number.isFinite(id)) return;
+    socket.join(`wa:conv:${id}`);
+  });
+  socket.on("wa:conv:leave", (conversationId) => {
+    const id = Number(conversationId);
+    if (!Number.isFinite(id)) return;
+    socket.leave(`wa:conv:${id}`);
+  });
+
   // Typing indicator — broadcast only, never touches DB.
   socket.on("chat:typing", ({ conversationId, typing }) => {
     const id = Number(conversationId);
@@ -198,6 +214,62 @@ function handleNotifEvent(payload) {
   io.to(`user:${payload.userId}`).emit("notification:new", payload);
 }
 
+/**
+ * Route WhatsApp events coming out of `pg_notify('wa_events', …)`.
+ *
+ * Op            Rooms
+ * ────────────  ──────────────────────────────────────────────────────
+ * message:new   `wa:conv:{conversationId}` (full payload so the open
+ *               thread appends) + `wa:inbox` (so the thread list
+ *               re-orders) + `user:{id}` for each `targetUserIds`
+ *               (personal sound/badge).
+ * message:status `wa:conv:{conversationId}` + `wa:inbox`.
+ * conversation:update `wa:inbox` + `wa:conv:{conversationId}`.
+ * contact:update `wa:inbox` + `wa:conv:{conversationId}` if known.
+ */
+function handleWhatsAppEvent(payload) {
+  if (!payload || !payload.op) return;
+  const convId = Number(payload.conversationId);
+  const room = Number.isFinite(convId) ? `wa:conv:${convId}` : null;
+
+  switch (payload.op) {
+    case "message:new": {
+      if (room) io.to(room).emit("wa:message:new", payload);
+      io.to("wa:inbox").emit("wa:inbox:update", payload);
+      const targets = Array.isArray(payload.targetUserIds)
+        ? payload.targetUserIds
+        : [];
+      for (const uid of targets) {
+        io.to(`user:${Number(uid)}`).emit("wa:notify", payload);
+      }
+      return;
+    }
+    case "message:status": {
+      if (room) io.to(room).emit("wa:message:status", payload);
+      io.to("wa:inbox").emit("wa:inbox:update", payload);
+      return;
+    }
+    case "conversation:update": {
+      if (room) io.to(room).emit("wa:conversation:update", payload);
+      io.to("wa:inbox").emit("wa:conversation:update", payload);
+      const targets = Array.isArray(payload.targetUserIds)
+        ? payload.targetUserIds
+        : [];
+      for (const uid of targets) {
+        io.to(`user:${Number(uid)}`).emit("wa:conversation:update", payload);
+      }
+      return;
+    }
+    case "contact:update": {
+      if (room) io.to(room).emit("wa:contact:update", payload);
+      io.to("wa:inbox").emit("wa:contact:update", payload);
+      return;
+    }
+    default:
+      return;
+  }
+}
+
 async function startPgListener() {
   await pg.connect();
   pg.on("notification", (msg) => {
@@ -214,15 +286,17 @@ async function startPgListener() {
         return handleTaskEvent(payload);
       case "notif_events":
         return handleNotifEvent(payload);
+      case "wa_events":
+        return handleWhatsAppEvent(payload);
     }
   });
   pg.on("error", (err) => {
     console.error("[realtime] pg error:", err);
   });
   await pg.query(
-    "LISTEN chat_events; LISTEN chat_reaction_events; LISTEN chat_read_events; LISTEN task_events; LISTEN notif_events;",
+    "LISTEN chat_events; LISTEN chat_reaction_events; LISTEN chat_read_events; LISTEN task_events; LISTEN notif_events; LISTEN wa_events;",
   );
-  console.log("[realtime] LISTEN on chat_events, task_events, notif_events");
+  console.log("[realtime] LISTEN on chat_events, task_events, notif_events, wa_events");
 }
 
 // ────────────────────────────────────────────────────────────────

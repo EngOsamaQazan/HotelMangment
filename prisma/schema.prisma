@@ -44,6 +44,16 @@ model User {
   extensionsCreated     ReservationExtension[] @relation("ReservationExtensionCreator")
   extensionsReversed    ReservationExtension[] @relation("ReservationExtensionReverser")
 
+  // ---- WhatsApp module ----
+  whatsappContactsCreated         WhatsAppContact[]           @relation("WhatsAppContactCreator")
+  whatsappContactsUpdated         WhatsAppContact[]           @relation("WhatsAppContactUpdater")
+  whatsappAssignedConversations   WhatsAppConversation[]      @relation("WhatsAppConversationAssignee")
+  whatsappAssignedByConversations WhatsAppConversation[]      @relation("WhatsAppConversationAssigner")
+  whatsappConversationNotes       WhatsAppConversationNote[]
+  whatsappConversationEvents      WhatsAppConversationEvent[]
+  whatsappPushSubscriptions       WhatsAppPushSubscription[]
+  whatsappNotificationPref        WhatsAppNotificationPref?
+
   @@map("users")
 }
 
@@ -1251,11 +1261,19 @@ model WhatsAppMessage {
   reservationId   Int?      @map("reservation_id")
   /// Who triggered the send (for outbound). Null for webhook-originated rows.
   sentByUserId    Int?      @map("sent_by_user_id")
+  /// Soft link to the conversation thread. Nullable for historical rows; the
+  /// backfill script fills it for every existing message.
+  conversationId  Int?      @map("conversation_id")
+  /// Reserved for a future "internal note" UX — never sent to Meta.
+  isInternalNote  Boolean   @default(false) @map("is_internal_note")
   createdAt       DateTime  @default(now()) @map("created_at")
+
+  conversation WhatsAppConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
 
   @@index([contactPhone, createdAt])
   @@index([direction, status])
   @@index([reservationId])
+  @@index([conversationId, createdAt])
   @@map("whatsapp_messages")
 }
 
@@ -1278,4 +1296,175 @@ model WhatsAppTemplate {
   @@unique([name, language])
   @@index([status])
   @@map("whatsapp_templates")
+}
+
+/// CRM-grade phonebook entry — one row per E.164 phone number that we track
+/// (regardless of whether it ever messaged us on WhatsApp). Serves the
+/// `/whatsapp/phonebook` page and powers contact lookup in the inbox.
+model WhatsAppContact {
+  id              Int       @id @default(autoincrement())
+  /// E.164 digits, no leading "+". Matches WhatsAppMessage.contactPhone.
+  phone           String    @unique
+  /// Preferred display name (falls back to nickname / phone).
+  displayName     String?   @map("display_name")
+  nickname        String?
+  email           String?
+  company         String?
+  notes           String?
+  /// Free-form tag list, e.g. ["VIP", "corporate", "booking.com"].
+  tags            String[]  @default([])
+  /// Arbitrary KV for org-specific fields (e.g. preferred language, rewards #).
+  customFields    Json?     @map("custom_fields")
+  /// How this contact first entered the phonebook:
+  /// "whatsapp" | "manual" | "reservation" | "guest_account" | "import"
+  source          String    @default("whatsapp")
+  /// Has the customer opted-in to marketing? Only opted-in contacts may be
+  /// targeted by outbound bulk template sends per Meta policy.
+  optedIn         Boolean   @default(false) @map("opted_in")
+  /// When true, inbound messages are ignored by staff tooling (UI hides them).
+  isBlocked       Boolean   @default(false) @map("is_blocked")
+  /// Last time we saw activity from this contact (inbound OR profile update).
+  lastSeenAt      DateTime? @map("last_seen_at")
+  /// Last time any message (inbound or outbound) was exchanged.
+  lastMessageAt   DateTime? @map("last_message_at")
+  createdByUserId Int?      @map("created_by_user_id")
+  updatedByUserId Int?      @map("updated_by_user_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  createdBy    User?                 @relation("WhatsAppContactCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedBy    User?                 @relation("WhatsAppContactUpdater", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  conversation WhatsAppConversation?
+
+  @@index([source])
+  @@index([isBlocked])
+  @@index([lastMessageAt])
+  @@map("whatsapp_contacts")
+}
+
+/// Conversation thread metadata — one row per distinct contact phone. Holds
+/// assignment, status, priority, and counters. Message rows link back via
+/// `WhatsAppMessage.conversationId`.
+model WhatsAppConversation {
+  id                   Int       @id @default(autoincrement())
+  /// The contact phone (E.164 digits). `contact_phone` on messages FK's back
+  /// here logically — enforced by the upsert helper, not Prisma.
+  contactPhone         String    @unique @map("contact_phone")
+  /// Formal FK to the phonebook row for this number. Always populated by the
+  /// upsert helper; nullable only to keep migrations forgiving.
+  contactId            Int?      @unique @map("contact_id")
+  /// Currently assigned staff member — null = unassigned.
+  assignedToUserId     Int?      @map("assigned_to_user_id")
+  assignedAt           DateTime? @map("assigned_at")
+  assignedByUserId     Int?      @map("assigned_by_user_id")
+  /// "open" | "pending" | "resolved" | "archived"
+  status               String    @default("open")
+  /// "low" | "normal" | "high" | "urgent"
+  priority             String    @default("normal")
+  lastMessageAt        DateTime? @map("last_message_at")
+  /// First time the customer messaged us in this thread. Used for SLA metrics.
+  firstInboundAt       DateTime? @map("first_inbound_at")
+  /// Timestamp of the first staff reply after the first inbound. Frozen once set.
+  firstResponseAt      DateTime? @map("first_response_at")
+  /// Denormalised unread counter (inbound messages not yet read by anyone).
+  unreadCount          Int       @default(0) @map("unread_count")
+  /// When the current assignee last opened this thread (for their personal badge).
+  lastReadByAssigneeAt DateTime? @map("last_read_by_assignee_at")
+  /// When true, suppresses sounds/push for this thread only.
+  isMuted              Boolean   @default(false) @map("is_muted")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  contact    WhatsAppContact?            @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  assignedTo User?                       @relation("WhatsAppConversationAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  assignedBy User?                       @relation("WhatsAppConversationAssigner", fields: [assignedByUserId], references: [id], onDelete: SetNull)
+  messages   WhatsAppMessage[]
+  notes      WhatsAppConversationNote[]
+  events     WhatsAppConversationEvent[]
+
+  @@index([assignedToUserId, status, lastMessageAt])
+  @@index([status, lastMessageAt])
+  @@index([priority])
+  @@map("whatsapp_conversations")
+}
+
+/// Internal ("private") note attached to a conversation — visible to staff
+/// only, never sent to the customer. Shown inline in the thread as a yellow
+/// sticky separator.
+model WhatsAppConversationNote {
+  id             Int      @id @default(autoincrement())
+  conversationId Int      @map("conversation_id")
+  authorUserId   Int      @map("author_user_id")
+  body           String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation WhatsAppConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  author       User                 @relation(fields: [authorUserId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("whatsapp_conversation_notes")
+}
+
+/// Audit trail for every mutating action on a conversation. Powers the
+/// right-hand "history" timeline and gives us a clean compliance trail.
+model WhatsAppConversationEvent {
+  id             Int      @id @default(autoincrement())
+  conversationId Int      @map("conversation_id")
+  /// "assigned" | "unassigned" | "claimed" | "transferred" | "status_changed"
+  /// | "priority_changed" | "tag_added" | "tag_removed" | "muted" | "unmuted"
+  /// | "blocked" | "unblocked" | "note_added"
+  action         String
+  /// Who performed the action (null for system events like "auto_reopened").
+  actorUserId    Int?     @map("actor_user_id")
+  /// Optional arbitrary detail, e.g. { fromUserId: 1, toUserId: 2 }.
+  meta           Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation WhatsAppConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  actor        User?                @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
+  @@map("whatsapp_conversation_events")
+}
+
+/// A single Web Push subscription (per-user, per-device/browser). Used by
+/// `src/lib/whatsapp/push-server.ts` to deliver OS notifications when the
+/// inbox tab is backgrounded or closed.
+model WhatsAppPushSubscription {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id")
+  /// The PushSubscription endpoint URL — unique per browser/device.
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  userAgent  String?  @map("user_agent")
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("whatsapp_push_subscriptions")
+}
+
+/// Per-user WhatsApp notification preferences — one row per user.
+model WhatsAppNotificationPref {
+  userId          Int      @id @map("user_id")
+  pushEnabled     Boolean  @default(true) @map("push_enabled")
+  soundEnabled    Boolean  @default(true) @map("sound_enabled")
+  /// Key into the bundled sound set (`public/sounds/*.mp3`).
+  soundKey        String   @default("whatsapp-notify") @map("sound_key")
+  /// "mine"  = only notify when the conversation is assigned to me.
+  /// "all"   = notify for every inbound (subject to permissions).
+  /// "mentions" = future — only when @-mentioned in internal notes.
+  notifyScope     String   @default("all") @map("notify_scope")
+  /// Optional quiet-hours window stored as "HH:mm" strings in the user's
+  /// local timezone (best-effort — we don't track per-user TZ yet).
+  quietHoursStart String?  @map("quiet_hours_start")
+  quietHoursEnd   String?  @map("quiet_hours_end")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("whatsapp_notification_prefs")
 }

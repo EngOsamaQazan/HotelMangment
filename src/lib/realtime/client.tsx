@@ -53,6 +53,44 @@ export interface NotificationPayload {
   notificationId: number;
 }
 
+// ── WhatsApp realtime payloads (mirror src/lib/whatsapp/fanout.ts) ──
+export interface WhatsAppMessagePayload {
+  op: "message:new" | "message:status";
+  conversationId: number;
+  contactPhone: string;
+  contactName?: string | null;
+  messageId: number;
+  body?: string | null;
+  type?: string;
+  createdAt?: string;
+  status?: string;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  targetUserIds?: number[];
+}
+
+export interface WhatsAppConversationPayload {
+  op: "conversation:update";
+  conversationId: number;
+  contactPhone: string;
+  reason: string;
+  actorUserId?: number | null;
+  unreadCount?: number;
+  assignedToUserId?: number | null;
+  status?: string;
+  priority?: string;
+  targetUserIds?: number[];
+}
+
+export interface WhatsAppContactPayload {
+  op: "contact:update";
+  contactId: number;
+  contactPhone: string;
+  displayName?: string | null;
+  tags?: string[];
+  isBlocked?: boolean;
+}
+
 interface RealtimeContextValue {
   socket: Socket | null;
   connected: boolean;
@@ -61,6 +99,10 @@ interface RealtimeContextValue {
   joinBoard: (id: number) => void;
   leaveBoard: (id: number) => void;
   sendTyping: (conversationId: number, typing: boolean) => void;
+  joinWhatsAppInbox: () => void;
+  leaveWhatsAppInbox: () => void;
+  joinWhatsAppConversation: (conversationId: number) => void;
+  leaveWhatsAppConversation: (conversationId: number) => void;
 }
 
 const RealtimeContext = createContext<RealtimeContextValue | null>(null);
@@ -69,7 +111,12 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const { status } = useSession();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
-  const rooms = useRef({ conversations: new Set<number>(), boards: new Set<number>() });
+  const rooms = useRef({
+    conversations: new Set<number>(),
+    boards: new Set<number>(),
+    waConversations: new Set<number>(),
+    waInbox: false,
+  });
 
   useEffect(() => {
     if (status !== "authenticated") {
@@ -95,6 +142,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       // Re-join rooms after reconnect.
       for (const cid of rooms.current.conversations) s.emit("conv:join", cid);
       for (const bid of rooms.current.boards) s.emit("board:join", bid);
+      if (rooms.current.waInbox) s.emit("wa:inbox:join");
+      for (const cid of rooms.current.waConversations)
+        s.emit("wa:conv:join", cid);
     });
     s.on("disconnect", () => setConnected(false));
     s.on("connect_error", (err) => {
@@ -131,6 +181,22 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       },
       sendTyping: (conversationId, typing) => {
         socket?.emit("chat:typing", { conversationId, typing });
+      },
+      joinWhatsAppInbox: () => {
+        rooms.current.waInbox = true;
+        socket?.emit("wa:inbox:join");
+      },
+      leaveWhatsAppInbox: () => {
+        rooms.current.waInbox = false;
+        socket?.emit("wa:inbox:leave");
+      },
+      joinWhatsAppConversation: (id) => {
+        rooms.current.waConversations.add(id);
+        socket?.emit("wa:conv:join", id);
+      },
+      leaveWhatsAppConversation: (id) => {
+        rooms.current.waConversations.delete(id);
+        socket?.emit("wa:conv:leave", id);
       },
     }),
     [socket, connected],
@@ -189,4 +255,25 @@ export function useBoardRoom(boardId: number | null | undefined) {
     joinBoard(boardId);
     return () => leaveBoard(boardId);
   }, [boardId, joinBoard, leaveBoard]);
+}
+
+/** Join the WhatsApp inbox broadcast room for the lifetime of a component. */
+export function useWhatsAppInboxRoom() {
+  const { joinWhatsAppInbox, leaveWhatsAppInbox } = useRealtime();
+  useEffect(() => {
+    joinWhatsAppInbox();
+    return () => leaveWhatsAppInbox();
+  }, [joinWhatsAppInbox, leaveWhatsAppInbox]);
+}
+
+/** Join a specific WhatsApp conversation room for the lifetime of a component. */
+export function useWhatsAppConversationRoom(
+  conversationId: number | null | undefined,
+) {
+  const { joinWhatsAppConversation, leaveWhatsAppConversation } = useRealtime();
+  useEffect(() => {
+    if (!conversationId) return;
+    joinWhatsAppConversation(conversationId);
+    return () => leaveWhatsAppConversation(conversationId);
+  }, [conversationId, joinWhatsAppConversation, leaveWhatsAppConversation]);
 }
