@@ -21,6 +21,15 @@ interface Props {
   phone: string;
   onClose: () => void;
   onChange: () => void;
+  /**
+   * `inline` (default) renders as a side drawer inside the conversation
+   * layout, appropriate for lg+ viewports. `overlay` renders as a
+   * fixed-position bottom-sheet with backdrop, appropriate for mobile and
+   * tablet viewports where real-estate is scarce.
+   */
+  variant?: "inline" | "overlay";
+  /** Extra classes appended to the root so the caller can toggle visibility. */
+  className?: string;
 }
 
 type Tab = "profile" | "notes" | "timeline";
@@ -29,8 +38,19 @@ type Tab = "profile" | "notes" | "timeline";
  * Slide-over panel showing everything we know about the other side of the
  * conversation: profile + tags + internal notes (shared with other employees)
  * + assignment timeline + reservation linkage.
+ *
+ * Two layout variants:
+ *   • inline  : `lg+` inline drawer inside the thread section.
+ *   • overlay : bottom-sheet with backdrop for `< lg` devices. Includes a
+ *               drag handle, dismiss-by-backdrop-tap, and Esc-to-close.
  */
-export function ContactPanel({ phone, onClose, onChange }: Props) {
+export function ContactPanel({
+  phone,
+  onClose,
+  onChange,
+  variant = "inline",
+  className,
+}: Props) {
   const canManage = useHasPermission("whatsapp:manage_contacts");
   const [contact, setContact] = useState<ContactDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -91,20 +111,40 @@ export function ContactPanel({ phone, onClose, onChange }: Props) {
     }
   }
 
-  return (
-    <aside className="w-[320px] shrink-0 border-s border-gray-100 bg-white flex flex-col">
-      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+  // Dismiss overlay on Escape for keyboard users.
+  useEffect(() => {
+    if (variant !== "overlay") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [variant, onClose]);
+
+  const body = (
+    <>
+      {/* Drag handle — visual cue for "swipe/tap to dismiss"; overlay only. */}
+      {variant === "overlay" && (
+        <div className="flex justify-center pt-2 pb-1">
+          <span
+            aria-hidden
+            className="w-10 h-1.5 rounded-full bg-gray-200"
+          />
+        </div>
+      )}
+
+      <div className="px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-100 flex items-center justify-between">
         <h3 className="text-sm font-bold text-gray-800">تفاصيل جهة الاتصال</h3>
         <button
           onClick={onClose}
-          className="p-1 rounded-lg text-gray-500 hover:bg-gray-100"
+          className="tap-44 p-2 rounded-lg text-gray-500 hover:bg-gray-100"
           aria-label="إغلاق"
         >
-          <X size={16} />
+          <X size={18} />
         </button>
       </div>
 
-      <div className="flex items-center gap-1 px-3 pt-2" role="tablist">
+      <div className="flex items-center gap-1 px-2 sm:px-3 pt-2" role="tablist">
         {([
           ["profile", "الملف"],
           ["notes", `ملاحظات (${notes.length})`],
@@ -116,7 +156,7 @@ export function ContactPanel({ phone, onClose, onChange }: Props) {
             aria-selected={tab === k}
             onClick={() => setTab(k)}
             className={cn(
-              "flex-1 text-xs font-medium py-1.5 rounded-md",
+              "tap-44 flex-1 min-h-[40px] text-xs font-medium py-1.5 rounded-md",
               tab === k
                 ? "bg-gold-soft text-primary"
                 : "text-gray-600 hover:bg-gray-50",
@@ -127,7 +167,7 @@ export function ContactPanel({ phone, onClose, onChange }: Props) {
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-4 text-sm">
+      <div className="flex-1 overflow-y-auto scrollbar-thin p-3 sm:p-4 space-y-4 text-sm pb-safe">
         {loading && (
           <div className="flex items-center justify-center py-8">
             <Loader2 size={18} className="animate-spin text-primary" />
@@ -147,10 +187,44 @@ export function ContactPanel({ phone, onClose, onChange }: Props) {
           <NotesTab phone={phone} notes={notes} reload={load} />
         )}
 
-        {!loading && tab === "timeline" && (
-          <TimelineTab events={events} />
-        )}
+        {!loading && tab === "timeline" && <TimelineTab events={events} />}
       </div>
+    </>
+  );
+
+  if (variant === "overlay") {
+    return (
+      <>
+        <div
+          className={cn("fixed inset-0 z-40 bg-black/40", className)}
+          onClick={onClose}
+          aria-hidden
+        />
+        <aside
+          role="dialog"
+          aria-modal="true"
+          aria-label="تفاصيل جهة الاتصال"
+          className={cn(
+            "fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-2xl shadow-2xl flex flex-col",
+            "max-h-[92dvh] min-h-[50dvh]",
+            className,
+          )}
+        >
+          {body}
+        </aside>
+      </>
+    );
+  }
+
+  return (
+    <aside
+      aria-label="تفاصيل جهة الاتصال"
+      className={cn(
+        "w-[320px] lg:w-[340px] shrink-0 border-s border-gray-100 bg-white flex flex-col",
+        className,
+      )}
+    >
+      {body}
     </aside>
   );
 }

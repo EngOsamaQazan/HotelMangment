@@ -40,7 +40,7 @@ export function FilterTabs({ scope, setScope, status, setStatus, counts }: Props
             aria-selected={scope === t.key}
             onClick={() => setScope(t.key)}
             className={cn(
-              "flex-1 text-xs font-medium py-1.5 rounded-md transition-colors",
+              "tap-44 flex-1 min-h-[40px] text-xs font-medium px-2 py-2 rounded-md transition-colors",
               scope === t.key
                 ? "bg-white text-primary shadow-sm"
                 : "text-gray-600 hover:text-gray-800",
@@ -51,13 +51,19 @@ export function FilterTabs({ scope, setScope, status, setStatus, counts }: Props
           </button>
         ))}
       </div>
-      <div className="flex items-center gap-1.5 flex-wrap">
+      {/* Horizontally scrollable on very narrow phones to avoid messy wrapping;
+          wraps naturally once enough room is available. */}
+      <div
+        className="flex items-center gap-1.5 overflow-x-auto no-scrollbar sm:flex-wrap -mx-1 px-1"
+        role="group"
+        aria-label="حالة المحادثة"
+      >
         {statuses.map((s) => (
           <button
             key={s.key}
             onClick={() => setStatus(s.key)}
             className={cn(
-              "text-[11px] px-2 py-1 rounded-full border transition-colors",
+              "shrink-0 text-[11px] px-2.5 py-1.5 rounded-full border transition-colors whitespace-nowrap",
               status === s.key
                 ? "bg-primary text-white border-primary"
                 : "border-gray-200 text-gray-600 hover:bg-gray-50",

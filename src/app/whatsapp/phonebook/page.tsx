@@ -166,38 +166,48 @@ export default function PhonebookPage() {
   );
 
   return (
-    <div className="space-y-4">
-      <div className="pt-2 sm:pt-4 border-b-2 border-gold/30 pb-4 flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <span aria-hidden className="inline-block w-1 h-8 bg-gold rounded-full" />
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-primary/10 border border-primary/20">
-            <BookUser size={22} className="text-primary" />
+    <div className="space-y-3 sm:space-y-4">
+      <div className="pt-2 sm:pt-4 border-b-2 border-gold/30 pb-3 sm:pb-4 flex items-start sm:items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <span
+            aria-hidden
+            className="hidden sm:inline-block w-1 h-8 bg-gold rounded-full shrink-0"
+          />
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center bg-primary/10 border border-primary/20 shrink-0">
+            <BookUser size={20} className="text-primary sm:hidden" />
+            <BookUser size={22} className="text-primary hidden sm:inline" />
           </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-primary font-[family-name:var(--font-amiri)] tracking-tight">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-primary font-[family-name:var(--font-amiri)] tracking-tight leading-tight">
               دفتر الهاتف
             </h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-[11px] sm:text-sm text-gray-500 mt-0.5 sm:mt-1 truncate">
               جميع جهات اتصال واتساب — بحث، إدارة، استيراد/تصدير
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div
+          className="flex items-center gap-1.5 sm:gap-2 flex-wrap w-full sm:w-auto order-last sm:order-none justify-end"
+          role="toolbar"
+          aria-label="إجراءات دفتر الهاتف"
+        >
           <Link
             href="/whatsapp"
-            className="flex items-center gap-1 text-sm px-3 py-2 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50"
+            className="tap-44 flex items-center justify-center gap-1.5 text-sm px-3 py-2 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50"
+            aria-label="صندوق الوارد"
           >
             <ChevronLeft size={16} />
-            صندوق الوارد
+            <span className="hidden sm:inline">صندوق الوارد</span>
           </Link>
           {canExport && (
             <>
               <button
                 onClick={() => fileRef.current?.click()}
-                className="flex items-center gap-1.5 text-sm px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50"
+                className="tap-44 flex items-center justify-center gap-1.5 text-sm px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50"
+                aria-label="استيراد CSV"
               >
                 <Upload size={16} />
-                استيراد CSV
+                <span className="hidden sm:inline">استيراد CSV</span>
               </button>
               <input
                 ref={fileRef}
@@ -212,46 +222,49 @@ export default function PhonebookPage() {
               />
               <button
                 onClick={exportCsv}
-                className="flex items-center gap-1.5 text-sm px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50"
+                className="tap-44 flex items-center justify-center gap-1.5 text-sm px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50"
+                aria-label="تصدير CSV"
               >
                 <Download size={16} />
-                تصدير CSV
+                <span className="hidden sm:inline">تصدير CSV</span>
               </button>
             </>
           )}
           <Can permission="whatsapp:manage_contacts">
             <button
               onClick={() => setCreating(true)}
-              className="flex items-center gap-1.5 text-sm px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark"
+              className="tap-44 flex items-center justify-center gap-1.5 text-sm px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark"
+              aria-label="إضافة جهة اتصال جديدة"
             >
               <Plus size={16} />
-              جهة اتصال جديدة
+              <span className="hidden sm:inline">جهة اتصال جديدة</span>
             </button>
           </Can>
         </div>
       </div>
 
-      <div className="bg-card-bg rounded-xl shadow-sm p-3 flex items-center gap-2 flex-wrap">
-        <label className="flex-1 min-w-[200px] flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
-          <Search size={14} className="text-gray-400" />
+      <div className="bg-card-bg rounded-xl shadow-sm p-3 grid grid-cols-2 sm:flex sm:items-center gap-2">
+        <label className="col-span-2 sm:flex-1 sm:min-w-[200px] flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+          <Search size={14} className="text-gray-400 shrink-0" />
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="ابحث برقم، اسم، بريد، شركة…"
-            className="bg-transparent text-sm w-full focus:outline-none"
+            className="bg-transparent text-base sm:text-sm w-full focus:outline-none"
           />
         </label>
         <input
           value={tag}
           onChange={(e) => setTag(e.target.value)}
           placeholder="وسم…"
-          className="text-sm border border-gray-200 rounded-lg px-3 py-2 w-32"
+          className="text-sm border border-gray-200 rounded-lg px-3 py-2 sm:w-32"
         />
         <select
           value={source}
           onChange={(e) => setSource(e.target.value)}
           className="text-sm border border-gray-200 rounded-lg px-2 py-2 bg-white"
+          aria-label="المصدر"
         >
           <option value="">كل المصادر</option>
           {Object.entries(SOURCE_LABELS).map(([k, v]) => (
@@ -264,6 +277,7 @@ export default function PhonebookPage() {
           value={blocked}
           onChange={(e) => setBlocked(e.target.value as "any" | "1" | "0")}
           className="text-sm border border-gray-200 rounded-lg px-2 py-2 bg-white"
+          aria-label="حالة الحظر"
         >
           <option value="any">الكل</option>
           <option value="0">غير محظورة</option>
@@ -271,7 +285,114 @@ export default function PhonebookPage() {
         </select>
       </div>
 
-      <div className="bg-card-bg rounded-xl shadow-sm overflow-hidden">
+      {/* ═════════════ Mobile card list (< md) ═════════════ */}
+      <ul className="md:hidden space-y-2" aria-label="قائمة جهات الاتصال للجوال">
+        {loading && contacts.length === 0 ? (
+          <li className="bg-card-bg rounded-xl shadow-sm p-8 text-center">
+            <Loader2
+              size={20}
+              className="animate-spin text-primary inline-block"
+            />
+          </li>
+        ) : contacts.length === 0 ? (
+          <li className="bg-card-bg rounded-xl shadow-sm p-8 text-center text-gray-400 text-sm">
+            لا توجد جهات اتصال مطابقة.
+          </li>
+        ) : (
+          contacts.map((c) => (
+            <li
+              key={c.id}
+              className="bg-card-bg rounded-xl shadow-sm p-3 flex items-start gap-3"
+            >
+              <button
+                onClick={() => setSelectedId(c.id)}
+                className={cn(
+                  "w-11 h-11 shrink-0 rounded-full text-sm font-bold flex items-center justify-center",
+                  c.isBlocked
+                    ? "bg-red-50 text-red-500"
+                    : "bg-primary/10 text-primary",
+                )}
+                aria-label={`فتح تفاصيل ${c.displayName ?? c.phone}`}
+              >
+                {(c.displayName ?? c.phone).slice(0, 2)}
+              </button>
+              <button
+                onClick={() => setSelectedId(c.id)}
+                className="flex-1 min-w-0 text-right"
+              >
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="truncate font-medium text-gray-800 text-sm">
+                    {c.displayName ?? `+${c.phone}`}
+                  </span>
+                  {c.isBlocked && (
+                    <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] text-red-500">
+                      <AlertOctagon size={9} />
+                      محظور
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] text-gray-500 direction-ltr mt-0.5 text-start">
+                  +{c.phone}
+                </div>
+                <div className="text-[11px] text-gray-500 mt-0.5 truncate">
+                  {c.company ?? SOURCE_LABELS[c.source] ?? c.source}
+                  {c.lastMessageAt && (
+                    <> · {relativeTime(c.lastMessageAt)}</>
+                  )}
+                </div>
+                {c.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {c.tags.slice(0, 3).map((t) => (
+                      <span
+                        key={t}
+                        className="inline-flex items-center gap-1 bg-gray-100 text-gray-600 text-[10px] px-1.5 py-0.5 rounded"
+                      >
+                        <TagIcon size={8} />
+                        {t}
+                      </span>
+                    ))}
+                    {c.tags.length > 3 && (
+                      <span className="text-[10px] text-gray-400">
+                        +{c.tags.length - 3}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </button>
+              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                <Link
+                  href={`/whatsapp?contact=${encodeURIComponent(c.phone)}`}
+                  className="tap-44 flex items-center justify-center text-[11px] px-2.5 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 min-w-[44px]"
+                >
+                  محادثة
+                </Link>
+                {canManage && (
+                  <button
+                    onClick={() => remove(c.id)}
+                    className="tap-44 p-2 rounded-lg text-red-500 hover:bg-red-50"
+                    aria-label={`حذف ${c.displayName ?? c.phone}`}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
+            </li>
+          ))
+        )}
+        {nextCursor && !loading && (
+          <li className="text-center">
+            <button
+              onClick={() => load(nextCursor)}
+              className="tap-44 text-xs px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 bg-white"
+            >
+              تحميل المزيد
+            </button>
+          </li>
+        )}
+      </ul>
+
+      {/* ═════════════ Desktop/tablet table (≥ md) ═════════════ */}
+      <div className="hidden md:block bg-card-bg rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-[11px] uppercase">
@@ -468,24 +589,30 @@ function CreateContactModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 sm:p-4"
       onClick={(e) => {
         if (e.currentTarget === e.target) onClose();
       }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="new-contact-title"
     >
       <form
         onSubmit={submit}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 space-y-3"
+        className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-xl shadow-2xl p-4 sm:p-6 space-y-3 max-h-[92dvh] overflow-y-auto pb-[calc(1rem+env(safe-area-inset-bottom))]"
       >
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+          <h3
+            id="new-contact-title"
+            className="text-lg font-bold text-gray-800 flex items-center gap-2"
+          >
             <UserCircle2 size={22} className="text-primary" />
             جهة اتصال جديدة
           </h3>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded text-gray-500 hover:bg-gray-100"
+            className="tap-44 p-2 rounded-lg text-gray-500 hover:bg-gray-100"
             aria-label="إغلاق"
           >
             <X size={18} />
@@ -543,14 +670,14 @@ function CreateContactModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 text-sm"
+            className="tap-44 px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 text-sm"
           >
             إلغاء
           </button>
           <button
             type="submit"
             disabled={saving || !phone.trim()}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 text-sm"
+            className="tap-44 flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 text-sm"
           >
             {saving ? (
               <Loader2 size={14} className="animate-spin" />
@@ -628,14 +755,17 @@ function ContactDrawer({
       onClick={(e) => {
         if (e.currentTarget === e.target) onClose();
       }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="تفاصيل جهة الاتصال"
     >
       <div className="flex-1 bg-black/40" />
-      <aside className="w-full max-w-md bg-white shadow-2xl h-full overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between z-10">
+      <aside className="w-full sm:max-w-md bg-white shadow-2xl h-[100dvh] overflow-y-auto pb-[env(safe-area-inset-bottom)]">
+        <div className="sticky top-0 bg-white border-b border-gray-100 px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between z-10">
           <h3 className="text-sm font-bold text-gray-800">تفاصيل جهة الاتصال</h3>
           <button
             onClick={onClose}
-            className="p-1 rounded text-gray-500 hover:bg-gray-100"
+            className="tap-44 p-2 rounded-lg text-gray-500 hover:bg-gray-100"
             aria-label="إغلاق"
           >
             <X size={18} />
@@ -813,7 +943,7 @@ function ContactEditor({
               })
             }
             disabled={saving}
-            className="flex-1 flex items-center justify-center gap-2 bg-primary text-white rounded-lg py-2 text-sm hover:bg-primary-dark disabled:opacity-50"
+            className="tap-44 flex-1 flex items-center justify-center gap-2 bg-primary text-white rounded-lg py-2 text-sm hover:bg-primary-dark disabled:opacity-50"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
             حفظ
@@ -822,7 +952,7 @@ function ContactEditor({
             onClick={() => onSave({ isBlocked: !contact.isBlocked })}
             disabled={saving}
             className={cn(
-              "text-xs px-3 py-2 rounded-lg border",
+              "tap-44 text-xs px-3 py-2 rounded-lg border",
               contact.isBlocked
                 ? "border-green-200 text-green-700 hover:bg-green-50"
                 : "border-red-200 text-red-600 hover:bg-red-50",

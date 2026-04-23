@@ -81,28 +81,33 @@ export default function WhatsAppNotificationSettings() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="pt-2 sm:pt-4 border-b-2 border-gold/30 pb-4 flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <span aria-hidden className="inline-block w-1 h-8 bg-gold rounded-full" />
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-green-50 border border-green-200">
-            <Bell size={22} className="text-green-600" />
+    <div className="space-y-3 sm:space-y-4 pb-safe">
+      <div className="pt-2 sm:pt-4 border-b-2 border-gold/30 pb-3 sm:pb-4 flex items-start sm:items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <span
+            aria-hidden
+            className="hidden sm:inline-block w-1 h-8 bg-gold rounded-full shrink-0"
+          />
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center bg-green-50 border border-green-200 shrink-0">
+            <Bell size={20} className="text-green-600 sm:hidden" />
+            <Bell size={22} className="text-green-600 hidden sm:inline" />
           </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-primary font-[family-name:var(--font-amiri)] tracking-tight">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-primary font-[family-name:var(--font-amiri)] tracking-tight leading-tight">
               إشعارات واتساب
             </h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-[11px] sm:text-sm text-gray-500 mt-0.5 sm:mt-1 truncate">
               إعدادات الإشعارات الصوتية والدفع (Push) لهذا المستخدم
             </p>
           </div>
         </div>
         <Link
           href="/settings/whatsapp"
-          className="flex items-center gap-1 text-sm px-3 py-2 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50"
+          className="tap-44 flex items-center justify-center gap-1 text-sm px-3 py-2 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50"
+          aria-label="العودة إلى إعدادات واتساب"
         >
           <ChevronLeft size={16} />
-          إعدادات واتساب
+          <span className="hidden sm:inline">إعدادات واتساب</span>
         </Link>
       </div>
 
@@ -111,9 +116,9 @@ export default function WhatsAppNotificationSettings() {
           <Loader2 size={22} className="animate-spin text-primary inline-block" />
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-3 sm:gap-4">
           {/* ─── Push ─── */}
-          <section className="bg-card-bg rounded-xl shadow-sm p-5 space-y-4">
+          <section className="bg-card-bg rounded-xl shadow-sm p-4 sm:p-5 md:p-6 space-y-3 sm:space-y-4">
             <header className="flex items-center gap-2">
               <Bell size={18} className="text-primary" />
               <h2 className="font-bold text-gray-800">الإشعارات المكتبية</h2>
@@ -140,7 +145,7 @@ export default function WhatsAppNotificationSettings() {
                         const ok = await push.unsubscribe();
                         if (ok) toast.success("تم إيقاف الإشعارات");
                       }}
-                      className="flex items-center gap-1.5 text-sm px-3 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50"
+                      className="tap-44 flex items-center gap-1.5 text-sm px-3 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50"
                     >
                       <BellOff size={14} />
                       إيقاف على هذا الجهاز
@@ -148,10 +153,11 @@ export default function WhatsAppNotificationSettings() {
                     <button
                       onClick={async () => {
                         const ok = await push.testPush();
-                        if (ok) toast.success("أُرسلت اختبارية — راقب الإشعار.");
+                        if (ok)
+                          toast.success("أُرسلت اختبارية — راقب الإشعار.");
                         else toast.error("فشل إرسال الاختبار");
                       }}
-                      className="flex items-center gap-1.5 text-sm px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50"
+                      className="tap-44 flex items-center gap-1.5 text-sm px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50"
                     >
                       <Bell size={14} />
                       اختبار الإشعار
@@ -165,7 +171,7 @@ export default function WhatsAppNotificationSettings() {
                       else toast.error(push.error ?? "فشل");
                     }}
                     disabled={push.loading}
-                    className="flex items-center gap-1.5 text-sm px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50"
+                    className="tap-44 flex items-center gap-1.5 text-sm px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50"
                   >
                     {push.loading ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -175,9 +181,10 @@ export default function WhatsAppNotificationSettings() {
                     تفعيل الإشعارات المكتبية
                   </button>
                 )}
-                <label className="flex items-center gap-2 ms-auto text-sm text-gray-600">
+                <label className="tap-44 flex items-center gap-2 sm:ms-auto text-sm text-gray-600 cursor-pointer select-none">
                   <input
                     type="checkbox"
+                    className="w-4 h-4"
                     checked={prefs.pushEnabled}
                     onChange={(e) => save({ pushEnabled: e.target.checked })}
                   />
@@ -188,7 +195,7 @@ export default function WhatsAppNotificationSettings() {
           </section>
 
           {/* ─── Sound ─── */}
-          <section className="bg-card-bg rounded-xl shadow-sm p-5 space-y-4">
+          <section className="bg-card-bg rounded-xl shadow-sm p-4 sm:p-5 md:p-6 space-y-3 sm:space-y-4">
             <header className="flex items-center gap-2">
               <Volume2 size={18} className="text-primary" />
               <h2 className="font-bold text-gray-800">التنبيه الصوتي</h2>
@@ -197,9 +204,10 @@ export default function WhatsAppNotificationSettings() {
               نغمة قصيرة عند وصول رسالة جديدة داخل الموقع. تعمل فقط بعد
               تفاعل المستخدم مع الصفحة (قيود المتصفح).
             </p>
-            <label className="flex items-center gap-2 text-sm">
+            <label className="tap-44 flex items-center gap-2 text-sm cursor-pointer select-none">
               <input
                 type="checkbox"
+                className="w-4 h-4"
                 checked={prefs.soundEnabled}
                 onChange={(e) => save({ soundEnabled: e.target.checked })}
               />
@@ -207,7 +215,7 @@ export default function WhatsAppNotificationSettings() {
             </label>
             <button
               onClick={() => sound.play()}
-              className="flex items-center gap-1.5 text-sm px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50"
+              className="tap-44 flex items-center gap-1.5 text-sm px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50"
             >
               <Volume2 size={14} />
               اختبار الصوت
@@ -215,7 +223,7 @@ export default function WhatsAppNotificationSettings() {
           </section>
 
           {/* ─── Scope ─── */}
-          <section className="bg-card-bg rounded-xl shadow-sm p-5 space-y-4">
+          <section className="bg-card-bg rounded-xl shadow-sm p-4 sm:p-5 md:p-6 space-y-3 sm:space-y-4">
             <header className="flex items-center gap-2">
               <Bell size={18} className="text-primary" />
               <h2 className="font-bold text-gray-800">نطاق الإشعارات</h2>
@@ -234,7 +242,7 @@ export default function WhatsAppNotificationSettings() {
                 <label
                   key={s.k}
                   className={cn(
-                    "flex items-center gap-2 p-2 rounded-lg cursor-pointer",
+                    "tap-44 flex items-center gap-2 p-2.5 rounded-lg cursor-pointer",
                     prefs.notifyScope === s.k
                       ? "bg-gold-soft border border-primary"
                       : "hover:bg-gray-50 border border-transparent",
@@ -243,6 +251,7 @@ export default function WhatsAppNotificationSettings() {
                   <input
                     type="radio"
                     name="scope"
+                    className="w-4 h-4"
                     checked={prefs.notifyScope === s.k}
                     onChange={() => save({ notifyScope: s.k })}
                   />
@@ -253,7 +262,7 @@ export default function WhatsAppNotificationSettings() {
           </section>
 
           {/* ─── Quiet hours ─── */}
-          <section className="bg-card-bg rounded-xl shadow-sm p-5 space-y-4">
+          <section className="bg-card-bg rounded-xl shadow-sm p-4 sm:p-5 md:p-6 space-y-3 sm:space-y-4">
             <header className="flex items-center gap-2">
               <Moon size={18} className="text-primary" />
               <h2 className="font-bold text-gray-800">ساعات الهدوء</h2>
@@ -274,14 +283,14 @@ export default function WhatsAppNotificationSettings() {
               }}
               className="space-y-3"
             >
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className="block">
                   <span className="text-xs text-gray-500">من</span>
                   <input
                     name="start"
                     type="time"
                     defaultValue={prefs.quietHoursStart ?? ""}
-                    className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                   />
                 </label>
                 <label className="block">
@@ -290,16 +299,20 @@ export default function WhatsAppNotificationSettings() {
                     name="end"
                     type="time"
                     defaultValue={prefs.quietHoursEnd ?? ""}
-                    className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                   />
                 </label>
               </div>
               <button
                 type="submit"
                 disabled={saving}
-                className="flex items-center gap-1.5 text-sm px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50"
+                className="tap-44 flex items-center gap-1.5 text-sm px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50"
               >
-                {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                {saving ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Save size={14} />
+                )}
                 حفظ ساعات الهدوء
               </button>
             </form>

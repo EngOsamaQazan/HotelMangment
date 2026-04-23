@@ -38,7 +38,7 @@ export function ThreadList({
     <>
       <div className="p-3 border-b border-gray-100">
         <label className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
-          <Search size={14} className="text-gray-400" aria-hidden />
+          <Search size={14} className="text-gray-400 shrink-0" aria-hidden />
           <input
             type="search"
             value={search}
@@ -49,7 +49,11 @@ export function ThreadList({
           />
         </label>
       </div>
-      <div className="flex-1 overflow-y-auto scrollbar-thin" role="list">
+      <div
+        className="flex-1 overflow-y-auto scrollbar-thin"
+        role="list"
+        aria-busy={loading}
+      >
         {loading && conversations.length === 0 ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 size={24} className="animate-spin text-primary" />
@@ -68,14 +72,16 @@ export function ThreadList({
                 key={c.id}
                 role="listitem"
                 onClick={() => onSelect(c.contactPhone)}
+                aria-current={selected ? "true" : undefined}
                 className={cn(
-                  "w-full text-right px-4 py-3 border-b border-gray-50 transition-colors flex items-start gap-3",
-                  selected ? "bg-gold-soft" : "hover:bg-gray-50",
+                  "w-full text-right px-3 sm:px-4 py-3 border-b border-gray-50 transition-colors flex items-start gap-3",
+                  "min-h-[64px] touch-manipulation",
+                  selected ? "bg-gold-soft" : "hover:bg-gray-50 active:bg-gray-100",
                 )}
               >
                 <div
                   className={cn(
-                    "relative w-10 h-10 rounded-full text-sm font-bold flex items-center justify-center shrink-0",
+                    "relative w-11 h-11 rounded-full text-sm font-bold flex items-center justify-center shrink-0",
                     c.contact?.isBlocked
                       ? "bg-red-50 text-red-500"
                       : "bg-primary/10 text-primary",

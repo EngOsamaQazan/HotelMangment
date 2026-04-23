@@ -3,9 +3,10 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Loader2, MessageCircle } from "lucide-react";
+import { ArrowRight, Loader2, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Can } from "@/components/Can";
+import { cn } from "@/lib/utils";
 
 import type {
   ConversationSummary,
@@ -34,6 +35,7 @@ import { TemplateSendModal } from "./_components/TemplateSendModal";
 import { PushBadge } from "./_components/PushBadge";
 
 import { useInboxData } from "./_hooks/useInboxData";
+import { useIsMobile, useIsBelowLg } from "./_hooks/useMediaQuery";
 import { useWhatsAppRealtime } from "@/lib/whatsapp/hooks/useWhatsAppRealtime";
 import { useWhatsAppPush } from "@/lib/whatsapp/hooks/useWhatsAppPush";
 import { useWhatsAppSound } from "@/lib/whatsapp/hooks/useWhatsAppSound";
@@ -41,17 +43,13 @@ import { useTabAttention } from "@/lib/whatsapp/hooks/useTabAttention";
 import { useHasPermission } from "@/lib/permissions/client";
 
 /**
- * Modular WhatsApp Business inbox.
+ * Modular WhatsApp Business inbox — responsive Master-Detail layout.
  *
- *   ┌─────────────────── InboxHeader ───────────────────┐
- *   │  FilterTabs │                                     │
- *   │  ThreadList │  ConversationHeader  │ContactPanel? │
- *   │             │  [messages]          │              │
- *   │             │  Composer            │              │
- *   └─────────────┴──────────────────────┴──────────────┘
- *
- * Realtime updates from Socket.IO + Service Worker push land in the callbacks
- * below and mutate the two main state slices (`conversations` / `messages`).
+ *   Desktop (≥ lg / 1024):  [ThreadList 340] [Conversation flex] [ContactPanel 340 inline]
+ *   Tablet  (md  / 768):    [ThreadList 300] [Conversation flex] + ContactPanel overlay
+ *   Mobile  (< md):         Exactly one pane: either ThreadList OR Conversation,
+ *                           with Back button + history state wiring. ContactPanel
+ *                           slides up as a bottom-sheet.
  */
 export default function WhatsAppInboxPage() {
   return (
@@ -69,6 +67,9 @@ function WhatsAppInboxInner() {
   const canSend = useHasPermission("whatsapp:send");
   const canAssign = useHasPermission("whatsapp:assign");
   const canNotes = useHasPermission("whatsapp:notes");
+
+  const isMobile = useIsMobile();
+  const isBelowLg = useIsBelowLg();
 
   // ─── Filters ──────────────────────────────────────────────
   const [scope, setScope] = useState<ScopeFilter>("mine");
@@ -94,7 +95,57 @@ function WhatsAppInboxInner() {
   const [newTo, setNewTo] = useState("");
   const [composerText, setComposerText] = useState("");
   const [sending, setSending] = useState(false);
-  const [showDetails, setShowDetails] = useState(true);
+  // On desktop show details panel by default; on smaller screens keep it hidden
+  // until the user explicitly opens it (so it doesn't obscure the thread).
+  const [showDetails, setShowDetails] = useState(false);
+  useEffect(() => {
+    if (!isBelowLg) setShowDetails(true);
+  }, [isBelowLg]);
+
+  // ─── Mobile history-state Back handling ───────────────────
+  // When the user taps a thread on mobile we push a history entry so the
+  // browser / Android Back button unwinds to the list instead of leaving the
+  // page — matches WhatsApp / Gmail / Telegram behaviour.
+  useEffect(() => {
+    if (!isMobile) return;
+    const onPop = () => {
+      if (data.selectedPhone || showNew) {
+        data.setSelectedPhone(null);
+        setShowNew(false);
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, data.selectedPhone, showNew]);
+
+  const openThread = useCallback(
+    (phone: string) => {
+      setShowNew(false);
+      const already = data.selectedPhone === phone;
+      data.setSelectedPhone(phone);
+      if (isMobile && !already) {
+        try {
+          window.history.pushState({ waThread: phone }, "");
+        } catch {
+          /* noop */
+        }
+      }
+    },
+    [data, isMobile],
+  );
+
+  const backToList = useCallback(() => {
+    setShowNew(false);
+    data.setSelectedPhone(null);
+    if (isMobile) {
+      try {
+        window.history.back();
+      } catch {
+        /* noop */
+      }
+    }
+  }, [data, isMobile]);
 
   // ─── Templates ────────────────────────────────────────────
   const [templates, setTemplates] = useState<TemplateRow[]>([]);
@@ -141,7 +192,6 @@ function WhatsAppInboxInner() {
   useWhatsAppRealtime({
     conversationId: data.activeConversation?.id ?? null,
     onMessageNew: (p) => {
-      // If it's for the open thread, append immediately.
       if (
         data.selectedPhone &&
         p.contactPhone === data.selectedPhone &&
@@ -166,15 +216,12 @@ function WhatsAppInboxInner() {
           readAt: null,
           createdAt: p.createdAt ?? new Date().toISOString(),
         });
-        // Auto-mark read since the user is looking at it.
         data.markRead(p.contactPhone);
       }
 
-      // Refresh list order and counts.
       data.loadList();
       data.loadCounts();
 
-      // In-app attention (sound + tab flash) — only for inbound.
       if (p.op === "message:new") {
         sound.play();
         attention.flash(`● ${p.contactName ?? `+${p.contactPhone}`}`);
@@ -182,10 +229,7 @@ function WhatsAppInboxInner() {
           description: (p.body ?? "رسالة جديدة").slice(0, 120),
           action: {
             label: "فتح",
-            onClick: () => {
-              setShowNew(false);
-              data.setSelectedPhone(p.contactPhone);
-            },
+            onClick: () => openThread(p.contactPhone),
           },
         });
       }
@@ -305,8 +349,8 @@ function WhatsAppInboxInner() {
     if (!canSend) return false;
     if (active.contact?.isBlocked) return false;
     if (active.status === "archived") return false;
-    if (!active.assignedToUserId) return true; // anyone can claim+reply
-    return assignedToMe || canAssign; // managers can override
+    if (!active.assignedToUserId) return true;
+    return assignedToMe || canAssign;
   }, [active, canSend, canAssign, assignedToMe]);
 
   const replyDisabledReason = useMemo(() => {
@@ -325,14 +369,25 @@ function WhatsAppInboxInner() {
     return null;
   }, [active, canSend, canAssign, currentUserId]);
 
+  // Show the list pane on mobile only when nothing else is open.
+  const showListPane = !isMobile || (!data.selectedPhone && !showNew);
+  const showThreadPane = !isMobile || data.selectedPhone || showNew;
+
   // ─── Render ───────────────────────────────────────────────
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-3 sm:gap-4">
       <InboxHeader
         onNewMessage={() => {
           setShowNew(true);
           data.setSelectedPhone(null);
           setComposerText("");
+          if (isMobile) {
+            try {
+              window.history.pushState({ waNew: true }, "");
+            } catch {
+              /* noop */
+            }
+          }
         }}
         onUseTemplate={() => {
           setTemplateTo(data.selectedPhone ? `+${data.selectedPhone}` : "");
@@ -341,9 +396,23 @@ function WhatsAppInboxInner() {
         pushBadge={<PushBadge push={push} />}
       />
 
-      <div className="grid md:grid-cols-[320px_1fr] gap-3 h-[calc(100vh-14rem)] min-h-[520px]">
-        {/* Thread list */}
-        <aside className="bg-card-bg rounded-xl shadow-sm overflow-hidden flex flex-col">
+      <div
+        className={cn(
+          "flex gap-0 md:gap-3 overflow-hidden",
+          // Dynamic viewport height avoids the iOS Safari address-bar gap.
+          "h-[calc(100dvh-9rem)] sm:h-[calc(100dvh-11rem)] md:h-[calc(100dvh-13rem)]",
+          "min-h-[480px]",
+        )}
+      >
+        {/* ═════════════ LIST PANE ═════════════ */}
+        <aside
+          className={cn(
+            "bg-card-bg md:rounded-xl shadow-sm overflow-hidden flex flex-col",
+            "w-full md:w-[300px] lg:w-[340px] md:shrink-0",
+            !showListPane && "hidden",
+          )}
+          aria-label="قائمة المحادثات"
+        >
           <FilterTabs
             scope={scope}
             setScope={setScope}
@@ -357,16 +426,32 @@ function WhatsAppInboxInner() {
             search={search}
             setSearch={setSearch}
             loading={data.loadingList}
-            onSelect={(phone) => {
-              setShowNew(false);
-              data.setSelectedPhone(phone);
-            }}
+            onSelect={openThread}
           />
         </aside>
 
-        {/* Active conversation */}
-        <section className="bg-card-bg rounded-xl shadow-sm overflow-hidden flex">
+        {/* ═════════════ THREAD PANE ═════════════ */}
+        <section
+          className={cn(
+            "bg-card-bg md:rounded-xl shadow-sm overflow-hidden flex flex-1 min-w-0",
+            !showThreadPane && "hidden",
+          )}
+          aria-label="المحادثة النشطة"
+        >
           <div className="flex-1 min-w-0 flex flex-col">
+            {/* Mobile-only back button appears above every thread state */}
+            {isMobile && (showNew || active) && (
+              <button
+                type="button"
+                onClick={backToList}
+                className="tap-44 md:hidden inline-flex items-center gap-1.5 px-3 self-start text-sm text-primary font-medium"
+                aria-label="رجوع إلى قائمة المحادثات"
+              >
+                <ArrowRight size={16} className="rotate-180" />
+                <span>قائمة المحادثات</span>
+              </button>
+            )}
+
             {showNew ? (
               <NewMessagePane
                 to={newTo}
@@ -386,7 +471,16 @@ function WhatsAppInboxInner() {
                   setShowNew(false);
                   setNewTo("");
                 }}
-                onCancel={() => setShowNew(false)}
+                onCancel={() => {
+                  setShowNew(false);
+                  if (isMobile) {
+                    try {
+                      window.history.back();
+                    } catch {
+                      /* noop */
+                    }
+                  }
+                }}
               />
             ) : active ? (
               <ActiveConversation
@@ -419,19 +513,34 @@ function WhatsAppInboxInner() {
             )}
           </div>
 
-          {/* Contact details drawer */}
+          {/* Inline details drawer — desktop only (≥ lg) */}
           {active && showDetails && !showNew && (
             <ContactPanel
+              variant="inline"
               phone={active.contactPhone}
               onClose={() => setShowDetails(false)}
               onChange={() => {
                 data.loadList();
                 if (data.selectedPhone) data.loadMessages(data.selectedPhone);
               }}
+              className="hidden lg:flex"
             />
           )}
         </section>
       </div>
+
+      {/* Overlay details — mobile + tablet (< lg) */}
+      {active && showDetails && !showNew && isBelowLg && (
+        <ContactPanel
+          variant="overlay"
+          phone={active.contactPhone}
+          onClose={() => setShowDetails(false)}
+          onChange={() => {
+            data.loadList();
+            if (data.selectedPhone) data.loadMessages(data.selectedPhone);
+          }}
+        />
+      )}
 
       {templateModalOpen && (
         <TemplateSendModal
@@ -489,7 +598,7 @@ function ActiveConversation({
         setShowDetails={setShowDetails}
         onChange={onConversationChanged}
       />
-      <div className="flex-1 overflow-y-auto p-4 bg-gray-50/60 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-gray-50/60 scrollbar-thin">
         {loadingMessages && messages.length === 0 ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 size={24} className="animate-spin text-primary" />
@@ -532,9 +641,9 @@ function ActiveConversation({
 // ───────────────── Empty state ─────────────────
 function EmptyState() {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8 gap-3 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-green-50 border border-green-200 flex items-center justify-center">
-        <MessageCircle size={32} className="text-green-500" />
+    <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-6 sm:p-8 gap-3 text-center">
+      <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-green-50 border border-green-200 flex items-center justify-center">
+        <MessageCircle size={30} className="text-green-500" />
       </div>
       <div>
         <div className="text-gray-600 font-medium text-sm">

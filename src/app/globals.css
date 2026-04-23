@@ -83,6 +83,77 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-start {
+    padding-inline-start: env(safe-area-inset-right);
+  }
+  .safe-end {
+    padding-inline-end: env(safe-area-inset-left);
+  }
+  .safe-x {
+    padding-inline-start: env(safe-area-inset-right);
+    padding-inline-end: env(safe-area-inset-left);
+  }
+  .pb-safe {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 0.25rem);
+  }
+}
+
+/* ══════════════════════════════════════════════
+   Dynamic viewport height — handles iOS Safari's
+   shrinking/expanding address bar so the Composer
+   never disappears behind browser chrome.
+   Ref: https://web.dev/viewport-units/
+   ══════════════════════════════════════════════ */
+.h-dvh-screen {
+  height: 100vh; /* fallback for older browsers */
+  height: 100dvh;
+}
+
+.min-h-dvh-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.max-h-dvh {
+  max-height: 100vh;
+  max-height: 100dvh;
+}
+
+/* ══════════════════════════════════════════════
+   WCAG 2.5.5 Target Size (Enhanced, Level AAA)
+   All interactive controls ≥ 44×44 CSS px, with
+   touch-action tuned to avoid double-tap zoom lag
+   on mobile.
+   ══════════════════════════════════════════════ */
+.tap-44 {
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+}
+
+/* Hide native scrollbar while keeping scroll — used for
+   horizontally scrollable pill rows on narrow screens. */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Respect user motion preferences (WCAG 2.3.3). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* iOS Safari auto-zooms on form fields whose font-size is below 16px.
@@ -97,13 +168,27 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 /* ══════════════════════════════════════════════
-   Foldable Devices Support (Samsung Fold, etc.)
-   ISO 9241-210 / WCAG 2.1 AA compliant
+   Foldable & Ultra-Narrow Devices Support
+   Galaxy Z Fold outer (280×653 cover display),
+   Galaxy Z Fold inner (≈653×882), Surface Duo,
+   iPhone SE / Mini, etc.
+   Compliant with ISO 9241-210 & WCAG 2.1 AA.
    ══════════════════════════════════════════════ */
 
-@media (min-width: 280px) and (max-width: 320px) {
+/* Galaxy Fold outer display (≤ 320px) — extreme narrow */
+@media (max-width: 320px) {
   body {
     font-size: 13px;
+  }
+  .hide-xs {
+    display: none !important;
+  }
+}
+
+/* Compact phones (321–374px) — iPhone SE portrait */
+@media (min-width: 321px) and (max-width: 374px) {
+  .hide-compact {
+    display: none !important;
   }
 }
 
@@ -125,8 +210,16 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
 }
 
+/* Galaxy Z Fold5/6 inner display — unfolded portrait 344×882 */
 @media screen and (device-width: 344px) and (device-height: 882px) {
   body {
     font-size: 13px;
+  }
+}
+
+/* Landscape phones with very short height — keep sticky bars slim */
+@media (max-height: 480px) and (orientation: landscape) {
+  .short-landscape-hide {
+    display: none !important;
   }
 }

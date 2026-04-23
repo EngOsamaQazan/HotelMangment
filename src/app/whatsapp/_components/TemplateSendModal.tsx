@@ -34,24 +34,32 @@ export function TemplateSendModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 sm:p-4"
       onClick={(e) => {
         if (e.currentTarget === e.target) onClose();
       }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="tpl-modal-title"
     >
       <form
         onSubmit={submit}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4"
+        className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-xl shadow-2xl p-4 sm:p-6 space-y-4 max-h-[92dvh] overflow-y-auto pb-[calc(1rem+env(safe-area-inset-bottom))]"
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FileText size={22} className="text-primary" />
-            <h3 className="text-lg font-bold text-gray-800">إرسال قالب معتمد</h3>
+            <h3
+              id="tpl-modal-title"
+              className="text-lg font-bold text-gray-800"
+            >
+              إرسال قالب معتمد
+            </h3>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-gray-100 text-gray-500"
+            className="tap-44 p-2 rounded-lg hover:bg-gray-100 text-gray-500"
             aria-label="إغلاق"
           >
             <X size={18} />
@@ -105,14 +113,14 @@ export function TemplateSendModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 text-sm"
+            className="tap-44 px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 text-sm"
           >
             إلغاء
           </button>
           <button
             type="submit"
             disabled={sending || !current || !to.trim()}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 text-sm"
+            className="tap-44 flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 text-sm"
           >
             {sending ? (
               <Loader2 size={14} className="animate-spin" />
