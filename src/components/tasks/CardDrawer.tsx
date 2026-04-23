@@ -183,20 +183,26 @@ export function CardDrawer({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="تفاصيل البطاقة"
     >
-      <div className="bg-white w-full max-w-2xl h-full shadow-xl flex flex-col animate-in slide-in-from-left duration-200">
-        <div className="px-3 sm:px-5 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between gap-2 sm:gap-3">
+      <div className="bg-white w-full max-w-2xl h-[100dvh] shadow-xl flex flex-col animate-in slide-in-from-left duration-200">
+        <div
+          className="px-3 sm:px-5 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between gap-2 sm:gap-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]"
+        >
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-gray-500 truncate">
+            <p className="text-[11px] sm:text-xs text-gray-500 truncate">
               {card ? `${card.board.name} • ${card.column.name}` : "..."}
             </p>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
             <button
               onClick={openTaskChat}
               disabled={openingChat}
               title="فتح محادثة البطاقة"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-medium text-xs transition-colors disabled:opacity-60"
+              aria-label="فتح محادثة البطاقة"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 min-h-[36px] rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-medium text-xs transition-colors disabled:opacity-60 touch-manipulation"
             >
               {openingChat ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -209,14 +215,16 @@ export function CardDrawer({
               <button
                 onClick={del}
                 title="حذف"
-                className="p-1.5 rounded-lg hover:bg-red-50 text-red-600 transition-colors"
+                aria-label="حذف البطاقة"
+                className="p-2 min-h-[36px] min-w-[36px] rounded-lg hover:bg-red-50 text-red-600 transition-colors inline-flex items-center justify-center touch-manipulation"
               >
                 <Trash2 size={18} />
               </button>
             )}
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-500 transition-colors"
+              aria-label="إغلاق"
+              className="p-2 min-h-[36px] min-w-[36px] rounded-lg hover:bg-gray-200 text-gray-500 transition-colors inline-flex items-center justify-center touch-manipulation"
             >
               <X size={20} />
             </button>
@@ -224,11 +232,16 @@ export function CardDrawer({
         </div>
 
         {loading || !card ? (
-          <div className="flex-1 flex items-center justify-center">
+          <div
+            className="flex-1 flex items-center justify-center"
+            role="status"
+            aria-live="polite"
+          >
             <Loader2 size={32} className="animate-spin text-primary" />
+            <span className="sr-only">جاري التحميل</span>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">
             {card.maintenance && (
               <MaintenanceBanner maintenance={card.maintenance} />
             )}
@@ -287,7 +300,11 @@ export function CardDrawer({
             </div>
 
             {/* Tabs */}
-            <div className="border-b border-gray-100 px-3 sm:px-6 flex gap-1 sticky top-0 bg-white z-10 overflow-x-auto">
+            <div
+              role="tablist"
+              aria-label="أقسام البطاقة"
+              className="border-b border-gray-100 px-3 sm:px-6 flex gap-1 sticky top-0 bg-white z-10 overflow-x-auto no-scrollbar"
+            >
               {[
                 { k: "details", label: "التفاصيل", icon: Paperclip },
                 { k: "checklist", label: `قائمة مهام (${card.checklist.length})`, icon: CheckSquare },
@@ -296,15 +313,17 @@ export function CardDrawer({
               ].map((t) => (
                 <button
                   key={t.k}
+                  role="tab"
+                  aria-selected={tab === t.k}
                   onClick={() => setTab(t.k as Tab)}
                   className={cn(
-                    "px-2.5 sm:px-3 py-2.5 text-xs sm:text-sm border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0",
+                    "px-2.5 sm:px-3 py-2.5 min-h-[40px] text-xs sm:text-sm border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 touch-manipulation",
                     tab === t.k
                       ? "border-primary text-primary font-semibold"
                       : "border-transparent text-gray-500 hover:text-gray-700",
                   )}
                 >
-                  <t.icon size={14} />
+                  <t.icon size={14} aria-hidden="true" />
                   {t.label}
                 </button>
               ))}
@@ -463,12 +482,13 @@ function DueDateButton({
         {value ? formatShortDate(value) : "تاريخ استحقاق"}
       </button>
       {open && (
-        <div className="absolute top-full mt-1 start-0 z-20 bg-white border border-gray-200 rounded-lg shadow-lg p-3 space-y-2 w-64">
+        <div className="absolute top-full mt-1 start-0 z-20 bg-white border border-gray-200 rounded-lg shadow-lg p-3 space-y-2 w-[min(16rem,calc(100vw-2rem))]">
           <input
             type="datetime-local"
             value={local}
             onChange={(e) => setLocal(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm"
+            aria-label="تاريخ ووقت الاستحقاق"
+            className="w-full border border-gray-200 rounded-lg px-2 py-2 min-h-[40px] text-sm"
           />
           <div className="flex gap-2">
             <button
@@ -477,7 +497,7 @@ function DueDateButton({
                 onChange(local ? new Date(local).toISOString() : null);
                 setOpen(false);
               }}
-              className="flex-1 bg-primary text-white text-xs py-1.5 rounded-lg"
+              className="flex-1 bg-primary text-white text-xs py-2 min-h-[36px] rounded-lg touch-manipulation"
             >
               حفظ
             </button>
@@ -488,7 +508,7 @@ function DueDateButton({
                   onChange(null);
                   setOpen(false);
                 }}
-                className="flex-1 bg-gray-100 text-gray-700 text-xs py-1.5 rounded-lg"
+                className="flex-1 bg-gray-100 text-gray-700 text-xs py-2 min-h-[36px] rounded-lg touch-manipulation"
               >
                 مسح
               </button>
@@ -753,19 +773,24 @@ function ChecklistSection({
         ))}
       </ul>
       <form onSubmit={addItem} className="flex gap-2">
+        <label htmlFor="checklist-add" className="sr-only">
+          أضف عنصراً للقائمة
+        </label>
         <input
+          id="checklist-add"
           type="text"
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="أضف عنصراً..."
-          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
         />
         <button
           type="submit"
           disabled={busy || !text.trim()}
-          className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm disabled:opacity-50 flex items-center gap-1"
+          className="tap-44 px-3 sm:px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm disabled:opacity-50 flex items-center gap-1 shrink-0 touch-manipulation"
         >
-          <Plus size={14} /> إضافة
+          <Plus size={14} />
+          <span className="hidden sm:inline">إضافة</span>
         </button>
       </form>
     </div>
@@ -833,17 +858,22 @@ function CommentsSection({
         ))}
       </ul>
       <form onSubmit={submit} className="flex gap-2">
+        <label htmlFor="new-comment" className="sr-only">
+          اكتب تعليقاً
+        </label>
         <input
+          id="new-comment"
           type="text"
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="اكتب تعليقاً..."
-          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
         />
         <button
           type="submit"
           disabled={busy || !text.trim()}
-          className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm disabled:opacity-50 flex items-center gap-1"
+          aria-label="إرسال"
+          className="tap-44 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm disabled:opacity-50 flex items-center gap-1 shrink-0 touch-manipulation"
         >
           <Send size={14} />
         </button>

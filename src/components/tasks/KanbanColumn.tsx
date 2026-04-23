@@ -45,7 +45,7 @@ export function KanbanColumn({
   });
 
   return (
-    <div className="w-[85vw] max-w-[288px] sm:w-72 shrink-0 snap-start md:snap-align-none flex flex-col bg-gray-100 rounded-lg max-h-[70vh] md:max-h-[calc(100vh-12rem)]">
+    <div className="kanban-col-w shrink-0 snap-start md:snap-align-none flex flex-col bg-gray-100 rounded-lg max-h-[70dvh] md:max-h-[calc(100dvh-12rem)]">
       <div className="px-3 py-2.5 flex items-center justify-between gap-2 border-b border-gray-200">
         {editing ? (
           <input
@@ -83,8 +83,9 @@ export function KanbanColumn({
           {canCreateCard && (
             <button
               onClick={() => setAdding(true)}
-              className="p-1 rounded hover:bg-white text-gray-500 hover:text-primary transition-colors"
+              className="p-2 min-h-[36px] min-w-[36px] rounded hover:bg-white text-gray-500 hover:text-primary transition-colors touch-manipulation inline-flex items-center justify-center"
               title="إضافة بطاقة"
+              aria-label="إضافة بطاقة"
             >
               <Plus size={16} />
             </button>
@@ -92,7 +93,10 @@ export function KanbanColumn({
           {showMenu && (
             <button
               onClick={() => setMenu((m) => !m)}
-              className="p-1 rounded hover:bg-white text-gray-500"
+              className="p-2 min-h-[36px] min-w-[36px] rounded hover:bg-white text-gray-500 touch-manipulation inline-flex items-center justify-center"
+              aria-label="خيارات العمود"
+              aria-haspopup="menu"
+              aria-expanded={menu}
             >
               <MoreVertical size={16} />
             </button>
@@ -128,7 +132,7 @@ export function KanbanColumn({
       <div
         ref={setNodeRef}
         className={cn(
-          "flex-1 p-2 space-y-2 overflow-y-auto transition-colors",
+          "flex-1 p-2 space-y-2 overflow-y-auto overscroll-contain scrollbar-thin transition-colors",
           isOver && "bg-primary/5 ring-2 ring-primary/20 ring-inset",
         )}
       >
@@ -157,7 +161,7 @@ export function KanbanColumn({
       {!adding && canCreateCard && (
         <button
           onClick={() => setAdding(true)}
-          className="px-3 py-2 text-xs text-gray-500 hover:bg-gray-200 transition-colors flex items-center gap-1 border-t border-gray-200"
+          className="px-3 py-2.5 min-h-[40px] text-xs text-gray-500 hover:bg-gray-200 active:bg-gray-300 transition-colors flex items-center justify-center gap-1 border-t border-gray-200 touch-manipulation"
         >
           <Plus size={14} /> إضافة بطاقة
         </button>

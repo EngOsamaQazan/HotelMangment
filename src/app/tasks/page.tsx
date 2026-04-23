@@ -78,20 +78,20 @@ export default function TasksBoardsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-primary">
+    <div className="space-y-4 sm:space-y-6 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-primary truncate">
             لوحات المهام
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="hide-xs text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1 line-clamp-2">
             نظّم فريقك بطريقة كانبان مع تعيين، أولويات، وتواريخ استحقاق.
           </p>
         </div>
         <Can permission="tasks.boards:create">
           <button
             onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium w-full sm:w-auto justify-center"
+            className="tap-44 flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark active:scale-[0.98] transition-[transform,background] text-sm font-medium w-full sm:w-auto justify-center shrink-0"
           >
             <Plus size={18} />
             لوحة جديدة
@@ -99,28 +99,34 @@ export default function TasksBoardsPage() {
         </Can>
       </div>
 
-      <div className="relative max-w-md">
+      <div className="relative w-full sm:max-w-md">
         <Search
           size={16}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
         />
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="ابحث في اللوحات..."
-          className="w-full bg-card-bg border border-gray-200 rounded-lg ps-9 pe-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          aria-label="ابحث في اللوحات"
+          className="w-full bg-card-bg border border-gray-200 rounded-lg ps-9 pe-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
         />
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20">
+        <div
+          className="flex items-center justify-center py-20"
+          role="status"
+          aria-live="polite"
+        >
           <Loader2 size={32} className="animate-spin text-primary" />
+          <span className="sr-only">جاري التحميل</span>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-card-bg rounded-xl shadow-sm p-10 flex flex-col items-center justify-center text-gray-400">
+        <div className="bg-card-bg rounded-xl shadow-sm p-6 sm:p-10 flex flex-col items-center justify-center text-gray-400 text-center">
           <KanbanSquare size={48} className="mb-3 opacity-50" />
-          <p className="mb-4">
+          <p className="mb-4 text-sm sm:text-base">
             {boards.length === 0
               ? "لم تُنشئ أي لوحة بعد"
               : "لا نتائج مطابقة"}
@@ -129,7 +135,7 @@ export default function TasksBoardsPage() {
             <Can permission="tasks.boards:create">
               <button
                 onClick={() => setShowForm(true)}
-                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm"
+                className="tap-44 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm"
               >
                 ابدأ بإنشاء لوحة
               </button>
@@ -137,7 +143,7 @@ export default function TasksBoardsPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="boards-grid gap-3 sm:gap-4">
           {filtered.map((b) => (
             <BoardCard key={b.id} board={b} />
           ))}
@@ -277,13 +283,19 @@ function NewBoardModal({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="new-board-title"
     >
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg overflow-hidden max-h-[95vh] sm:max-h-[90vh] flex flex-col">
-        <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 flex items-center justify-between border-b border-gray-100">
-          <h3 className="text-lg font-bold text-gray-800">لوحة جديدة</h3>
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg overflow-hidden max-h-[95dvh] sm:max-h-[90dvh] flex flex-col pb-[env(safe-area-inset-bottom)] sm:pb-0">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 flex items-center justify-between border-b border-gray-100 sticky top-0 z-10">
+          <h3 id="new-board-title" className="text-base sm:text-lg font-bold text-gray-800">
+            لوحة جديدة
+          </h3>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors"
+            aria-label="إغلاق"
+            className="tap-44 p-1.5 rounded-lg hover:bg-gray-200 transition-colors"
           >
             <X size={20} className="text-gray-500" />
           </button>
@@ -329,14 +341,16 @@ function NewBoardModal({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               اللون
             </label>
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2 flex-wrap" role="radiogroup" aria-label="اختيار لون اللوحة">
               {PALETTE.map((c) => (
                 <button
                   key={c}
                   type="button"
                   onClick={() => setColor(c)}
+                  role="radio"
+                  aria-checked={color === c}
                   className={cn(
-                    "w-8 h-8 rounded-full border-2 transition-transform",
+                    "w-10 h-10 sm:w-9 sm:h-9 rounded-full border-2 transition-transform touch-manipulation",
                     color === c ? "scale-110 border-gray-800" : "border-white",
                   )}
                   style={{ background: c }}
@@ -394,14 +408,14 @@ function NewBoardModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 sm:px-6 py-2.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors text-sm"
+              className="tap-44 px-4 sm:px-6 py-2.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors text-sm"
             >
               إلغاء
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors font-medium text-sm disabled:opacity-50"
+              className="tap-44 flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark active:scale-[0.99] transition-[transform,background] font-medium text-sm disabled:opacity-50"
             >
               {submitting ? (
                 <Loader2 size={18} className="animate-spin" />

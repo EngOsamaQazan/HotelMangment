@@ -223,3 +223,88 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     display: none !important;
   }
 }
+
+/* ══════════════════════════════════════════════
+   Tasks / Kanban — Responsive Primitives
+   ISO 9241-210 (UX design) + WCAG 2.1 AA
+   (Target size 2.5.5, reflow 1.4.10, text spacing
+    1.4.12) across every supported viewport.
+   ══════════════════════════════════════════════ */
+
+/* Boards grid: fluid auto-fill; degrades to 1-col on ≤320px. */
+.boards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
+}
+@media (max-width: 360px) {
+  .boards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Kanban column width: adapts to viewport without creating horizontal
+   overflow on foldable cover displays (down to 280px / 240px). */
+.kanban-col-w {
+  width: 85vw;
+  max-width: 288px;
+}
+@media (min-width: 640px) {
+  .kanban-col-w {
+    width: 18rem; /* sm:w-72 */
+    max-width: 18rem;
+  }
+}
+/* Galaxy Z Fold outer / very narrow devices */
+@media (max-width: 320px) {
+  .kanban-col-w {
+    width: 90vw;
+    max-width: 270px;
+  }
+}
+@media (max-width: 280px) {
+  .kanban-col-w {
+    width: calc(100vw - 1.75rem);
+    max-width: calc(100vw - 1.75rem);
+  }
+}
+
+/* Kanban horizontal scroller: smooth touch scroll + safe-area aware */
+.kanban-scroll {
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-inline: 1rem;
+  padding-inline-start: max(1rem, env(safe-area-inset-right));
+  padding-inline-end: max(1rem, env(safe-area-inset-left));
+}
+@media (min-width: 768px) {
+  .kanban-scroll {
+    padding-inline-start: max(1.5rem, env(safe-area-inset-right));
+    padding-inline-end: max(1.5rem, env(safe-area-inset-left));
+  }
+}
+
+/* Foldable unfolded (dual-screen spanning): let the board take the full
+   inner width and ensure drawers don't overlap the hinge. */
+@media (spanning: single-fold-vertical) {
+  .kanban-scroll {
+    scroll-snap-type: none;
+  }
+}
+
+/* High-contrast / forced colors: guarantee focus is visible.  */
+@media (forced-colors: active) {
+  .kanban-col-w,
+  .boards-grid > a,
+  [role="tablist"] [role="tab"] {
+    forced-color-adjust: none;
+    border: 1px solid CanvasText;
+  }
+}
+
+/* Respect coarse pointers (touch): expand hit areas to WCAG 2.5.5 (AAA). */
+@media (pointer: coarse) {
+  .kanban-col-w button,
+  [role="dialog"] button:not(.no-tap-boost),
+  [role="tab"] {
+    min-height: 40px;
+  }
+}

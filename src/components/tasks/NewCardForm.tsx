@@ -52,37 +52,49 @@ export function NewCardForm({ boardId, columnId, onClose, onCreated }: Props) {
       onSubmit={submit}
       className="bg-white rounded-lg shadow border border-primary/30 p-2 space-y-2"
     >
+      <label htmlFor="new-card-title" className="sr-only">
+        عنوان البطاقة
+      </label>
       <input
+        id="new-card-title"
         autoFocus
         type="text"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="عنوان البطاقة..."
-        className="w-full text-sm border-0 focus:outline-none focus:ring-0 p-1"
+        className="w-full text-sm border-0 focus:outline-none focus:ring-0 p-2"
       />
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 flex-wrap">
+        <label htmlFor="new-card-priority" className="sr-only">
+          الأولوية
+        </label>
         <select
+          id="new-card-priority"
           value={priority}
           onChange={(e) => setPriority(e.target.value as TaskPriority)}
-          className="text-xs border border-gray-200 rounded px-1.5 py-1 focus:outline-none"
+          className="text-xs border border-gray-200 rounded px-1.5 py-1.5 min-h-[32px] focus:outline-none flex-1 min-w-0"
         >
           <option value="low">منخفضة</option>
           <option value="med">متوسطة</option>
           <option value="high">مرتفعة</option>
           <option value="urgent">عاجلة</option>
         </select>
+        <label htmlFor="new-card-due" className="sr-only">
+          تاريخ الاستحقاق
+        </label>
         <input
+          id="new-card-due"
           type="date"
           value={dueAt}
           onChange={(e) => setDueAt(e.target.value)}
-          className="text-xs border border-gray-200 rounded px-1.5 py-1 focus:outline-none"
+          className="text-xs border border-gray-200 rounded px-1.5 py-1.5 min-h-[32px] focus:outline-none flex-1 min-w-0"
         />
       </div>
       <div className="flex items-center gap-1">
         <button
           type="submit"
           disabled={busy || !title.trim()}
-          className="flex-1 bg-primary text-white text-xs py-1.5 rounded-lg hover:bg-primary-dark disabled:opacity-50 flex items-center justify-center gap-1"
+          className="flex-1 bg-primary text-white text-xs py-2 min-h-[36px] rounded-lg hover:bg-primary-dark active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-1 touch-manipulation"
         >
           {busy ? (
             <Loader2 size={12} className="animate-spin" />
@@ -94,7 +106,8 @@ export function NewCardForm({ boardId, columnId, onClose, onCreated }: Props) {
         <button
           type="button"
           onClick={onClose}
-          className="px-2 py-1.5 text-xs text-gray-500 hover:bg-gray-100 rounded-lg"
+          aria-label="إلغاء"
+          className="px-3 py-2 min-h-[36px] min-w-[36px] text-xs text-gray-500 hover:bg-gray-100 rounded-lg touch-manipulation inline-flex items-center justify-center"
         >
           <X size={14} />
         </button>

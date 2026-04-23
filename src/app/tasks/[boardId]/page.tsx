@@ -256,44 +256,52 @@ export default function BoardPage({
   const accent = board.color || "#1e3a8a";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4 pb-[calc(env(safe-area-inset-bottom)+0.25rem)]">
       {/* Top bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="flex items-start gap-2 min-w-0">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 sm:gap-3">
+        <div className="flex items-start gap-1.5 sm:gap-2 min-w-0">
           <Link
             href="/tasks"
-            className="mt-1 p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0"
+            aria-label="العودة للّوحات"
+            className="tap-44 mt-0.5 p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0"
           >
             <ArrowRight size={18} />
           </Link>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span
                 className="inline-block w-3 h-3 rounded-full shrink-0"
                 style={{ background: accent }}
+                aria-hidden="true"
               />
-              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-primary truncate">
+              <h1 className="text-base sm:text-xl md:text-2xl font-bold text-primary truncate">
                 {board.name}
               </h1>
             </div>
             {board.description && (
-              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+              <p className="hide-xs text-[11px] sm:text-xs text-gray-500 mt-0.5 line-clamp-2">
                 {board.description}
               </p>
             )}
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden text-xs w-full md:w-auto">
+          <div
+            role="tablist"
+            aria-label="أقسام اللوحة"
+            className="flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden text-xs sm:text-sm w-full md:w-auto"
+          >
             {(["board", "members", "labels"] as const).map((t) => (
               <button
                 key={t}
+                role="tab"
+                aria-selected={tab === t}
                 onClick={() => setTab(t)}
                 className={cn(
-                  "flex-1 md:flex-none px-3 py-2 transition-colors",
+                  "flex-1 md:flex-none px-2.5 sm:px-3 py-2 min-h-[40px] transition-colors whitespace-nowrap touch-manipulation",
                   tab === t
                     ? "bg-primary text-white"
-                    : "text-gray-600 hover:bg-gray-50",
+                    : "text-gray-600 hover:bg-gray-50 active:bg-gray-100",
                 )}
               >
                 {t === "board" && "اللوحة"}
@@ -310,9 +318,13 @@ export default function BoardPage({
           {/* Filters */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:flex-wrap bg-card-bg rounded-lg p-2 shadow-sm">
             <span className="text-xs text-gray-500 flex items-center gap-1 px-2 shrink-0">
-              <Filter size={12} /> فلاتر:
+              <Filter size={12} aria-hidden="true" /> فلاتر:
             </span>
+            <label className="sr-only" htmlFor="assignee-filter">
+              فلتر المُسندين
+            </label>
             <select
+              id="assignee-filter"
               value={String(assigneeFilter)}
               onChange={(e) => {
                 const v = e.target.value;
@@ -320,7 +332,7 @@ export default function BoardPage({
                   v === "all" ? "all" : v === "me" ? "me" : Number(v),
                 );
               }}
-              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none bg-white min-w-0 flex-1 sm:flex-none"
+              className="text-xs sm:text-sm border border-gray-200 rounded-lg px-2 py-2 min-h-[40px] focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white min-w-0 w-full sm:w-auto sm:flex-none"
             >
               <option value="all">كل المُسندين</option>
               <option value="me">المُسندة إليّ</option>
@@ -330,14 +342,18 @@ export default function BoardPage({
                 </option>
               ))}
             </select>
+            <label className="sr-only" htmlFor="label-filter">
+              فلتر التسميات
+            </label>
             <select
+              id="label-filter"
               value={String(labelFilter)}
               onChange={(e) =>
                 setLabelFilter(
                   e.target.value === "all" ? "all" : Number(e.target.value),
                 )
               }
-              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none bg-white min-w-0 flex-1 sm:flex-none"
+              className="text-xs sm:text-sm border border-gray-200 rounded-lg px-2 py-2 min-h-[40px] focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white min-w-0 w-full sm:w-auto sm:flex-none"
             >
               <option value="all">كل التسميات</option>
               {board.labels.map((l) => (
@@ -356,7 +372,7 @@ export default function BoardPage({
             onDragEnd={handleDragEnd}
             onDragCancel={() => setActiveCard(null)}
           >
-            <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 md:-mx-6 md:px-6 snap-x snap-mandatory md:snap-none">
+            <div className="kanban-scroll flex gap-3 overflow-x-auto overscroll-x-contain pb-4 -mx-4 px-4 md:-mx-6 md:px-6 snap-x snap-mandatory md:snap-none scroll-smooth">
               {board.columns.map((col) => (
                 <KanbanColumn
                   key={col.id}
@@ -467,7 +483,7 @@ function AddColumnButton({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="w-[85vw] max-w-[288px] sm:w-72 shrink-0 h-fit bg-white/60 hover:bg-white border border-dashed border-gray-300 rounded-lg p-3 text-sm text-gray-500 hover:text-primary transition-colors flex items-center justify-center gap-2"
+        className="kanban-col-w snap-start shrink-0 h-fit min-h-[48px] bg-white/60 hover:bg-white border border-dashed border-gray-300 rounded-lg p-3 text-sm text-gray-500 hover:text-primary transition-colors flex items-center justify-center gap-2 touch-manipulation"
       >
         <Plus size={16} /> عمود جديد
       </button>
@@ -476,7 +492,7 @@ function AddColumnButton({
   return (
     <form
       onSubmit={submit}
-      className="w-[85vw] max-w-[288px] sm:w-72 shrink-0 h-fit bg-white border border-gray-200 rounded-lg p-3 space-y-2"
+      className="kanban-col-w snap-start shrink-0 h-fit bg-white border border-gray-200 rounded-lg p-3 space-y-2"
     >
       <input
         autoFocus
@@ -490,14 +506,14 @@ function AddColumnButton({
         <button
           type="submit"
           disabled={busy || !name.trim()}
-          className="flex-1 bg-primary text-white text-xs py-1.5 rounded-lg hover:bg-primary-dark disabled:opacity-50"
+          className="flex-1 bg-primary text-white text-xs py-2 min-h-[36px] rounded-lg hover:bg-primary-dark disabled:opacity-50 touch-manipulation"
         >
           {busy ? "..." : "إضافة"}
         </button>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="px-3 text-xs text-gray-500 hover:bg-gray-100 rounded-lg"
+          className="px-3 py-2 min-h-[36px] text-xs text-gray-500 hover:bg-gray-100 rounded-lg touch-manipulation"
         >
           إلغاء
         </button>
@@ -596,12 +612,16 @@ function MembersTab({
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 shrink-0">
+                <label className="sr-only" htmlFor={`role-${m.user.id}`}>
+                  دور {m.user.name}
+                </label>
                 <select
+                  id={`role-${m.user.id}`}
                   value={m.role}
                   onChange={(e) => changeRole(m.user.id, e.target.value)}
                   disabled={m.role === "owner"}
-                  className="text-xs border border-gray-200 rounded px-1.5 py-1 disabled:opacity-60"
+                  className="text-xs border border-gray-200 rounded px-1.5 py-1.5 min-h-[32px] disabled:opacity-60"
                 >
                   <option value="owner">مالك</option>
                   <option value="editor">محرر</option>
@@ -610,7 +630,7 @@ function MembersTab({
                 {m.role !== "owner" && (
                   <button
                     onClick={() => removeMember(m.user.id)}
-                    className="text-xs text-red-600 hover:bg-red-50 px-2 py-1 rounded"
+                    className="text-xs text-red-600 hover:bg-red-50 px-2 py-1.5 min-h-[32px] rounded touch-manipulation"
                   >
                     إزالة
                   </button>
