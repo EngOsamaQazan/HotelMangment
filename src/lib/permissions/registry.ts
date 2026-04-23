@@ -426,6 +426,7 @@ export const RESOURCES: ResourceDef[] = [
       "/api/whatsapp/profile/picture",
       "/api/whatsapp/register",
       "/api/whatsapp/conversations",
+      "/api/whatsapp/conversations/counts",
       "/api/whatsapp/conversations/[phone]",
       "/api/whatsapp/conversations/[phone]/assign",
       "/api/whatsapp/conversations/[phone]/claim",

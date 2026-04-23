@@ -65,24 +65,17 @@ export function useInboxData(params: {
 
   const loadCounts = useCallback(async () => {
     try {
-      const build = async (s: ScopeFilter) => {
-        const qs = new URLSearchParams();
-        qs.set("scope", s);
-        qs.set("status", "open");
-        qs.set("limit", "1");
-        const r = await fetch(`/api/whatsapp/conversations?${qs}`, {
-          cache: "no-store",
-        });
-        if (!r.ok) return 0;
-        const d = (await r.json()) as { conversations: unknown[] };
-        return d.conversations.length;
+      const r = await fetch(
+        "/api/whatsapp/conversations/counts?status=open",
+        { cache: "no-store" },
+      );
+      if (!r.ok) return;
+      const d = (await r.json()) as {
+        all: number;
+        mine: number;
+        unassigned: number;
       };
-      const [all, mine, unassigned] = await Promise.all([
-        build("all"),
-        build("mine"),
-        build("unassigned"),
-      ]);
-      setCounts({ all, mine, unassigned });
+      setCounts({ all: d.all, mine: d.mine, unassigned: d.unassigned });
     } catch {
       /* best-effort */
     }
