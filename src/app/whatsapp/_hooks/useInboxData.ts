@@ -27,6 +27,13 @@ export function useInboxData(params: {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loadingList, setLoadingList] = useState(true);
 
+  // Sticky conversations are individually-hydrated rows (via deep-link / push
+  // notification click) that must remain resolvable via `activeConversation`
+  // even when the current filter scope would exclude them from `loadList`.
+  const [stickyConversations, setStickyConversations] = useState<
+    Record<string, ConversationSummary>
+  >({});
+
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -78,6 +85,78 @@ export function useInboxData(params: {
       setCounts({ all: d.all, mine: d.mine, unassigned: d.unassigned });
     } catch {
       /* best-effort */
+    }
+  }, []);
+
+  /**
+   * Fetches a single conversation by phone regardless of the current filter
+   * scope / status, and merges it into `conversations` if not present.
+   *
+   * Used by deep-links (push notification click): the tapped conversation
+   * might be assigned to someone else or resolved, so the inbox filter would
+   * otherwise hide it, leaving `activeConversation` = null and the user on a
+   * dead-end empty state.
+   */
+  const hydrateConversation = useCallback(async (phone: string) => {
+    try {
+      const res = await fetch(
+        `/api/whatsapp/conversations/${encodeURIComponent(phone)}`,
+        { cache: "no-store" },
+      );
+      if (!res.ok) return null;
+      type LastMsg = NonNullable<ConversationSummary["lastMessage"]>;
+      const raw = (await res.json()) as {
+        id: number;
+        contactPhone: string;
+        contact: ConversationSummary["contact"];
+        assignedTo: ConversationSummary["assignedTo"];
+        assignedToUserId: number | null;
+        status: ConversationSummary["status"];
+        priority: ConversationSummary["priority"];
+        isMuted: boolean;
+        unreadCount: number;
+        lastMessageAt: string | null;
+        messages?: LastMsg[];
+      };
+      const summary: ConversationSummary = {
+        id: raw.id,
+        contactPhone: raw.contactPhone,
+        contact: raw.contact
+          ? {
+              id: raw.contact.id,
+              displayName: raw.contact.displayName,
+              nickname: raw.contact.nickname,
+              company: raw.contact.company,
+              tags: raw.contact.tags,
+              isBlocked: raw.contact.isBlocked,
+            }
+          : null,
+        assignedTo: raw.assignedTo,
+        assignedToUserId: raw.assignedToUserId,
+        status: raw.status,
+        priority: raw.priority,
+        isMuted: raw.isMuted,
+        unreadCount: raw.unreadCount,
+        lastMessageAt: raw.lastMessageAt,
+        lastMessage: (raw.messages && raw.messages[0]) || null,
+      };
+      setConversations((prev) => {
+        if (prev.some((c) => c.contactPhone === summary.contactPhone)) {
+          return prev.map((c) =>
+            c.contactPhone === summary.contactPhone ? summary : c,
+          );
+        }
+        return [summary, ...prev];
+      });
+      // Remember it so a subsequent `loadList()` (which replaces the whole
+      // array) can't drop it out from under a selected deep-link.
+      setStickyConversations((prev) => ({
+        ...prev,
+        [summary.contactPhone]: summary,
+      }));
+      return summary;
+    } catch {
+      return null;
     }
   }, []);
 
@@ -170,8 +249,10 @@ export function useInboxData(params: {
   );
 
   const activeConversation = useMemo(
-    () => conversations.find((c) => c.contactPhone === selectedPhone) ?? null,
-    [conversations, selectedPhone],
+    () =>
+      conversations.find((c) => c.contactPhone === selectedPhone) ??
+      (selectedPhone ? (stickyConversations[selectedPhone] ?? null) : null),
+    [conversations, stickyConversations, selectedPhone],
   );
 
   return {
@@ -181,6 +262,7 @@ export function useInboxData(params: {
 
     selectedPhone,
     setSelectedPhone,
+    hydrateConversation,
 
     messages,
     loadingMessages,

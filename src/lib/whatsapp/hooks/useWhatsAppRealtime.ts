@@ -26,6 +26,13 @@ export interface UseWhatsAppRealtimeOptions {
    *  Useful for playing the in-app sound / flashing the tab title without
    *  duplicating logic between the SW and the live tab. */
   onTabPush?: (p: Record<string, unknown>) => void;
+  /** Fires when the Service Worker asks us to open a specific conversation —
+   *  emitted when the user taps a notification while a page tab is already
+   *  open. Implementations should focus/select the given contact phone. */
+  onOpenConversation?: (p: {
+    contactPhone: string | null;
+    url?: string;
+  }) => void;
 }
 
 /**
@@ -88,11 +95,20 @@ export function useWhatsAppRealtime(opts: UseWhatsAppRealtimeOptions) {
     const onMsg = (ev: MessageEvent) => {
       const data = ev.data as
         | { type: "WA_PUSH"; payload: Record<string, unknown> }
-        | { type: "WA_OPEN_CONVERSATION"; contactPhone: string | null }
+        | {
+            type: "WA_OPEN_CONVERSATION";
+            contactPhone: string | null;
+            url?: string;
+          }
         | null;
       if (!data) return;
       if (data.type === "WA_PUSH") {
         cbRef.current.onTabPush?.(data.payload ?? {});
+      } else if (data.type === "WA_OPEN_CONVERSATION") {
+        cbRef.current.onOpenConversation?.({
+          contactPhone: data.contactPhone ?? null,
+          url: data.url,
+        });
       }
     };
     navigator.serviceWorker.addEventListener("message", onMsg);

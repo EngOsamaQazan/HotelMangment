@@ -28,6 +28,19 @@ export async function GET(_req: Request, ctx: Ctx) {
         contact: true,
         assignedTo: { select: { id: true, name: true } },
         assignedBy: { select: { id: true, name: true } },
+        messages: {
+          orderBy: { id: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            direction: true,
+            type: true,
+            body: true,
+            status: true,
+            createdAt: true,
+            isInternalNote: true,
+          },
+        },
         notes: {
           orderBy: { createdAt: "desc" },
           take: 50,

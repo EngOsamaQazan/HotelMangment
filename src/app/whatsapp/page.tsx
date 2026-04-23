@@ -80,13 +80,41 @@ function WhatsAppInboxInner() {
   const data = useInboxData({ scope, status, search });
 
   // ─── Deep link via ?contact=<phone> ───────────────────────
+  // A tap on a Web Push notification lands us here. We must:
+  //   1. Select the phone immediately (thread pane renders instantly).
+  //   2. Hydrate the conversation regardless of the current filter scope —
+  //      otherwise a thread assigned to someone else (or resolved) would
+  //      not appear in `conversations` and `activeConversation` stays null,
+  //      leaving the mobile user on an empty-state dead-end.
+  //   3. On mobile, push a history entry so Back unwinds to the list.
+  //   4. Strip `?contact=...` from the URL once consumed so a refresh / back
+  //      doesn't re-trigger the deep link.
   const searchParams = useSearchParams();
   const deepLinkPhone = searchParams.get("contact");
+  const consumedDeepLinkRef = useRef<string | null>(null);
   useEffect(() => {
     if (!deepLinkPhone) return;
     const normalized = deepLinkPhone.replace(/\D/g, "");
-    if (normalized) data.setSelectedPhone(normalized);
-    // one-shot: don't re-run when the search string stays the same.
+    if (!normalized) return;
+    if (consumedDeepLinkRef.current === normalized) return;
+    consumedDeepLinkRef.current = normalized;
+
+    data.setSelectedPhone(normalized);
+    // Fetch the single conv irrespective of filter, so it shows up.
+    void data.hydrateConversation(normalized);
+
+    // Strip the `contact` query param so the deep-link is one-shot.
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("contact");
+      window.history.replaceState(
+        { waThread: normalized },
+        "",
+        url.pathname + (url.search || "") + url.hash,
+      );
+    } catch {
+      /* noop */
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deepLinkPhone]);
 
@@ -250,6 +278,15 @@ function WhatsAppInboxInner() {
     onTabPush: () => {
       sound.play();
       attention.flash();
+    },
+    onOpenConversation: ({ contactPhone }) => {
+      if (!contactPhone) return;
+      const normalized = contactPhone.replace(/\D/g, "");
+      if (!normalized) return;
+      // Hydrate irrespective of filter so the chosen thread is guaranteed to
+      // resolve on mobile even if it's assigned to someone else.
+      void data.hydrateConversation(normalized);
+      openThread(normalized);
     },
   });
 
@@ -440,7 +477,7 @@ function WhatsAppInboxInner() {
         >
           <div className="flex-1 min-w-0 flex flex-col">
             {/* Mobile-only back button appears above every thread state */}
-            {isMobile && (showNew || active) && (
+            {isMobile && (showNew || active || data.selectedPhone) && (
               <button
                 type="button"
                 onClick={backToList}
@@ -507,6 +544,12 @@ function WhatsAppInboxInner() {
                     data.loadMessages(data.selectedPhone);
                 }}
                 bottomRef={bottomRef}
+              />
+            ) : data.selectedPhone ? (
+              <PendingThreadState
+                phone={data.selectedPhone}
+                loading={data.loadingList || data.loadingMessages}
+                onBack={backToList}
               />
             ) : (
               <EmptyState />
@@ -635,6 +678,66 @@ function ActiveConversation({
         />
       </Can>
     </>
+  );
+}
+
+// ───────────────── Pending thread (deep-link landing) ─────────────────
+/**
+ * Shown on the thread pane when the user tapped a notification (or deep link)
+ * but the conversation row hasn't been merged into `conversations` yet — or
+ * the phone simply doesn't match any existing conversation.
+ *
+ * Critical for mobile: without this, the list pane is hidden AND the thread
+ * pane would fall back to `<EmptyState>` with no back button, trapping the
+ * user on a blank screen.
+ */
+function PendingThreadState({
+  phone,
+  loading,
+  onBack,
+}: {
+  phone: string;
+  loading: boolean;
+  onBack: () => void;
+}) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-6 sm:p-8 gap-3 text-center">
+      {loading ? (
+        <>
+          <Loader2 size={28} className="animate-spin text-primary" />
+          <div>
+            <div className="text-gray-700 font-medium text-sm">
+              جارٍ فتح المحادثة…
+            </div>
+            <div className="text-xs text-gray-400 mt-1" dir="ltr">
+              +{phone}
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-green-50 border border-green-200 flex items-center justify-center">
+            <MessageCircle size={30} className="text-green-500" />
+          </div>
+          <div>
+            <div className="text-gray-700 font-medium text-sm">
+              لا توجد رسائل بعد مع هذا الرقم
+            </div>
+            <div className="text-xs text-gray-400 mt-1" dir="ltr">
+              +{phone}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onBack}
+            className="tap-44 md:hidden mt-2 inline-flex items-center gap-1.5 px-4 rounded-full bg-primary text-white text-sm font-medium"
+          >
+            <ArrowRight size={16} className="rotate-180" />
+            <span>العودة للقائمة</span>
+          </button>
+        </>
+      )}
+    </div>
   );
 }
 

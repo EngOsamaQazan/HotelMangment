@@ -77,6 +77,8 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const targetUrl =
     (event.notification.data && event.notification.data.url) || "/whatsapp";
+  const contactPhone =
+    (event.notification.data && event.notification.data.contactPhone) || null;
 
   event.waitUntil(
     (async () => {
@@ -85,18 +87,17 @@ self.addEventListener("notificationclick", (event) => {
         includeUncontrolled: true,
       });
 
-      // Prefer focusing an already-open /whatsapp tab.
+      // 1) Prefer an already-open /whatsapp inbox tab — focus it and tell the
+      //    React layer which conversation to open (instant, no reload).
       for (const client of allClients) {
         try {
           const url = new URL(client.url);
-          if (url.pathname === "/whatsapp" || url.pathname.startsWith("/whatsapp/")) {
+          if (url.pathname === "/whatsapp") {
             await client.focus();
             client.postMessage({
               type: "WA_OPEN_CONVERSATION",
               url: targetUrl,
-              contactPhone:
-                (event.notification.data && event.notification.data.contactPhone) ||
-                null,
+              contactPhone,
             });
             return;
           }
@@ -105,6 +106,24 @@ self.addEventListener("notificationclick", (event) => {
         }
       }
 
+      // 2) Fall back to any same-origin tab that supports navigation — send
+      //    it to the deep-link URL so the user lands directly on the thread
+      //    (critical on mobile: otherwise we'd leave them on phonebook /
+      //    settings without a conversation list).
+      for (const client of allClients) {
+        if ("navigate" in client) {
+          try {
+            await client.focus();
+            await client.navigate(targetUrl);
+            return;
+          } catch (_) {
+            /* ignore and try next */
+          }
+        }
+      }
+
+      // 3) No open tabs → open a fresh window on the deep-link URL. On mobile
+      //    this launches the PWA shell directly into the conversation.
       if (self.clients.openWindow) {
         await self.clients.openWindow(targetUrl);
       }
