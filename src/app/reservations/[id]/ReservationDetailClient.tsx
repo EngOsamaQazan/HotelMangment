@@ -26,6 +26,7 @@ import {
   Undo2,
 } from "lucide-react";
 import { NumberInput } from "@/components/ui/NumberInput";
+import { CombinedPhoneInput } from "@/components/ui/CombinedPhoneInput";
 import { CountrySelect } from "@/components/ui/CountrySelect";
 import { Can } from "@/components/Can";
 import { WhatsAppQuickSendButton } from "@/components/whatsapp/QuickSendButton";
@@ -1222,11 +1223,11 @@ export default function ReservationDetailClient({ id }: { id: string }) {
                 <label className="block text-sm font-medium text-gray-600 mb-1.5">
                   رقم الهاتف
                 </label>
-                <input
-                  type="tel"
+                <CombinedPhoneInput
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
+                  onChange={setPhone}
+                  placeholder="07XXXXXXXX"
+                  className="w-full text-sm"
                 />
               </div>
               <div>

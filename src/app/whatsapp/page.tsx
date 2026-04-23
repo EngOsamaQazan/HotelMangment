@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Can } from "@/components/Can";
+import { CombinedPhoneInput } from "@/components/ui/CombinedPhoneInput";
 
 interface Thread {
   contactPhone: string;
@@ -535,17 +536,15 @@ function TemplateSendModal({
               القوالب المعتمدة تُرسَل بدون الحاجة لنافذة 24 ساعة، وهي الطريقة
               الصحيحة لأول تواصل مع عميل.
             </div>
-            <label className="block">
-              <span className="text-sm text-gray-600">رقم المستلم (مع رمز الدولة)</span>
-              <input
-                type="tel"
+            <div>
+              <label className="text-sm text-gray-600 block mb-1">رقم المستلم</label>
+              <CombinedPhoneInput
                 value={to}
-                onChange={(e) => setTo(e.target.value)}
-                placeholder="+962781099910"
-                required
-                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-sm direction-ltr text-right focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                onChange={setTo}
+                placeholder="07XXXXXXXX"
+                className="text-sm"
               />
-            </label>
+            </div>
             <label className="block">
               <span className="text-sm text-gray-600">القالب</span>
               <select
@@ -796,17 +795,17 @@ function NewMessagePane({
       </div>
 
       <div className="p-4 space-y-3 flex-1">
-        <label className="block">
-          <span className="text-xs text-gray-500">رقم الهاتف (مع رمز الدولة)</span>
-          <input
-            type="tel"
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">
+            رقم الهاتف
+          </label>
+          <CombinedPhoneInput
             value={to}
-            onChange={(e) => setTo(e.target.value)}
-            placeholder="+962781099910"
-            className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-sm direction-ltr text-right focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            required
+            onChange={setTo}
+            placeholder="07XXXXXXXX"
+            className="text-sm"
           />
-        </label>
+        </div>
         <label className="block">
           <span className="text-xs text-gray-500">
             نص الرسالة (فقط إذا راسلك العميل خلال آخر 24 ساعة)
