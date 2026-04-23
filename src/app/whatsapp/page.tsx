@@ -193,7 +193,20 @@ export default function WhatsAppInboxPage() {
       // Refresh the active thread & the thread list.
       await Promise.all([loadMessages(to), loadThreads()]);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "فشل الإرسال");
+      const rawMsg = err instanceof Error ? err.message : "فشل الإرسال";
+      // Intercept the 24 h window rejection so the user gets a clickable
+      // path forward instead of a cryptic Meta string.
+      if (isReengagementError(null, rawMsg)) {
+        toast.error(
+          "مضى أكثر من 24 ساعة — استخدم زر «📋 إرسال قالب» بالأعلى.",
+          { duration: 6000 },
+        );
+        setTemplateTo(to.startsWith("+") ? to : `+${to}`);
+        setShowTemplateModal(true);
+        setShowNew(false);
+      } else {
+        toast.error(humanizeWaError(null, rawMsg));
+      }
     } finally {
       setSending(false);
     }
@@ -357,6 +370,11 @@ export default function WhatsAppInboxPage() {
         <section className="bg-card-bg rounded-xl shadow-sm overflow-hidden flex flex-col">
           {showNew ? (
             <NewMessagePane
+              templatesCount={templates.length}
+              onUseTemplate={() => {
+                setTemplateTo(newTo || "");
+                setShowTemplateModal(true);
+              }}
               to={newTo}
               setTo={setNewTo}
               text={composer}
@@ -602,6 +620,50 @@ async function readJsonSafe<T>(res: Response, fallbackMsg: string): Promise<T> {
   return (parsed ?? ([] as unknown)) as T;
 }
 
+/**
+ * True when Meta's rejection is due to the 24 h customer-service window
+ * (error 131047) — i.e. we tried to send free-form text to someone who
+ * hasn't messaged us recently.
+ */
+function isReengagementError(
+  code: string | null | undefined,
+  message: string | null | undefined,
+): boolean {
+  if (code === "131047") return true;
+  const m = (message ?? "").toLowerCase();
+  return (
+    m.includes("re-engagement") ||
+    m.includes("more than 24 hours") ||
+    m.includes("24 hour")
+  );
+}
+
+/**
+ * Turn Meta's terse English error strings into actionable Arabic guidance.
+ * Falls back to the original message for anything we don't recognise.
+ */
+function humanizeWaError(
+  code: string | null | undefined,
+  message: string | null | undefined,
+): string {
+  if (isReengagementError(code, message)) {
+    return "لم تصل — مضى أكثر من 24 ساعة على آخر رسالة منه، يلزم إرسال قالب معتمد.";
+  }
+  if (code === "131051" || /unsupported message type/i.test(message ?? "")) {
+    return "نوع الرسالة غير مدعوم.";
+  }
+  if (code === "131026" || /recipient.+not.+whatsapp/i.test(message ?? "")) {
+    return "هذا الرقم غير مسجّل على WhatsApp.";
+  }
+  if (code === "131056" || /rate.?limit/i.test(message ?? "")) {
+    return "تجاوزت حد معدل الإرسال مؤقتًا — جرّب لاحقًا.";
+  }
+  if (code === "190" || /access token/i.test(message ?? "")) {
+    return "انتهت صلاحية التوكن — راجع «إعدادات واتساب».";
+  }
+  return message ?? "فشل الإرسال";
+}
+
 function previewText(t: Thread): string {
   if (t.lastType === "template") return `📋 قالب: ${t.lastBody ?? ""}`;
   if (t.lastType === "image") return "📷 صورة";
@@ -641,9 +703,16 @@ function MessageBubble({ m }: { m: Message }) {
           {outbound && <StatusIcon status={m.status} />}
         </div>
         {m.status === "failed" && (
-          <div className="text-[11px] text-red-600 mt-1 flex items-center gap-1">
-            <AlertTriangle size={12} />
-            {m.errorMessage ?? "فشل الإرسال"}
+          <div className="text-[11px] text-red-600 mt-1 flex flex-col gap-0.5">
+            <div className="flex items-center gap-1">
+              <AlertTriangle size={12} />
+              <span>{humanizeWaError(m.errorCode, m.errorMessage)}</span>
+            </div>
+            {isReengagementError(m.errorCode, m.errorMessage) && (
+              <span className="text-[10px] text-red-500/80 pr-4">
+                💡 لأول رسالة لهذا الرقم استخدم زر «📋 إرسال قالب» بالأعلى.
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -672,6 +741,8 @@ function NewMessagePane({
   text,
   setText,
   sending,
+  templatesCount,
+  onUseTemplate,
   onSubmit,
   onCancel,
 }: {
@@ -680,6 +751,8 @@ function NewMessagePane({
   text: string;
   setText: (s: string) => void;
   sending: boolean;
+  templatesCount: number;
+  onUseTemplate: () => void;
   onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
 }) {
@@ -688,6 +761,40 @@ function NewMessagePane({
       <header className="px-4 py-3 border-b border-gray-100 font-medium text-sm">
         رسالة جديدة
       </header>
+
+      {/*
+        Prominent guidance: sending free-form text to a contact who has not
+        messaged us in the last 24 h is *guaranteed* to be rejected by Meta
+        with error #131047. Steer the user to the template picker up front
+        instead of burying the warning underneath the textarea.
+      */}
+      <div className="mx-4 mt-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-[12.5px] leading-relaxed text-amber-900">
+        <div className="flex items-start gap-2">
+          <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-600" />
+          <div className="space-y-1.5 flex-1">
+            <p>
+              <span className="font-semibold">قاعدة WhatsApp:</span>{" "}
+              الرسائل النصية الحرة لا تصل إلا لعميل راسلك خلال آخر 24 ساعة.
+              لأول محادثة مع رقم جديد استخدم <strong>قالبًا معتمدًا</strong>.
+            </p>
+            {templatesCount > 0 ? (
+              <button
+                type="button"
+                onClick={onUseTemplate}
+                className="inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium rounded-md px-2.5 py-1.5"
+              >
+                <FileText size={13} />
+                استخدم قالبًا معتمدًا بدل النص الحر ({templatesCount})
+              </button>
+            ) : (
+              <p className="text-[11.5px] text-amber-800">
+                لا توجد قوالب معتمدة بعد — أضفها من «إعدادات واتساب».
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="p-4 space-y-3 flex-1">
         <label className="block">
           <span className="text-xs text-gray-500">رقم الهاتف (مع رمز الدولة)</span>
@@ -701,7 +808,9 @@ function NewMessagePane({
           />
         </label>
         <label className="block">
-          <span className="text-xs text-gray-500">نص الرسالة</span>
+          <span className="text-xs text-gray-500">
+            نص الرسالة (فقط إذا راسلك العميل خلال آخر 24 ساعة)
+          </span>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -709,11 +818,6 @@ function NewMessagePane({
             className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             required
           />
-          <p className="text-[11px] text-amber-600 mt-1">
-            ملاحظة: إرسال رسالة نصية لأول مرة خارج نافذة 24 ساعة يتطلب قالبًا
-            معتمدًا من Meta. إن فشل الإرسال، استخدم &laquo;إعدادات واتساب&raquo; لإضافة
-            قوالب.
-          </p>
         </label>
       </div>
       <footer className="p-3 border-t border-gray-100 flex items-center justify-end gap-2">
