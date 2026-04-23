@@ -111,10 +111,16 @@ jobs:
             fi
 
             if [ -d realtime ]; then
+              # Prefer lock hash, fall back to package.json when no lock is
+              # committed (which was the original state on this repo and is
+              # why realtime/node_modules never got installed on bootstrap).
               NEW_RT=$(sha256sum realtime/package-lock.json 2>/dev/null | cut -d' ' -f1 || echo "")
+              if [ -z "$NEW_RT" ]; then
+                NEW_RT=$(sha256sum realtime/package.json | cut -d' ' -f1)
+              fi
               OLD_RT=$(cat "$STATE/realtime-lock-hash" 2>/dev/null || echo "")
-              if [ -n "$NEW_RT" ] && { [ "$NEW_RT" != "$OLD_RT" ] || [ ! -d realtime/node_modules ]; }; then
-                echo "    realtime deps changed -> npm install"
+              if [ "$NEW_RT" != "$OLD_RT" ] || [ ! -d realtime/node_modules ]; then
+                echo "    realtime deps changed or missing -> npm install"
                 (cd realtime && npm install --omit=dev --no-audit --no-fund)
                 echo "$NEW_RT" > "$STATE/realtime-lock-hash"
               fi
@@ -195,6 +201,53 @@ jobs:
             if [ -f scripts/seed-whatsapp-config.ts ]; then
               npx ts-node --project tsconfig.scripts.json scripts/seed-whatsapp-config.ts \
                 || echo "    (seed-whatsapp failed — will retry on next deploy)"
+            fi
+
+            # ───── 4c. VAPID keypair (one-off; never rotate) ───────────
+            # Web Push requires a persistent VAPID keypair. Rotating it
+            # invalidates EVERY existing browser subscription — so we
+            # generate it exactly once and keep it in shared/.env forever.
+            if ! grep -q "^VAPID_PUBLIC_KEY=" "$SHARED_ENV" 2>/dev/null || \
+               [ -z "$(grep '^VAPID_PUBLIC_KEY=' "$SHARED_ENV" | cut -d= -f2-)" ]; then
+              echo "==> [4c] Generating one-off VAPID keypair"
+              VAPID_OUT=$(npx ts-node --project tsconfig.scripts.json \
+                scripts/generate-vapid.ts 2>/dev/null || true)
+              if [ -n "$VAPID_OUT" ]; then
+                echo "$VAPID_OUT" >> "$SHARED_ENV"
+                echo "    seeded VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY + VAPID_CONTACT_EMAIL"
+              else
+                echo "    ⚠️ VAPID generation failed — push notifications will return 503"
+              fi
+            else
+              echo "==> [4c] VAPID keys already present — skipping"
+            fi
+
+            # ───── 4d. Permissions registry sync (every deploy) ────────
+            # Idempotent upsert: adds new resources/permissions introduced
+            # in this commit, reassigns system roles, deactivates obsolete
+            # permissions. Safe to run on every deploy.
+            echo "==> [4d] Syncing permissions registry"
+            set -a; source "$SHARED_ENV"; set +a
+            npm run --silent db:seed-permissions \
+              || echo "    ⚠️ permissions sync failed (non-fatal)"
+
+            # ───── 4e. One-off WhatsApp backfill ───────────────────────
+            # Materialises WhatsAppContact + WhatsAppConversation rows
+            # from the pre-existing whatsapp_messages log and links every
+            # message via conversationId. Guarded by a state flag so it
+            # only runs the first time this script ships.
+            if [ ! -f "$STATE/whatsapp-backfill-done" ] && \
+               [ -f scripts/backfill-whatsapp-contacts.ts ]; then
+              echo "==> [4e] Running one-off WhatsApp backfill"
+              if npx ts-node --project tsconfig.scripts.json \
+                   scripts/backfill-whatsapp-contacts.ts; then
+                touch "$STATE/whatsapp-backfill-done"
+                echo "    ✅ backfill complete — state flag recorded"
+              else
+                echo "    ⚠️ backfill failed — will retry next deploy"
+              fi
+            else
+              echo "==> [4e] WhatsApp backfill already ran — skipping"
             fi
 
             # ───── 5. Build Next.js (incremental via .next/cache) ────
