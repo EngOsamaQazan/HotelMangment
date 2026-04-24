@@ -43,7 +43,7 @@ const SOURCE_LABELS: Record<string, string> = {
   whatsapp: "واتساب",
   manual: "يدوي",
   reservation: "حجز",
-  guest_account: "حساب نزيل",
+  guest_account: "حساب ضيف",
   import: "استيراد",
   webhook: "Webhook",
 };

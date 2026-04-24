@@ -106,7 +106,7 @@ type Segment =
 
 const SEGMENTS: { key: Segment; label: string; countKey: keyof Summary | null }[] = [
   { key: "all", label: "الكل", countKey: "totalGuests" },
-  { key: "inhouse", label: "نازلون الآن", countKey: "inHouse" },
+  { key: "inhouse", label: "مقيمون حالياً", countKey: "inHouse" },
   { key: "arriving", label: "وصول اليوم", countKey: "arrivingToday" },
   { key: "departing", label: "مغادرة اليوم", countKey: "departingToday" },
   { key: "upcoming", label: "حجوزات قادمة", countKey: null },
@@ -272,7 +272,7 @@ export default function GuestsPage() {
           />
           <KpiCard
             icon={<Sparkles size={18} />}
-            label="نازلون الآن"
+            label="مقيمون حالياً"
             value={data.summary.inHouse}
             tone="emerald"
             onClick={() => setSegment("inhouse")}
@@ -803,7 +803,7 @@ function GuestTags({ tags, stayCount }: { tags: string[]; stayCount: number }) {
     <>
       {has("inhouse") && (
         <Badge tone="emerald" icon={<Sparkles size={10} />}>
-          نازل الآن
+          مقيم الآن
         </Badge>
       )}
       {has("arriving_today") && !has("inhouse") && (
@@ -883,7 +883,7 @@ function StatusPill({ profile }: { profile: GuestProfile }) {
     return (
       <div className="flex items-center gap-2">
         <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-full">
-          <Sparkles size={12} /> نازل الآن
+          <Sparkles size={12} /> مقيم الآن
         </span>
         <span className="text-xs text-gray-500">
           غرفة {profile.inHouseStay.unitNumber} · حتى{" "}

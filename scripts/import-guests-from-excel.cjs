@@ -1,10 +1,10 @@
 /**
- * استيراد سجل النزلاء من ملف Excel (سجل نزلاء فندق المفرق - شهر 4/2026).
+ * استيراد سجل الضيوف من ملف Excel (سجل ضيوف فندق المفرق - شهر 4/2026).
  *
  * المعمارية المُحترَمة:
  *   - Unit      : تُنشَأ الوحدات المفقودة تلقائياً (room أو apartment) بدون حذف القائمة الحالية.
  *   - Reservation: صف واحد = حجز واحد. stayType=daily (كل القيم يومية في هذا الملف).
- *   - Guest     : نزيل رئيسي واحد لكل حجز (guestOrder=1).
+ *   - Guest     : ضيف رئيسي واحد لكل حجز (guestOrder=1).
  *   - Transaction: دخل نقدي (income/cash) بمبلغ المدفوع في تاريخ الدخول.
  *   - حالة الحجز: completed إذا مرّ checkOut (كل الصفوف فيها "غادر")، وإلا active.
  *
@@ -12,7 +12,7 @@
  *   node scripts/import-guests-from-excel.cjs <path-to-xlsx> [--dry-run] [--no-wipe]
  *
  * --dry-run: يعاين فقط ويحفظ تقريراً JSON بدون كتابة.
- * --no-wipe: لا يحذف الحجوزات الحالية قبل الاستيراد (الافتراضي: تنظيف الحجوزات/النزلاء/الحركات/الصيانة).
+ * --no-wipe: لا يحذف الحجوزات الحالية قبل الاستيراد (الافتراضي: تنظيف الحجوزات/الضيوف/الحركات/الصيانة).
  */
 
 require("dotenv").config({
@@ -123,7 +123,13 @@ function readRegister(file) {
 
   // ابحث عن صف الرؤوس
   let headerIdx = rows.findIndex(
-    (r) => Array.isArray(r) && r.some((c) => typeof c === "string" && c.includes("اسم النزيل")),
+    (r) =>
+      Array.isArray(r) &&
+      r.some(
+        (c) =>
+          typeof c === "string" &&
+          (c.includes("اسم الضيف") || c.includes("اسم النزيل")),
+      ),
   );
   if (headerIdx === -1) headerIdx = 2;
 
@@ -333,7 +339,7 @@ async function wipeIfNeeded(prisma, doWipe) {
     await tx.reservation.deleteMany({});
   });
   await prisma.unit.updateMany({ data: { status: "available" } });
-  console.log("تم تنظيف: الحجوزات، النزلاء، الحركات، الصيانة (قبل الاستيراد).");
+  console.log("تم تنظيف: الحجوزات، الضيوف، الحركات، الصيانة (قبل الاستيراد).");
 }
 
 async function main() {

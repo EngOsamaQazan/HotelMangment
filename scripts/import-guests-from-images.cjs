@@ -72,7 +72,7 @@ async function wipeDemoData(prisma) {
   await prisma.unit.updateMany({
     data: { status: "available" },
   });
-  console.log("تم حذف: الحركات المالية، الصيانة، الحجوزات (وبيانات النزلاء تلقائياً). تم ضبط جميع الوحدات إلى «متاح».");
+  console.log("تم حذف: الحركات المالية، الصيانة، الحجوزات (وبيانات الضيوف تلقائياً). تم ضبط جميع الوحدات إلى «متاح».");
 }
 
 async function main() {

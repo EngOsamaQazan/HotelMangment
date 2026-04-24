@@ -285,13 +285,13 @@ async function main() {
   await prisma.unit.update({ where: { unitNumber: "103" }, data: { status: "occupied" } });
 
   // ===== Guests =====
-  console.log("👥 إنشاء بيانات النزلاء...");
+  console.log("👥 إنشاء بيانات الضيوف...");
   await prisma.guest.createMany({
     data: [
-      { reservationId: res1.id, guestOrder: 1, fullName: "محمد أحمد الزهراني", idNumber: "1088765432", nationality: "أردني", notes: "النزيل الرئيسي" },
+      { reservationId: res1.id, guestOrder: 1, fullName: "محمد أحمد الزهراني", idNumber: "1088765432", nationality: "أردني", notes: "الضيف الرئيسي" },
       { reservationId: res1.id, guestOrder: 2, fullName: "فاطمة سالم الزهراني", idNumber: "1099876543", nationality: "أردني" },
-      { reservationId: res2.id, guestOrder: 1, fullName: "سارة خالد العمري", idNumber: "2388001122", nationality: "أردني", notes: "النزيل الرئيسي" },
-      { reservationId: res4.id, guestOrder: 1, fullName: "خالد عمر المطيري", idNumber: "1077654321", nationality: "أردني", notes: "النزيل الرئيسي" },
+      { reservationId: res2.id, guestOrder: 1, fullName: "سارة خالد العمري", idNumber: "2388001122", nationality: "أردني", notes: "الضيف الرئيسي" },
+      { reservationId: res4.id, guestOrder: 1, fullName: "خالد عمر المطيري", idNumber: "1077654321", nationality: "أردني", notes: "الضيف الرئيسي" },
       { reservationId: res4.id, guestOrder: 2, fullName: "أحمد خالد المطيري", idNumber: "1100123456", nationality: "أردني" },
       { reservationId: res4.id, guestOrder: 3, fullName: "نورة خالد المطيري", idNumber: "1105678901", nationality: "أردني" },
     ],
