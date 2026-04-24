@@ -225,12 +225,19 @@ export async function POST(request: Request) {
         }
       }
 
+      // IMPORTANT: use source='transaction' (NOT 'payment') with sourceRefId=txn.id.
+      //
+      // Reservation-linked payments are posted elsewhere with
+      // `source='payment', sourceRefId=reservation.id`. Mixing the two namespaces
+      // here would let `transaction.id` numerically collide with a
+      // `reservation.id`, making every "payments for reservation X" query (and
+      // `reverseReservationEntries`) silently include this unrelated manual entry.
       if (type === "income") {
         await postEntry(tx, {
           date: new Date(date),
           description,
           reference: bankRef || null,
-          source: "payment",
+          source: "transaction",
           sourceRefId: txn.id,
           lines: [
             { accountCode: cashCode, debit: amountNum },
@@ -242,7 +249,7 @@ export async function POST(request: Request) {
           date: new Date(date),
           description,
           reference: bankRef || null,
-          source: "expense",
+          source: "transaction",
           sourceRefId: txn.id,
           lines: [
             { accountCode: counterCode, partyId: counterParty, debit: amountNum },

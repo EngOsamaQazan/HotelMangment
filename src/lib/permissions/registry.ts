@@ -87,6 +87,7 @@ export const RESOURCES: ResourceDef[] = [
       "/api/reservations/[id]/reopen",
       "/api/reservations/[id]/status-log",
       "/api/reservations/summary",
+      "/api/reservations/cash-accounts",
     ],
     extraActions: [
       { key: "cancel", label: "إلغاء حجز" },

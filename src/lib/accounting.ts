@@ -447,11 +447,37 @@ export async function getOrCreateGuestParty(
   return party.id;
 }
 
+export const CASH_ACCOUNT_CODES = {
+  CASH: "1010",
+  BANK: "1020",
+  WALLET: "1030",
+} as const;
+
+/**
+ * Map a payment-method string (stored on reservations/extensions/transactions)
+ * to the corresponding cash-family account code in the chart of accounts.
+ *
+ * Accepted values (case-insensitive):
+ *   - "cash" / "نقدي"              → 1010 الصندوق النقدي
+ *   - "bank" / "تحويل بنكي" / "بنك" → 1020 الحساب البنكي
+ *   - "wallet" / "محفظة"           → 1030 المحفظة الإلكترونية
+ *   - "card" / "بطاقة"             → 1020 (card payments settle through bank)
+ *   - a raw account code like "1010" passes through if it's a cash-family code
+ *   - anything else / null         → 1010 (safe default)
+ */
 export function cashAccountCodeFromMethod(method: string | null | undefined): string {
-  if (!method) return ACCOUNT_CODES.CASH;
-  const m = method.toLowerCase();
-  if (m === "bank" || m.includes("bank") || m.includes("تحويل") || m.includes("بنك")) {
-    return ACCOUNT_CODES.BANK;
+  if (!method) return CASH_ACCOUNT_CODES.CASH;
+  const m = method.trim().toLowerCase();
+
+  if (m === CASH_ACCOUNT_CODES.CASH || m === CASH_ACCOUNT_CODES.BANK || m === CASH_ACCOUNT_CODES.WALLET) {
+    return m;
   }
-  return ACCOUNT_CODES.CASH;
+
+  if (m === "wallet" || m.includes("محفظ") || m.includes("wallet")) {
+    return CASH_ACCOUNT_CODES.WALLET;
+  }
+  if (m === "bank" || m === "card" || m.includes("bank") || m.includes("card") || m.includes("تحويل") || m.includes("بنك") || m.includes("بطاقة")) {
+    return CASH_ACCOUNT_CODES.BANK;
+  }
+  return CASH_ACCOUNT_CODES.CASH;
 }

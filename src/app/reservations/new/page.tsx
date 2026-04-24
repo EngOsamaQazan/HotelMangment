@@ -126,6 +126,9 @@ export default function NewReservationPage() {
   const [unitPrice, setUnitPrice] = useState<string>("");
   const [paidAmount, setPaidAmount] = useState<string>("0");
   const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [cashAccounts, setCashAccounts] = useState<
+    { code: string; name: string; subtype: string | null }[]
+  >([]);
   const [notes, setNotes] = useState("");
   const [guests, setGuests] = useState<GuestEntry[]>([
     {
@@ -195,6 +198,13 @@ export default function NewReservationPage() {
       .then((r) => r.json())
       .then((data) => setUnits(Array.isArray(data) ? data : []))
       .catch(() => setUnits([]));
+    fetch("/api/reservations/cash-accounts")
+      .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+      .then((data: { accounts?: { code: string; name: string; subtype: string | null }[] }) => {
+        const list = Array.isArray(data?.accounts) ? data.accounts : [];
+        setCashAccounts(list);
+      })
+      .catch(() => setCashAccounts([]));
   }, []);
 
   useEffect(() => {
@@ -893,10 +903,26 @@ export default function NewReservationPage() {
               onChange={(e) => setPaymentMethod(e.target.value)}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
             >
-              <option value="cash">نقدي</option>
-              <option value="bank">تحويل بنكي</option>
-              <option value="card">بطاقة</option>
+              {cashAccounts.length > 0 ? (
+                cashAccounts.map((a) => (
+                  <option key={a.code} value={a.subtype ?? a.code}>
+                    {a.name} ({a.code})
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="cash">نقدي</option>
+                  <option value="bank">تحويل بنكي</option>
+                  <option value="wallet">محفظة إلكترونية</option>
+                  <option value="card">بطاقة</option>
+                </>
+              )}
             </select>
+            {cashAccounts.length > 0 && (
+              <p className="text-xs text-gray-400 mt-1">
+                مرتبط بشجرة الحسابات — يظهر فقط حسابات الصناديق المفعّلة
+              </p>
+            )}
           </div>
         </div>
 
