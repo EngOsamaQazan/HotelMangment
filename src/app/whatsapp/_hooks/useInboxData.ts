@@ -189,6 +189,24 @@ export function useInboxData(params: {
           c.contactPhone === phone ? { ...c, unreadCount: 0 } : c,
         ),
       );
+      // Also clear any header-bell notifications that pointed to this
+      // conversation — without this the bell would keep showing an unread
+      // badge even after the user has already replied. Fire-and-forget;
+      // we notify the bell via a CustomEvent so it can repaint instantly
+      // without polling.
+      fetch("/api/notifications/mark-read", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactPhone: phone }),
+      })
+        .then(() => {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("notifications:changed"));
+          }
+        })
+        .catch(() => {
+          /* non-fatal — the 60s poll in NotificationsBell will catch up */
+        });
     } catch {
       /* non-fatal */
     }

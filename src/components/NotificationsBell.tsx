@@ -81,6 +81,19 @@ export function NotificationsBell({
     [open, refreshCount, load],
   );
 
+  // External mark-read triggers (e.g. the WhatsApp inbox calls
+  // /api/notifications/mark-read with a contactPhone filter when the user
+  // opens a thread) dispatch this CustomEvent so every NotificationsBell
+  // instance in the app refreshes its badge without a page reload.
+  useEffect(() => {
+    const onChanged = () => {
+      refreshCount();
+      if (open) load();
+    };
+    window.addEventListener("notifications:changed", onChanged);
+    return () => window.removeEventListener("notifications:changed", onChanged);
+  }, [open, refreshCount, load]);
+
   useEffect(() => {
     function onDown(e: MouseEvent) {
       if (!ref.current) return;
@@ -118,15 +131,47 @@ export function NotificationsBell({
     setUnread((u) => Math.max(0, u - 1));
   }
 
+  // Opening the dropdown is the user's implicit "I saw these" gesture —
+  // mirror Facebook / Instagram / Slack and clear the badge immediately.
+  // The individual rows also fade to the "read" styling so the mental model
+  // stays consistent with the count on the icon.
+  const handleOpen = useCallback(() => {
+    const next = !open;
+    setOpen(next);
+    if (!next) return;
+    // Optimistic: badge → 0 before the network round-trip so it feels instant.
+    setUnread(0);
+    void load();
+    // Fire the mark-all-read server call. We intentionally don't await so the
+    // list renders right away; the server call races harmlessly with `load()`.
+    fetch("/api/notifications/mark-read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ all: true }),
+    })
+      .then(() => {
+        // Once persisted, flip every locally-cached row to "read" so it
+        // loses the bold / highlighted styling even if `load()` raced ahead
+        // and returned them as unread.
+        setItems((prev) =>
+          prev.map((n) =>
+            n.readAt ? n : { ...n, readAt: new Date().toISOString() },
+          ),
+        );
+        setUnread(0);
+      })
+      .catch(() => {
+        // Rollback-ish: if the server refused, pull the real count back.
+        void refreshCount();
+      });
+  }, [open, load, refreshCount]);
+
   if (status !== "authenticated") return null;
 
   return (
     <div className="relative" ref={ref}>
       <button
-        onClick={() => {
-          setOpen((o) => !o);
-          if (!open) load();
-        }}
+        onClick={handleOpen}
         className={cn(
           "relative p-2 rounded-lg transition-colors",
           iconClassName,
