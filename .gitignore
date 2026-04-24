@@ -67,6 +67,12 @@ _*.ps1
 *.png
 *.jpg
 *.jpeg
+# …except brand assets in public/ and src/app/ which are part of the app bundle.
+!public/*.png
+!public/*.jpg
+!public/*.jpeg
+!public/rooms/*.jpg
+!src/app/**/*.png
 /init.html
 /login_resp.html
 /out.html

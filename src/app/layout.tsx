@@ -106,9 +106,13 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/icon.png", type: "image/png", sizes: "any" },
-      { url: "/logo.png", type: "image/png", sizes: "512x512" },
+      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
     ],
-    apple: [{ url: "/logo.png", type: "image/png", sizes: "512x512" }],
+    apple: [
+      { url: "/apple-icon.png", type: "image/png", sizes: "180x180" },
+      { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
+    ],
     shortcut: [{ url: "/icon.png" }],
   },
   manifest: "/manifest.webmanifest",
