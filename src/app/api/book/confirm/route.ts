@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { confirmHold, HoldError } from "@/lib/booking/hold";
 import { sendText, isWhatsAppApiError } from "@/lib/whatsapp/client";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
+import { sendBrandedPushToUsers } from "@/lib/push/server";
 
 /**
  * POST /api/book/confirm
@@ -162,6 +163,25 @@ async function notifyStaffOfNewBooking(
         },
       })),
     });
+
+    // OS-level push with full hotel identity. A new direct booking is a
+    // high-value signal → requireInteraction so the notification doesn't
+    // auto-dismiss before a manager sees it on their Home screen.
+    void sendBrandedPushToUsers(
+      staff.map((u) => u.id),
+      {
+        module: "reservations",
+        title: "حجز مباشر جديد",
+        body,
+        url: `/reservations/${reservation.id}`,
+        tag: `reservation-new-${reservation.id}`,
+        requireInteraction: true,
+        data: {
+          reservationId: reservation.id,
+          confirmationCode: reservation.confirmationCode,
+        },
+      },
+    );
   } catch (err) {
     console.warn("[book/confirm] staff notification failed", err);
   }

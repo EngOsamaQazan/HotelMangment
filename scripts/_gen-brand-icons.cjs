@@ -64,6 +64,48 @@ async function writeSquareIcon({ size, out, tightRatio = 0.62 }) {
   console.log(`✓ ${path.relative(ROOT, out)}  (${size}x${size})`);
 }
 
+/**
+ * يولّد شارة أحاديّة اللون مناسبة لشريط حالة أندرويد.
+ * المتطلّب الرسمي من Android/Chrome:
+ *   - أبعاد صغيرة (72–96px)
+ *   - أبيض تمامًا على خلفيّة شفّافة (alpha فقط — أي لون آخر سيُعامَل أبيض)
+ * الطريقة: نحوّل الصورة إلى grayscale، ثم نأخذ قناع alpha بناءً على
+ * السطوع (كلّ ما كان أفتح في الأصل يصبح أكثر وضوحًا في الشارة)، ثم
+ * ندمجه مع طبقة بيضاء صلبة.
+ */
+async function writeMonochromeBadge({ size, out }) {
+  const cropped = await cropCenterSquare(0.72);
+  // 1) قناع أحادي القناة: الكاليغرافي الذهبيّ الفاتح → أبيض (alpha=255)،
+  //    الخلفيّة الخضراء الداكنة → أسود (alpha=0).
+  const alphaMask = await sharp(cropped)
+    .resize(size, size, { fit: "cover" })
+    .grayscale()
+    .normalise()
+    .threshold(140)
+    .toColorspace("b-w")
+    .raw()
+    .toBuffer();
+
+  // 2) طبقة بيضاء كاملة بنفس الأبعاد (RGB).
+  const whiteBase = await sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 3,
+      background: { r: 255, g: 255, b: 255 },
+    },
+  })
+    .raw()
+    .toBuffer();
+
+  // 3) ندمج RGB الأبيض مع قناة ألفا من القناع → PNG شفّاف + أبيض فقط.
+  await sharp(whiteBase, { raw: { width: size, height: size, channels: 3 } })
+    .joinChannel(alphaMask, { raw: { width: size, height: size, channels: 1 } })
+    .png({ compressionLevel: 9 })
+    .toFile(out);
+  console.log(`✓ ${path.relative(ROOT, out)}  (${size}x${size}, monochrome)`);
+}
+
 async function writeOgCard({ out }) {
   const width = 1200;
   const height = 630;

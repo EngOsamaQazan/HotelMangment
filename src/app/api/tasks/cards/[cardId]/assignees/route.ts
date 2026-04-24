@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 import { requireBoardAccess } from "@/lib/tasks/access";
+import { sendBrandedPushToUsers } from "@/lib/push/server";
 
 function errStatus(e: unknown): number {
   return typeof e === "object" && e && "status" in e
@@ -38,6 +39,7 @@ export async function POST(
       );
     }
     const uniq = Array.from(new Set(userIds.filter(Number.isFinite)));
+    let pushRecipients: number[] = [];
     await prisma.$transaction(async (tx) => {
       await tx.taskAssignee.createMany({
         data: uniq.map((uid) => ({ taskId, userId: uid })),
@@ -55,6 +57,7 @@ export async function POST(
             payloadJson: { taskId: task.id, boardId: task.boardId },
           })),
         });
+        pushRecipients = notifUsers;
       }
       await tx.taskActivity.create({
         data: {
@@ -65,6 +68,17 @@ export async function POST(
         },
       });
     });
+
+    if (pushRecipients.length) {
+      void sendBrandedPushToUsers(pushRecipients, {
+        module: "tasks",
+        title: "تم إسناد مهمّة إليك",
+        body: task.title,
+        url: `/tasks/${task.boardId}?task=${task.id}`,
+        tag: `task-${task.id}`,
+        data: { taskId: task.id, boardId: task.boardId },
+      });
+    }
     const updated = await prisma.taskAssignee.findMany({
       where: { taskId },
       include: {

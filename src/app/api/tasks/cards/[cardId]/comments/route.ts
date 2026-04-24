@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 import { requireBoardAccess } from "@/lib/tasks/access";
+import { sendBrandedPushToUsers } from "@/lib/push/server";
 
 function errStatus(e: unknown): number {
   return typeof e === "object" && e && "status" in e
@@ -81,6 +82,7 @@ export async function POST(
       return NextResponse.json({ error: "نص التعليق مطلوب" }, { status: 400 });
     }
 
+    let pushRecipients: number[] = [];
     const created = await prisma.$transaction(async (tx) => {
       const c = await tx.taskComment.create({
         data: {
@@ -119,9 +121,27 @@ export async function POST(
             },
           })),
         });
+        pushRecipients = notifUsers;
       }
       return c;
     });
+
+    if (pushRecipients.length) {
+      const author = created.author?.name || "زميل";
+      void sendBrandedPushToUsers(pushRecipients, {
+        module: "tasks",
+        title: `تعليق من ${author}`,
+        body: `${task.title} — ${commentBody.trim().slice(0, 120)}`,
+        url: `/tasks/${task.boardId}?task=${task.id}`,
+        tag: `task-comment-${task.id}`,
+        image: created.author?.avatarUrl || undefined,
+        data: {
+          taskId: task.id,
+          boardId: task.boardId,
+          commentId: created.id,
+        },
+      });
+    }
 
     return NextResponse.json(created, { status: 201 });
   } catch (error) {

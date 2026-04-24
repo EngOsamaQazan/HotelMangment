@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 import { requireConversationAccess } from "@/lib/tasks/access";
 import { rateLimit } from "@/lib/rateLimit";
+import { sendBrandedPushToUsers } from "@/lib/push/server";
 
 function errStatus(e: unknown): number {
   return typeof e === "object" && e && "status" in e
@@ -139,7 +140,7 @@ export async function POST(
       );
     }
 
-    const created = await prisma.$transaction(async (tx) => {
+    const { message: created, recipientIds } = await prisma.$transaction(async (tx) => {
       const msg = await tx.chatMessage.create({
         data: {
           conversationId,
@@ -188,8 +189,25 @@ export async function POST(
           })),
         });
       }
-      return msg;
+      return { message: msg, recipientIds: others.map((p) => p.userId) };
     });
+
+    // Branded web-push fan-out — runs outside the transaction so a push
+    // provider glitch never blocks the DB commit. Fire-and-forget.
+    if (recipientIds.length) {
+      const senderName = created.sender?.name || "زميل";
+      const avatarUrl = created.sender?.avatarUrl || undefined;
+      void sendBrandedPushToUsers(recipientIds, {
+        module: "chat",
+        title: `رسالة من ${senderName}`,
+        body: created.body.slice(0, 140),
+        url: `/chat/${conversationId}`,
+        tag: `chat-${conversationId}`,
+        image: avatarUrl,
+        data: { conversationId, messageId: created.id },
+      });
+    }
+
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     const authErr = handleAuthError(error);

@@ -18,8 +18,8 @@ export async function POST() {
 
   const userId = Number((session.user as { id?: string | number }).id);
   await sendWebPushToUser(userId, {
-    title: "واتساب — اختبار الإشعارات",
-    body: "تم التسجيل بنجاح. سترى الإشعارات هكذا عند وصول رسالة جديدة.",
+    title: "فندق المفرق — اختبار الإشعارات",
+    body: "تم التفعيل بنجاح. هكذا ستصلك رسائل الضيوف على واتساب.",
     tag: `wa-test-${userId}`,
     url: "/whatsapp",
   });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 import { requireBoardAccess } from "@/lib/tasks/access";
+import { sendBrandedPushToUsers } from "@/lib/push/server";
 
 function errStatus(e: unknown): number {
   return typeof e === "object" && e && "status" in e
@@ -130,6 +131,10 @@ export async function POST(request: Request) {
     const priorityKey =
       priority && PRIORITIES.has(priority) ? priority : "med";
 
+    let pushRecipients: number[] = [];
+    let pushTaskTitle = "";
+    let pushTaskId = 0;
+
     const created = await prisma.$transaction(async (tx) => {
       const t = await tx.task.create({
         data: {
@@ -165,6 +170,9 @@ export async function POST(request: Request) {
                 payloadJson: { taskId: t.id, boardId },
               })),
             });
+            pushRecipients = notifUsers;
+            pushTaskTitle = t.title;
+            pushTaskId = t.id;
           }
         }
       }
@@ -200,6 +208,18 @@ export async function POST(request: Request) {
         },
       });
     });
+
+    if (pushRecipients.length) {
+      void sendBrandedPushToUsers(pushRecipients, {
+        module: "tasks",
+        title: "مهمّة جديدة مُسندة إليك",
+        body: pushTaskTitle,
+        url: `/tasks/${boardId}?task=${pushTaskId}`,
+        tag: `task-${pushTaskId}`,
+        data: { taskId: pushTaskId, boardId },
+      });
+    }
+
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     const authErr = handleAuthError(error);

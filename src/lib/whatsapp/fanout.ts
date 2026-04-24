@@ -115,9 +115,13 @@ export async function fanoutInboundMessage(input: FanoutMessageInput) {
   try {
     const targetUserIds = await computeTargetUserIds(input.conversationId);
 
-    const title = input.contactName
-      ? `واتساب: ${input.contactName}`
-      : `واتساب: +${input.contactPhone}`;
+    // Brand-first title: the hotel name takes precedence over the "واتساب"
+    // prefix so the notification reads like "فندق المفرق — رسالة من Osama"
+    // on the lock screen. The in-app bell keeps the full context.
+    const sender = input.contactName
+      ? input.contactName
+      : `+${input.contactPhone}`;
+    const title = `فندق المفرق — ${sender}`;
     const body = previewForNotification(input);
     const linkUrl = `/whatsapp?contact=${encodeURIComponent(input.contactPhone)}`;
 
@@ -168,6 +172,16 @@ export async function fanoutInboundMessage(input: FanoutMessageInput) {
       : [];
     const prefMap = new Map(prefs.map((p) => [p.userId, p]));
 
+    // Image messages → pass the full same-origin media URL as the large
+    // hero image on the notification. The browser fetches it with the
+    // user's cookies (the URL is auth-gated via `whatsapp:view`), so it
+    // only renders for users who are already authorised to view the
+    // inbox — which is exactly the set of `targetUserIds`.
+    const pushImage =
+      input.type === "image" && input.mediaId
+        ? `/api/whatsapp/media/${encodeURIComponent(input.mediaId)}?message=${input.messageId}`
+        : undefined;
+
     await Promise.all(
       targetUserIds.map(async (uid) => {
         const pref = prefMap.get(uid);
@@ -179,6 +193,7 @@ export async function fanoutInboundMessage(input: FanoutMessageInput) {
           body,
           url: linkUrl,
           tag: `wa-${input.contactPhone}`,
+          image: pushImage,
           contactPhone: input.contactPhone,
           conversationId: input.conversationId,
           messageId: input.messageId,

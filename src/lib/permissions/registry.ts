@@ -446,6 +446,7 @@ export const RESOURCES: ResourceDef[] = [
       "/api/whatsapp/push/unsubscribe",
       "/api/whatsapp/push/vapid-public-key",
       "/api/whatsapp/push/test",
+      "/api/whatsapp/push/quick-reply",
       "/api/whatsapp/notification-prefs",
     ],
     extraActions: [

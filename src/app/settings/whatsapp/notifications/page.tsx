@@ -8,12 +8,14 @@ import {
   Loader2,
   Moon,
   Save,
+  Smartphone,
   Volume2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useWhatsAppPush } from "@/lib/whatsapp/hooks/useWhatsAppPush";
 import { useWhatsAppSound } from "@/lib/whatsapp/hooks/useWhatsAppSound";
+import { useInstallPWA } from "@/lib/hooks/useInstallPWA";
 import { PageShell } from "@/components/ui/PageShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 
@@ -36,6 +38,7 @@ interface Prefs {
 export default function WhatsAppNotificationSettings() {
   const push = useWhatsAppPush();
   const sound = useWhatsAppSound(true);
+  const pwa = useInstallPWA();
 
   const [prefs, setPrefs] = useState<Prefs | null>(null);
   const [loading, setLoading] = useState(true);
@@ -96,6 +99,61 @@ export default function WhatsAppNotificationSettings() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-3 sm:gap-4">
+          {/* ─── Install as PWA ─── */}
+          {!pwa.isInstalled && (
+            <section className="md:col-span-2 bg-gradient-to-br from-primary/5 to-emerald-50 border border-primary/20 rounded-xl shadow-sm p-4 sm:p-5 md:p-6 space-y-3">
+              <header className="flex items-center gap-2">
+                <Smartphone size={18} className="text-primary" />
+                <h2 className="font-bold text-gray-800">
+                  ثبّت التطبيق لتجربة إشعارات احترافيّة
+                </h2>
+              </header>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                عند فتح الموقع من متصفّح Chrome أو Safari يظهر شعار المتصفّح
+                بجانب كل إشعار. بعد تثبيت التطبيق على الشاشة الرئيسية، يصبح
+                الإشعار بهويّة <strong>فندق المفرق</strong> كاملة — دون أي
+                أثر للمتصفّح — تمامًا كإشعارات WhatsApp الأصليّة.
+              </p>
+              {pwa.canInstall ? (
+                <button
+                  onClick={async () => {
+                    const outcome = await pwa.install();
+                    if (outcome === "accepted")
+                      toast.success("تم التثبيت على شاشتك الرئيسيّة");
+                    else if (outcome === "dismissed")
+                      toast.info("يمكنك التثبيت لاحقًا من قائمة المتصفّح");
+                  }}
+                  className="tap-44 flex items-center gap-1.5 text-sm px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark"
+                >
+                  <Smartphone size={14} />
+                  تثبيت التطبيق الآن
+                </button>
+              ) : pwa.isIOS ? (
+                <div className="bg-white border border-gray-200 rounded-lg p-3 text-sm text-gray-700 leading-relaxed">
+                  <strong>على iPhone/iPad:</strong> اضغط زرّ المشاركة{" "}
+                  <span className="inline-block align-text-bottom">⬆️</span>{" "}
+                  في شريط Safari ثم اختر{" "}
+                  <strong>«إضافة إلى الشاشة الرئيسية»</strong>. بعدها افتح
+                  الموقع من أيقونة الفندق على الشاشة وليس من Safari.
+                </div>
+              ) : (
+                <div className="bg-white border border-gray-200 rounded-lg p-3 text-sm text-gray-700 leading-relaxed">
+                  افتح قائمة المتصفّح{" "}
+                  <span className="inline-block align-text-bottom">⋮</span>{" "}
+                  ثم اختر <strong>«تثبيت التطبيق»</strong> (أو{" "}
+                  <em>Add to Home Screen</em>). في حال لم يظهر الخيار، جرّب
+                  إعادة تحميل الصفحة أو استخدم Chrome/Edge الأحدث.
+                </div>
+              )}
+            </section>
+          )}
+          {pwa.isInstalled && (
+            <section className="md:col-span-2 bg-emerald-50 border border-emerald-200 rounded-xl shadow-sm p-3 text-sm text-emerald-800 flex items-center gap-2">
+              <Smartphone size={16} />
+              التطبيق مثبَّت — الإشعارات تصل بهويّة فندق المفرق كاملة.
+            </section>
+          )}
+
           {/* ─── Push ─── */}
           <section className="bg-card-bg rounded-xl shadow-sm p-4 sm:p-5 md:p-6 space-y-3 sm:space-y-4">
             <header className="flex items-center gap-2">

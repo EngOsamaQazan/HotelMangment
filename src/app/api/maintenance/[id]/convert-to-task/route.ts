@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 import { requireBoardAccess } from "@/lib/tasks/access";
+import { sendBrandedPushToUsers } from "@/lib/push/server";
 
 /**
  * Convert a maintenance record into a linked Task card.
@@ -98,6 +99,12 @@ export async function POST(
     const priorityKey =
       priority && allowedPriorities.has(priority) ? priority : "high";
 
+    // Stash the branded-push fan-out inputs so we can emit them after the
+    // transaction commits (push failure must never roll back the task).
+    let maintenancePushRecipients: number[] = [];
+    let maintenancePushTaskTitle = "";
+    let maintenancePushTaskId = 0;
+
     const created = await prisma.$transaction(async (tx) => {
       const agg = await tx.task.aggregate({
         where: { columnId: columnId as number },
@@ -142,6 +149,9 @@ export async function POST(
                 },
               })),
             });
+            maintenancePushRecipients = notifUsers;
+            maintenancePushTaskTitle = task.title;
+            maintenancePushTaskId = task.id;
           }
         }
       }
@@ -173,6 +183,22 @@ export async function POST(
         },
       });
     });
+
+    if (maintenancePushRecipients.length) {
+      void sendBrandedPushToUsers(maintenancePushRecipients, {
+        module: "maintenance",
+        title: "طلب صيانة جديد",
+        body: maintenancePushTaskTitle,
+        url: `/tasks/${boardId}?task=${maintenancePushTaskId}`,
+        tag: `maintenance-${maintenance.id}`,
+        requireInteraction: priorityKey === "urgent",
+        data: {
+          taskId: maintenancePushTaskId,
+          boardId,
+          maintenanceId: maintenance.id,
+        },
+      });
+    }
 
     return NextResponse.json(created, { status: 201 });
   } catch (error) {

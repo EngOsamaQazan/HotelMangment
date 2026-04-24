@@ -1,39 +1,19 @@
 import "server-only";
-import webpush from "web-push";
-import { prisma } from "@/lib/prisma";
+import {
+  getVapidPublicKey as getVapidPublicKeyShared,
+  sendBrandedPush,
+  type BrandedPushPayload,
+} from "@/lib/push/server";
 
 /**
- * Web Push helper — sends OS-level notifications via the VAPID-signed
- * Push API to every stored `WhatsAppPushSubscription` for a user.
- *
- * The public/private VAPID keys come from env. Generate them once with
- * `npx ts-node scripts/generate-vapid.ts` and paste into `.env`.
- *
- * Subscriptions that return 404/410 are automatically deleted — this is
- * the documented "user unsubscribed from browser" signal.
+ * Thin compatibility shim around `src/lib/push/server.ts` for historical
+ * callers in the WhatsApp module. New code should import from `@/lib/push/server`
+ * directly and pass an explicit `module: "whatsapp"` so the right actions and
+ * branding defaults apply.
  */
 
-const PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
-const PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
-const CONTACT =
-  process.env.VAPID_CONTACT_EMAIL || "mailto:admin@mafhotel.com";
-
-let configured = false;
-function ensureConfigured(): boolean {
-  if (configured) return true;
-  if (!PUBLIC_KEY || !PRIVATE_KEY) {
-    console.warn(
-      "[whatsapp/push] VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY not set — Web Push disabled.",
-    );
-    return false;
-  }
-  webpush.setVapidDetails(CONTACT, PUBLIC_KEY, PRIVATE_KEY);
-  configured = true;
-  return true;
-}
-
 export function getVapidPublicKey(): string {
-  return PUBLIC_KEY;
+  return getVapidPublicKeyShared();
 }
 
 export interface PushPayload {
@@ -41,61 +21,35 @@ export interface PushPayload {
   body: string;
   url: string;
   tag?: string;
+  image?: string;
   contactPhone?: string;
   conversationId?: number;
   messageId?: number;
-  /** When true, OS notification will NOT play the system sound. The service
-   *  worker still shows the visual toast. */
   silent?: boolean;
 }
 
 /**
- * Send a Web Push payload to every registered device/browser for `userId`.
- * Non-fatal — network errors are logged; gone-away subscriptions are pruned.
+ * Legacy signature used across the WhatsApp fan-out. Forwards to the
+ * branded helper with module="whatsapp" so quick-reply actions and the
+ * hotel branding kick in automatically.
  */
 export async function sendWebPushToUser(
   userId: number,
   payload: PushPayload,
 ): Promise<void> {
-  if (!ensureConfigured()) return;
-
-  const subs = await prisma.whatsAppPushSubscription.findMany({
-    where: { userId },
-  });
-  if (!subs.length) return;
-
-  const json = JSON.stringify(payload);
-  const removals: number[] = [];
-
-  await Promise.all(
-    subs.map(async (sub) => {
-      try {
-        await webpush.sendNotification(
-          {
-            endpoint: sub.endpoint,
-            keys: { p256dh: sub.p256dh, auth: sub.auth },
-          },
-          json,
-          { TTL: 60 * 60 },
-        );
-      } catch (err) {
-        const statusCode = (err as { statusCode?: number }).statusCode;
-        if (statusCode === 404 || statusCode === 410) {
-          // Subscription gone — prune it.
-          removals.push(sub.id);
-        } else {
-          console.warn(
-            `[whatsapp/push] send failed for sub ${sub.id} (status ${statusCode ?? "?"}):`,
-            (err as Error).message,
-          );
-        }
-      }
-    }),
-  );
-
-  if (removals.length) {
-    await prisma.whatsAppPushSubscription.deleteMany({
-      where: { id: { in: removals } },
-    });
-  }
+  const branded: BrandedPushPayload = {
+    module: "whatsapp",
+    title: payload.title,
+    body: payload.body,
+    url: payload.url,
+    tag: payload.tag,
+    image: payload.image,
+    silent: payload.silent,
+    data: {
+      contactPhone: payload.contactPhone ?? null,
+      conversationId: payload.conversationId ?? null,
+      messageId: payload.messageId ?? null,
+    },
+  };
+  await sendBrandedPush(userId, branded);
 }
