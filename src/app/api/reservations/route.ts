@@ -14,6 +14,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const source = searchParams.get("source");
+    const view = searchParams.get("view");
     const search = searchParams.get("search");
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "50");
@@ -22,7 +23,46 @@ export async function GET(request: Request) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
 
-    if (status && status !== "all") {
+    // Unified `view` param covers both status buckets and date-windowed slices
+    // used by the clickable KPI cards on /reservations. When absent we fall
+    // back to the legacy `status` + `source` combo so older clients still work.
+    if (view) {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(startOfDay);
+      endOfDay.setDate(endOfDay.getDate() + 1);
+      const endOfWeek = new Date(startOfDay);
+      endOfWeek.setDate(endOfWeek.getDate() + 7);
+
+      switch (view) {
+        case "active":
+        case "upcoming":
+        case "completed":
+        case "cancelled":
+          where.status = view;
+          break;
+        case "online":
+          where.source = "direct_web";
+          where.status = { not: "pending_hold" };
+          break;
+        case "startsToday":
+          where.status = { in: ["active", "upcoming"] };
+          where.checkIn = { gte: startOfDay, lt: endOfDay };
+          break;
+        case "endsToday":
+          where.status = "active";
+          where.checkOut = { gte: startOfDay, lt: endOfDay };
+          break;
+        case "thisWeek":
+          where.status = "upcoming";
+          where.checkIn = { gte: startOfDay, lt: endOfWeek };
+          break;
+        case "all":
+        default:
+          where.status = { not: "pending_hold" };
+          break;
+      }
+    } else if (status && status !== "all") {
       where.status = status;
     } else {
       // Hide pending holds from the general staff list — they become real
@@ -31,7 +71,7 @@ export async function GET(request: Request) {
       where.status = { not: "pending_hold" };
     }
 
-    if (source && source !== "all") {
+    if (!view && source && source !== "all") {
       where.source = source;
     }
 

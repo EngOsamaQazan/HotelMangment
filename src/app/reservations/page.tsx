@@ -83,15 +83,34 @@ interface CountsResponse {
   onlineToday?: number;
 }
 
-type TabKey = "active" | "upcoming" | "completed" | "cancelled" | "online" | "all";
+type TabKey =
+  | "active"
+  | "upcoming"
+  | "completed"
+  | "cancelled"
+  | "online"
+  | "startsToday"
+  | "endsToday"
+  | "thisWeek"
+  | "all";
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: "active", label: "سارية" },
-  { key: "upcoming", label: "قادمة" },
-  { key: "online", label: "عبر الموقع" },
-  { key: "completed", label: "منتهية" },
-  { key: "cancelled", label: "ملغاة" },
-  { key: "all", label: "الكل" },
+type Tone = "green" | "blue" | "amber" | "indigo" | "sky" | "orange" | "gray" | "red" | "slate";
+
+/**
+ * Unified filter grid — every card is both a KPI (showing its count) and a
+ * clickable filter. Replaces the previous dual layout (top KPI strip + tab bar
+ * below) that had "السارية الآن" duplicating the "سارية" tab.
+ */
+const FILTER_CARDS: { key: TabKey; label: string; tone: Tone }[] = [
+  { key: "active", label: "سارية", tone: "green" },
+  { key: "startsToday", label: "قادمة اليوم", tone: "blue" },
+  { key: "endsToday", label: "تنتهي اليوم", tone: "amber" },
+  { key: "thisWeek", label: "قادمة هذا الأسبوع", tone: "indigo" },
+  { key: "upcoming", label: "قادمة", tone: "sky" },
+  { key: "online", label: "عبر الموقع", tone: "orange" },
+  { key: "completed", label: "منتهية", tone: "gray" },
+  { key: "cancelled", label: "ملغاة", tone: "red" },
+  { key: "all", label: "الكل", tone: "slate" },
 ];
 
 export default function ReservationsPage() {
@@ -108,11 +127,7 @@ export default function ReservationsPage() {
     try {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
-      if (statusFilter === "online") {
-        params.set("source", "direct_web");
-      } else if (statusFilter !== "all") {
-        params.set("status", statusFilter);
-      }
+      params.set("view", statusFilter);
       params.set("page", String(page));
       params.set("limit", String(limit));
 
@@ -310,84 +325,24 @@ export default function ReservationsPage() {
         }
       />
 
-      {summary && (
-        <KpiGrid>
-          <SummaryCard
-            label="السارية الآن"
-            value={summary.active}
-            tone="green"
-          />
-          <SummaryCard
-            label="قادمة اليوم"
-            value={summary.startingToday}
-            tone="blue"
-          />
-          <SummaryCard
-            label="تنتهي اليوم"
-            value={summary.endingToday}
-            tone="amber"
-          />
-          <SummaryCard
-            label="قادمة هذا الأسبوع"
-            value={summary.upcomingThisWeek}
-            tone="indigo"
-          />
-        </KpiGrid>
-      )}
-
-      {/* Tabs: horizontal scroll on < sm to avoid forcing line wraps that
-          would steal two or three rows of vertical space on Fold/compact phones. */}
-      <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 p-2 min-w-0">
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-1 px-1">
-          {TABS.map((t) => {
-            const count =
-              summary == null
-                ? null
-                : t.key === "all"
-                  ? summary.active +
-                    summary.upcoming +
-                    summary.completed +
-                    summary.cancelled
-                  : t.key === "online"
-                    ? (summary.onlineTotal ?? 0)
-                    : summary[
-                        t.key as
-                          | "active"
-                          | "upcoming"
-                          | "completed"
-                          | "cancelled"
-                      ];
-            const isActive = statusFilter === t.key;
-            return (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => setStatusFilter(t.key)}
-                className={cn(
-                  "shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium border transition-colors tap-44",
-                  isActive
-                    ? "bg-primary text-white border-primary"
-                    : "bg-white text-gray-600 border-gray-200 hover:border-primary/40 hover:text-primary",
-                )}
-              >
-                <span className="whitespace-nowrap">{t.label}</span>
-                {count != null && (
-                  <span
-                    className={cn(
-                      "inline-flex items-center justify-center min-w-[1.5rem] px-1.5 h-5 rounded-full text-[11px] font-semibold",
-                      isActive
-                        ? "bg-white/20 text-white"
-                        : "bg-gray-100 text-gray-700",
-                    )}
-                  >
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {/* Each card is both a KPI and a filter — click to apply. The active card
+          is highlighted so users always know what they're looking at. */}
+      <KpiGrid>
+        {FILTER_CARDS.map((card) => {
+          const count = getCardCount(card.key, summary);
+          const isActive = statusFilter === card.key;
+          return (
+            <FilterCard
+              key={card.key}
+              label={card.label}
+              value={count}
+              tone={card.tone}
+              active={isActive}
+              onClick={() => setStatusFilter(card.key)}
+            />
+          );
+        })}
+      </KpiGrid>
 
       <FilterBar>
         <div className="relative flex-1 min-w-0">
@@ -523,31 +478,88 @@ function ReservationCard({ reservation: r }: { reservation: Reservation }) {
   );
 }
 
-function SummaryCard({
+function getCardCount(key: TabKey, summary: CountsResponse | null): number | null {
+  if (!summary) return null;
+  switch (key) {
+    case "active":
+      return summary.active;
+    case "upcoming":
+      return summary.upcoming;
+    case "completed":
+      return summary.completed;
+    case "cancelled":
+      return summary.cancelled;
+    case "startsToday":
+      return summary.startingToday;
+    case "endsToday":
+      return summary.endingToday;
+    case "thisWeek":
+      return summary.upcomingThisWeek;
+    case "online":
+      return summary.onlineTotal ?? 0;
+    case "all":
+      return (
+        summary.active +
+        summary.upcoming +
+        summary.completed +
+        summary.cancelled
+      );
+  }
+}
+
+function FilterCard({
   label,
   value,
   tone,
+  active,
+  onClick,
 }: {
   label: string;
-  value: number;
-  tone: "green" | "blue" | "amber" | "indigo";
+  value: number | null;
+  tone: Tone;
+  active: boolean;
+  onClick: () => void;
 }) {
-  const toneClasses: Record<typeof tone, string> = {
-    green: "bg-green-50 border-green-200 text-green-700",
-    blue: "bg-blue-50 border-blue-200 text-blue-700",
-    amber: "bg-amber-50 border-amber-200 text-amber-700",
-    indigo: "bg-indigo-50 border-indigo-200 text-indigo-700",
+  // Two palettes per tone: muted (inactive) + saturated (active). Keeping the
+  // same hue across states preserves the "this card represents X" mental model
+  // while making the selected filter unmistakable at a glance.
+  const idle: Record<Tone, string> = {
+    green: "bg-green-50 border-green-200 text-green-700 hover:border-green-400",
+    blue: "bg-blue-50 border-blue-200 text-blue-700 hover:border-blue-400",
+    amber: "bg-amber-50 border-amber-200 text-amber-700 hover:border-amber-400",
+    indigo: "bg-indigo-50 border-indigo-200 text-indigo-700 hover:border-indigo-400",
+    sky: "bg-sky-50 border-sky-200 text-sky-700 hover:border-sky-400",
+    orange: "bg-orange-50 border-orange-200 text-orange-700 hover:border-orange-400",
+    gray: "bg-gray-50 border-gray-200 text-gray-700 hover:border-gray-400",
+    red: "bg-red-50 border-red-200 text-red-700 hover:border-red-400",
+    slate: "bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-400",
+  };
+  const on: Record<Tone, string> = {
+    green: "bg-green-600 border-green-600 text-white ring-green-200",
+    blue: "bg-blue-600 border-blue-600 text-white ring-blue-200",
+    amber: "bg-amber-500 border-amber-500 text-white ring-amber-200",
+    indigo: "bg-indigo-600 border-indigo-600 text-white ring-indigo-200",
+    sky: "bg-sky-600 border-sky-600 text-white ring-sky-200",
+    orange: "bg-orange-500 border-orange-500 text-white ring-orange-200",
+    gray: "bg-gray-700 border-gray-700 text-white ring-gray-200",
+    red: "bg-red-600 border-red-600 text-white ring-red-200",
+    slate: "bg-slate-700 border-slate-700 text-white ring-slate-200",
   };
   return (
-    <div
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
       className={cn(
-        "rounded-xl border p-3 flex items-center justify-between shadow-sm min-w-0",
-        toneClasses[tone],
+        "rounded-xl border p-3 flex items-center justify-between shadow-sm min-w-0 text-right transition-all tap-44",
+        active ? cn(on[tone], "ring-4 shadow-md scale-[1.02]") : idle[tone],
       )}
     >
       <span className="text-xs sm:text-sm font-medium truncate">{label}</span>
-      <span className="text-xl sm:text-2xl font-bold shrink-0">{value}</span>
-    </div>
+      <span className="text-xl sm:text-2xl font-bold shrink-0">
+        {value ?? "—"}
+      </span>
+    </button>
   );
 }
 
