@@ -16,6 +16,9 @@ import {
 import { cn, formatAmount, formatDate } from "@/lib/utils";
 import { Pagination, usePaginatedSlice } from "@/components/Pagination";
 import { Can } from "@/components/Can";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { FilterBar } from "@/components/ui/FilterBar";
 
 const PAGE_SIZE = 20;
 
@@ -225,48 +228,46 @@ export default function JournalPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <BookText size={28} className="text-primary" />
-          <h1 className="text-xl sm:text-2xl font-bold text-primary">
-            القيود المحاسبية
-          </h1>
-        </div>
-        <Can permission="accounting.journal:create">
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm font-medium w-full sm:w-auto justify-center"
-          >
-            <Plus size={18} /> قيد يدوي
-          </button>
-        </Can>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="القيود المحاسبية"
+        icon={<BookText size={24} />}
+        actions={
+          <Can permission="accounting.journal:create">
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm font-medium tap-44"
+            >
+              <Plus size={18} /> <span>قيد يدوي</span>
+            </button>
+          </Can>
+        }
+      />
 
       <div className="bg-card-bg rounded-xl p-3 sm:p-4 shadow-sm">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-400">من</label>
+        <FilterBar>
+          <div className="flex items-center gap-2 min-w-0">
+            <label className="text-xs text-gray-400 shrink-0">من</label>
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="border rounded-lg px-3 py-1.5 text-sm"
+              className="border rounded-lg px-3 py-1.5 text-sm w-full min-w-0"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-400">إلى</label>
+          <div className="flex items-center gap-2 min-w-0">
+            <label className="text-xs text-gray-400 shrink-0">إلى</label>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="border rounded-lg px-3 py-1.5 text-sm"
+              className="border rounded-lg px-3 py-1.5 text-sm w-full min-w-0"
             />
           </div>
           <select
             value={sourceFilter}
             onChange={(e) => setSourceFilter(e.target.value)}
-            className="border rounded-lg px-3 py-1.5 text-sm"
+            className="border rounded-lg px-3 py-1.5 text-sm min-w-0"
           >
             <option value="all">كل المصادر</option>
             <option value="manual">يدوي</option>
@@ -276,17 +277,17 @@ export default function JournalPage() {
             <option value="maintenance">صيانة</option>
             <option value="reversal">عكس</option>
           </select>
-          <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-            <Search size={16} className="text-gray-400" />
+          <div className="flex items-center gap-2 flex-1 min-w-[10rem]">
+            <Search size={16} className="text-gray-400 shrink-0" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="رقم القيد أو الوصف"
-              className="w-full border rounded-lg px-3 py-1.5 text-sm"
+              className="w-full border rounded-lg px-3 py-1.5 text-sm min-w-0"
             />
           </div>
-        </div>
+        </FilterBar>
       </div>
 
       {error ? (
@@ -669,6 +670,6 @@ export default function JournalPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

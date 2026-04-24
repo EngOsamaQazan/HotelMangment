@@ -21,6 +21,8 @@ import { BedIcon } from "@/components/unit-types/shared";
 import { usePermissions } from "@/lib/permissions/client";
 import { UnitPhotosPanel } from "@/components/rooms/UnitPhotosPanel";
 import { UnitMergePanel } from "@/components/rooms/UnitMergePanel";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 interface UnitTypeBed {
   id: number;
@@ -196,8 +198,8 @@ export default function RoomsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-xl sm:text-2xl font-bold text-primary">حالة الغرف والشقق</h1>
+    <PageShell>
+      <PageHeader title="حالة الغرف والشقق" icon={<BedDouble size={22} />} />
 
       {/* Legend / Filter */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-card-bg rounded-xl shadow-sm p-3 sm:p-4">
@@ -265,7 +267,7 @@ export default function RoomsPage() {
             لا توجد غرف مطابقة للفلتر الحالي
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] gap-3 sm:gap-4">
             {loading
               ? Array.from({ length: 4 }, (_, i) => (
                   <UnitCardSkeleton key={i} />
@@ -294,7 +296,7 @@ export default function RoomsPage() {
             لا توجد شقق مطابقة للفلتر الحالي
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] gap-3 sm:gap-4">
             {loading
               ? Array.from({ length: 3 }, (_, i) => (
                   <UnitCardSkeleton key={i} />
@@ -324,7 +326,7 @@ export default function RoomsPage() {
           onRefresh={fetchUnits}
         />
       )}
-    </div>
+    </PageShell>
   );
 }
 

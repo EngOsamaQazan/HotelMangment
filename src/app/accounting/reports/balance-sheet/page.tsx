@@ -10,6 +10,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { cn, formatAmount, formatDate } from "@/lib/utils";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 interface Item {
   id: number;
@@ -61,32 +63,32 @@ export default function BalanceSheetPage() {
   }, [fetchData]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 no-print">
-        <div className="flex items-center gap-3">
-          <Wallet size={28} className="text-primary" />
-          <h1 className="text-xl sm:text-2xl font-bold text-primary">
-            الميزانية العمومية
-          </h1>
-        </div>
-        {data && (
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark"
-          >
-            <Printer size={16} /> طباعة
-          </button>
-        )}
+    <PageShell>
+      <div className="no-print">
+        <PageHeader
+          title="الميزانية العمومية"
+          icon={<Wallet size={24} />}
+          actions={
+            data && (
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark tap-44"
+              >
+                <Printer size={16} /> <span>طباعة</span>
+              </button>
+            )
+          }
+        />
       </div>
 
-      <div className="bg-card-bg rounded-xl p-4 shadow-sm no-print">
-        <div className="flex items-center gap-3">
-          <label className="text-sm text-gray-500">حتى تاريخ:</label>
+      <div className="bg-card-bg rounded-xl p-3 sm:p-4 shadow-sm no-print">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="text-sm text-gray-500 shrink-0">حتى تاريخ:</label>
           <input
             type="date"
             value={asOf}
             onChange={(e) => setAsOf(e.target.value)}
-            className="border rounded-lg px-3 py-2 text-sm"
+            className="border rounded-lg px-3 py-2 text-sm min-w-0"
           />
           {asOf && (
             <button
@@ -275,6 +277,6 @@ export default function BalanceSheetPage() {
           </div>
         </>
       )}
-    </div>
+    </PageShell>
   );
 }

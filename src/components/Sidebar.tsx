@@ -249,6 +249,12 @@ export function Sidebar() {
           onClick={() => setMobileOpen(true)}
           className="p-2 rounded-lg hover:bg-sidebar-hover transition-colors"
           aria-label="فتح القائمة"
+          // Browser-extension-injected attributes (e.g. Cursor IDE browser MCP
+          // adding `data-cursor-ref="e0"`) land on these three prominent
+          // buttons and trigger React's hydration warning even though the app
+          // itself renders identical markup. Suppressing is safe because this
+          // is a static button with no dynamic-only props.
+          suppressHydrationWarning
         >
           <Menu size={24} />
         </button>
@@ -282,6 +288,7 @@ export function Sidebar() {
             onClick={closeMobile}
             className="p-1.5 rounded-lg hover:bg-sidebar-hover transition-colors md:hidden text-gold"
             aria-label="إغلاق القائمة"
+            suppressHydrationWarning
           >
             <X size={20} />
           </button>
@@ -374,6 +381,7 @@ export function Sidebar() {
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             className="flex items-center gap-3 px-5 py-2 text-sm text-white/70 hover:text-red-300 transition-colors w-full"
+            suppressHydrationWarning
           >
             <LogOut size={18} />
             <span>تسجيل خروج</span>

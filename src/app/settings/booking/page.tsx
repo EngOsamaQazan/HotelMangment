@@ -1,9 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import {
-  ArrowLeft,
   Plus,
   Trash2,
   Loader2,
@@ -23,6 +21,8 @@ import {
 import { toast } from "sonner";
 import { Can } from "@/components/Can";
 import { cn } from "@/lib/utils";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 type Tab = "credentials" | "mapping" | "jobs" | "inbox";
 
@@ -128,23 +128,13 @@ export default function BookingSettingsPage() {
   const [tab, setTab] = useState<Tab>("credentials");
 
   return (
-    <div className="space-y-6">
-      <div>
-        <Link
-          href="/settings"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-primary mb-2"
-        >
-          <ArrowLeft size={14} />
-          العودة للإعدادات
-        </Link>
-        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <Network className="text-primary" />
-          تكامل Booking.com
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          بيانات الدخول، ربط الغرف، وجدولة مهام المزامنة (عبر Playwright).
-        </p>
-      </div>
+    <PageShell className="gap-6">
+      <PageHeader
+        title="تكامل Booking.com"
+        description="بيانات الدخول، ربط الغرف، وجدولة مهام المزامنة (عبر Playwright)."
+        icon={<Network size={22} />}
+        backHref="/settings"
+      />
 
       <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-sm text-amber-800">
         <AlertTriangle size={16} className="mt-0.5 shrink-0" />
@@ -154,7 +144,7 @@ export default function BookingSettingsPage() {
         </span>
       </div>
 
-      <div className="flex flex-wrap gap-2 border-b border-gray-200">
+      <div className="flex flex-nowrap overflow-x-auto gap-2 border-b border-gray-200 -mx-[var(--page-px)] px-[var(--page-px)] sm:mx-0 sm:px-0 sm:flex-wrap">
         {([
           ["credentials", "بيانات الدخول", Key],
           ["mapping", "ربط الغرف", Network],
@@ -165,7 +155,7 @@ export default function BookingSettingsPage() {
             key={v}
             onClick={() => setTab(v)}
             className={cn(
-              "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
+              "tap-44 shrink-0 flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
               tab === v
                 ? "border-primary text-primary"
                 : "border-transparent text-gray-500 hover:text-gray-700",
@@ -181,7 +171,7 @@ export default function BookingSettingsPage() {
       {tab === "mapping" && <MappingTab />}
       {tab === "jobs" && <JobsTab />}
       {tab === "inbox" && <InboxTab />}
-    </div>
+    </PageShell>
   );
 }
 

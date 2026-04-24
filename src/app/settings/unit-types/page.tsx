@@ -21,6 +21,8 @@ import {
   summarizeBeds,
 } from "@/components/unit-types/shared";
 import { UnitTypeFormModal } from "@/components/unit-types/UnitTypeFormModal";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export interface UnitTypeListItem {
   id: number;
@@ -144,40 +146,26 @@ export default function UnitTypesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="pt-2 sm:pt-4 border-b-2 border-gold/30 pb-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span
-              aria-hidden
-              className="inline-block w-1 h-8 bg-gold rounded-full"
-            />
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-primary/5 border border-gold/30">
-              <BedDouble size={22} className="text-gold-dark" />
-            </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-primary font-[family-name:var(--font-amiri)] tracking-tight">
-                أنواع الوحدات
-              </h1>
-              <p className="text-xs text-gray-500 mt-1">
-                قوالب الغرف والشقق — مصدر البيانات الذي سيُزامن مع Booking.com
-              </p>
-            </div>
-          </div>
+    <PageShell className="gap-6">
+      <PageHeader
+        title="أنواع الوحدات"
+        description="قوالب الغرف والشقق — مصدر البيانات الذي سيُزامن مع Booking.com"
+        icon={<BedDouble size={22} />}
+        actions={
           <Can permission="settings.unit_types:create">
             <button
               onClick={() => {
                 setEditId(null);
                 setShowForm(true);
               }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium"
+              className="tap-44 flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium"
             >
               <Plus size={18} />
               نوع جديد
             </button>
           </Can>
-        </div>
-      </div>
+        }
+      />
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
@@ -198,7 +186,7 @@ export default function UnitTypesPage() {
                 ({items.length})
               </span>
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(18rem,1fr))] gap-4">
               {items.map((t) => (
                 <div
                   key={t.id}
@@ -332,6 +320,6 @@ export default function UnitTypesPage() {
           }}
         />
       )}
-    </div>
+    </PageShell>
   );
 }

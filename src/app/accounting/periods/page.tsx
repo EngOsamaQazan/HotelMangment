@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Can } from "@/components/Can";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 interface Period {
   id: number;
@@ -131,13 +133,12 @@ export default function PeriodsPage() {
     .sort((a, b) => b - a);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <CalendarRange size={28} className="text-primary" />
-        <h1 className="text-xl sm:text-2xl font-bold text-primary">
-          الفترات المالية
-        </h1>
-      </div>
+    <PageShell className="gap-6">
+      <PageHeader
+        title="الفترات المالية"
+        icon={<CalendarRange size={22} />}
+        backHref="/accounting"
+      />
 
       {error ? (
         <div className="flex flex-col items-center py-10 gap-3">
@@ -158,13 +159,13 @@ export default function PeriodsPage() {
                   <button
                     onClick={() => closeYear(year)}
                     disabled={busy}
-                    className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50 w-full sm:w-auto"
+                    className="tap-44 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50 w-full sm:w-auto"
                   >
                     <Archive size={16} /> إقفال السنة
                   </button>
                 </Can>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-3">
                 {byYear[year]
                   .sort((a, b) => a.month - b.month)
                   .map((p) => (
@@ -218,6 +219,6 @@ export default function PeriodsPage() {
           ))}
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

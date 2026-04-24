@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowRight,
   CalendarCheck,
   Save,
   Loader2,
@@ -39,6 +38,8 @@ import {
   unitTypeLabels,
   statusLabels,
 } from "@/lib/utils";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 interface Unit {
   id: number;
@@ -646,31 +647,26 @@ export default function ReservationDetailClient({ id }: { id: string }) {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <PageShell className="max-w-4xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/reservations"
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowRight size={20} className="text-gray-600" />
-          </Link>
-          <CalendarCheck className="text-primary" size={28} />
-          <h1 className="text-2xl font-bold text-primary">
-            حجز #{reservation.id}
-          </h1>
-          <span
-            className={cn(
-              "px-3 py-1 rounded-full text-xs font-medium",
-              STATUS_COLORS[reservation.status] || "bg-gray-100"
-            )}
-          >
-            {statusLabels[reservation.status] || reservation.status}
+      <PageHeader
+        title={
+          <span className="inline-flex items-center gap-2 flex-wrap">
+            <span>حجز #{reservation.id}</span>
+            <span
+              className={cn(
+                "px-3 py-1 rounded-full text-xs font-medium",
+                STATUS_COLORS[reservation.status] || "bg-gray-100"
+              )}
+            >
+              {statusLabels[reservation.status] || reservation.status}
+            </span>
           </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {!editing && (
+        }
+        icon={<CalendarCheck size={22} />}
+        backHref="/reservations"
+        actions={
+          !editing ? (
             <>
               {/* ===== Front-desk lifecycle actions ===== */}
               {/* Each button is a single, auditable transition. No silent
@@ -798,9 +794,9 @@ export default function ReservationDetailClient({ id }: { id: string }) {
                 </button>
               </Can>
             </>
-          )}
-        </div>
-      </div>
+          ) : null
+        }
+      />
 
       {actionError && !editing && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
@@ -1794,7 +1790,7 @@ export default function ReservationDetailClient({ id }: { id: string }) {
           </div>
         </ActionModal>
       )}
-    </div>
+    </PageShell>
   );
 }
 

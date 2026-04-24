@@ -10,6 +10,9 @@ import {
   ArrowUp,
 } from "lucide-react";
 import { cn, formatAmount } from "@/lib/utils";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { KpiGrid } from "@/components/ui/KpiGrid";
 
 interface Item {
   id: number;
@@ -64,41 +67,41 @@ export default function IncomeStatementPage() {
   }, [fetchData]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 no-print">
-        <div className="flex items-center gap-3">
-          <TrendingUp size={28} className="text-primary" />
-          <h1 className="text-xl sm:text-2xl font-bold text-primary">
-            قائمة الدخل
-          </h1>
-        </div>
-        {data && (
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark"
-          >
-            <Printer size={16} /> طباعة
-          </button>
-        )}
+    <PageShell>
+      <div className="no-print">
+        <PageHeader
+          title="قائمة الدخل"
+          icon={<TrendingUp size={24} />}
+          actions={
+            data && (
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark tap-44"
+              >
+                <Printer size={16} /> <span>طباعة</span>
+              </button>
+            )
+          }
+        />
       </div>
 
-      <div className="bg-card-bg rounded-xl p-4 shadow-sm flex flex-wrap items-center gap-3 no-print">
-        <div>
+      <div className="bg-card-bg rounded-xl p-3 sm:p-4 shadow-sm flex flex-wrap items-center gap-3 no-print">
+        <div className="min-w-0">
           <label className="block text-xs text-gray-500 mb-1">من</label>
           <input
             type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            className="border rounded-lg px-3 py-2 text-sm"
+            className="border rounded-lg px-3 py-2 text-sm w-full min-w-0"
           />
         </div>
-        <div>
+        <div className="min-w-0">
           <label className="block text-xs text-gray-500 mb-1">إلى</label>
           <input
             type="date"
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            className="border rounded-lg px-3 py-2 text-sm"
+            className="border rounded-lg px-3 py-2 text-sm w-full min-w-0"
           />
         </div>
       </div>
@@ -114,7 +117,7 @@ export default function IncomeStatementPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <KpiGrid>
             <div className="bg-green-50 border border-green-200 rounded-xl p-4">
               <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
                 <ArrowUp size={16} /> الإيرادات
@@ -151,7 +154,7 @@ export default function IncomeStatementPage() {
                 {formatAmount(Math.abs(data.netProfit))}
               </p>
             </div>
-          </div>
+          </KpiGrid>
 
           <div className="bg-card-bg rounded-xl shadow-sm p-3 sm:p-6 space-y-6 overflow-x-auto">
             <section>
@@ -254,6 +257,6 @@ export default function IncomeStatementPage() {
           </div>
         </>
       )}
-    </div>
+    </PageShell>
   );
 }

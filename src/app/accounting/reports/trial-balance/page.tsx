@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Scale, Loader2, AlertCircle, Printer, CheckCircle, XCircle } from "lucide-react";
 import { cn, formatAmount, formatDate } from "@/lib/utils";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 interface Row {
   id: number;
@@ -65,32 +67,32 @@ export default function TrialBalancePage() {
   const balanced = data && Math.abs(data.totals.debitBalance - data.totals.creditBalance) < 0.01;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 no-print">
-        <div className="flex items-center gap-3">
-          <Scale size={28} className="text-primary" />
-          <h1 className="text-xl sm:text-2xl font-bold text-primary">
-            ميزان المراجعة
-          </h1>
-        </div>
-        {data && (
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark"
-          >
-            <Printer size={16} /> طباعة
-          </button>
-        )}
+    <PageShell>
+      <div className="no-print">
+        <PageHeader
+          title="ميزان المراجعة"
+          icon={<Scale size={24} />}
+          actions={
+            data && (
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark tap-44"
+              >
+                <Printer size={16} /> <span>طباعة</span>
+              </button>
+            )
+          }
+        />
       </div>
 
-      <div className="bg-card-bg rounded-xl p-4 shadow-sm no-print">
-        <div className="flex items-center gap-3">
-          <label className="text-sm text-gray-500">حتى تاريخ:</label>
+      <div className="bg-card-bg rounded-xl p-3 sm:p-4 shadow-sm no-print">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="text-sm text-gray-500 shrink-0">حتى تاريخ:</label>
           <input
             type="date"
             value={asOf}
             onChange={(e) => setAsOf(e.target.value)}
-            className="border rounded-lg px-3 py-2 text-sm"
+            className="border rounded-lg px-3 py-2 text-sm min-w-0"
           />
           {asOf && (
             <button
@@ -138,37 +140,37 @@ export default function TrialBalancePage() {
           </div>
 
           <div className="bg-card-bg rounded-xl shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="report-table-wrap">
+              <table className="report-table">
                 <thead>
-                  <tr className="bg-gray-50 text-gray-600">
-                    <th className="text-right px-4 py-3 font-medium">الرمز</th>
-                    <th className="text-right px-4 py-3 font-medium">الحساب</th>
-                    <th className="text-right px-4 py-3 font-medium">النوع</th>
-                    <th className="text-right px-4 py-3 font-medium">مدين</th>
-                    <th className="text-right px-4 py-3 font-medium">دائن</th>
-                    <th className="text-right px-4 py-3 font-medium">رصيد مدين</th>
-                    <th className="text-right px-4 py-3 font-medium">رصيد دائن</th>
+                  <tr>
+                    <th className="sticky-start text-right">الرمز</th>
+                    <th className="text-right">الحساب</th>
+                    <th className="text-right">النوع</th>
+                    <th className="text-right">مدين</th>
+                    <th className="text-right">دائن</th>
+                    <th className="text-right">رصيد مدين</th>
+                    <th className="text-right">رصيد دائن</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody>
                   {data.rows.map((r) => (
                     <tr key={r.id} className="hover:bg-gray-50/50">
-                      <td className="px-4 py-3 font-mono text-primary">{r.code}</td>
-                      <td className="px-4 py-3 font-medium text-gray-800">{r.name}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">
+                      <td className="sticky-start font-mono text-primary">{r.code}</td>
+                      <td className="font-medium text-gray-800">{r.name}</td>
+                      <td className="text-gray-500 text-xs">
                         {TYPE_LABELS[r.type]}
                       </td>
-                      <td className="px-4 py-3 text-green-700">
+                      <td className="text-green-700">
                         {r.debit > 0 ? formatAmount(r.debit) : ""}
                       </td>
-                      <td className="px-4 py-3 text-red-700">
+                      <td className="text-red-700">
                         {r.credit > 0 ? formatAmount(r.credit) : ""}
                       </td>
-                      <td className="px-4 py-3 font-bold text-green-700">
+                      <td className="font-bold text-green-700">
                         {r.debitBalance > 0 ? formatAmount(r.debitBalance) : ""}
                       </td>
-                      <td className="px-4 py-3 font-bold text-red-700">
+                      <td className="font-bold text-red-700">
                         {r.creditBalance > 0 ? formatAmount(r.creditBalance) : ""}
                       </td>
                     </tr>
@@ -176,19 +178,19 @@ export default function TrialBalancePage() {
                 </tbody>
                 <tfoot>
                   <tr className="bg-gray-100 font-bold">
-                    <td className="px-4 py-3" colSpan={3}>
+                    <td className="sticky-start" colSpan={3}>
                       الإجمالي
                     </td>
-                    <td className="px-4 py-3 text-green-700">
+                    <td className="text-green-700">
                       {formatAmount(data.totals.debit)}
                     </td>
-                    <td className="px-4 py-3 text-red-700">
+                    <td className="text-red-700">
                       {formatAmount(data.totals.credit)}
                     </td>
-                    <td className="px-4 py-3 text-green-700">
+                    <td className="text-green-700">
                       {formatAmount(data.totals.debitBalance)}
                     </td>
-                    <td className="px-4 py-3 text-red-700">
+                    <td className="text-red-700">
                       {formatAmount(data.totals.creditBalance)}
                     </td>
                   </tr>
@@ -198,6 +200,6 @@ export default function TrialBalancePage() {
           </div>
         </>
       )}
-    </div>
+    </PageShell>
   );
 }

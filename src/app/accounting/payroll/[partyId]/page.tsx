@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
-  ArrowLeft,
   Loader2,
   AlertCircle,
   Receipt,
@@ -17,6 +16,8 @@ import {
 } from "lucide-react";
 import { cn, formatAmount, formatDate } from "@/lib/utils";
 import { Can } from "@/components/Can";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 interface PayrollData {
   party: {
@@ -158,31 +159,30 @@ export default function PayrollPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
-        <Link
-          href={`/accounting/parties/${partyId}`}
-          className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-primary"
-        >
-          <ArrowLeft size={16} /> العودة لملف الموظف
-        </Link>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark border border-gold/40 shadow-md transition-colors"
-          >
-            <Printer size={16} /> طباعة السليب
-          </button>
-        </div>
+    <PageShell>
+      <div className="no-print">
+        <PageHeader
+          title="سليب الراتب"
+          icon={<Receipt size={22} />}
+          backHref={`/accounting/parties/${partyId}`}
+          actions={
+            <button
+              onClick={() => window.print()}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark border border-gold/40 shadow-md transition-colors tap-44"
+            >
+              <Printer size={16} /> <span>طباعة السليب</span>
+            </button>
+          }
+        />
       </div>
 
       {/* Period Selector */}
-      <div className="bg-card-bg rounded-xl p-4 shadow-sm border border-gold/20 flex flex-wrap items-center gap-3 no-print">
-        <span className="text-sm text-primary font-medium">الشهر:</span>
+      <div className="bg-card-bg rounded-xl p-3 sm:p-4 shadow-sm border border-gold/20 flex flex-wrap items-center gap-3 no-print">
+        <span className="text-sm text-primary font-medium shrink-0">الشهر:</span>
         <select
           value={month}
           onChange={(e) => setMonth(Number(e.target.value))}
-          className="border border-gold/30 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none"
+          className="border border-gold/30 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none min-w-0 flex-1 sm:flex-none"
         >
           {ARABIC_MONTHS.map((m, i) => (
             <option key={i} value={i + 1}>
@@ -196,7 +196,7 @@ export default function PayrollPage() {
           max="2030"
           value={year}
           onChange={(e) => setYear(Number(e.target.value))}
-          className="border border-gold/30 rounded-lg px-3 py-1.5 text-sm w-24 focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none"
+          className="border border-gold/30 rounded-lg px-3 py-2 text-sm w-24 focus:ring-2 focus:ring-gold/40 focus:border-gold outline-none"
         />
       </div>
 
@@ -503,7 +503,7 @@ export default function PayrollPage() {
           }
         }
       `}</style>
-    </div>
+    </PageShell>
   );
 }
 

@@ -13,6 +13,8 @@ import {
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions/client";
 import { Can } from "@/components/Can";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 interface UnitLite {
   id: number;
@@ -117,28 +119,23 @@ export default function UnitMergesSettingsPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto">
-      <header className="flex items-start justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <DoorOpen className="text-primary" size={24} /> دمج الوحدات
-          </h1>
-          <p className="text-sm text-gray-500 mt-1 leading-relaxed max-w-2xl">
-            إدارة الأزواج الماديّة من الوحدات التي يوجد بينها باب جانبي للدمج.
-            يمكن فتح هذا الباب عند الطلب لتحويل الوحدتين إلى شقة عائليّة موحّدة.
-            كلّ وحدة يمكن أن تُدمَج مع وحدة واحدة فقط في نفس الطابق.
-          </p>
-        </div>
-        <Can permission="rooms:edit">
-          <button
-            type="button"
-            onClick={() => setShowCreate(true)}
-            className="shrink-0 flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm font-medium"
-          >
-            <Plus size={16} /> إضافة زوج جديد
-          </button>
-        </Can>
-      </header>
+    <PageShell className="max-w-5xl mx-auto gap-4 sm:gap-6">
+      <PageHeader
+        title="دمج الوحدات"
+        description="إدارة الأزواج الماديّة من الوحدات التي يوجد بينها باب جانبي للدمج. يمكن فتح هذا الباب عند الطلب لتحويل الوحدتين إلى شقة عائليّة موحّدة. كلّ وحدة يمكن أن تُدمَج مع وحدة واحدة فقط في نفس الطابق."
+        icon={<DoorOpen size={22} />}
+        actions={
+          <Can permission="rooms:edit">
+            <button
+              type="button"
+              onClick={() => setShowCreate(true)}
+              className="tap-44 shrink-0 flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm font-medium"
+            >
+              <Plus size={16} /> إضافة زوج جديد
+            </button>
+          </Can>
+        }
+      />
 
       {error && (
         <div className="mb-4 flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">
@@ -147,7 +144,7 @@ export default function UnitMergesSettingsPage() {
         </div>
       )}
 
-      <div className="mb-4 relative">
+      <div className="relative">
         <Search
           size={15}
           className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
@@ -175,11 +172,11 @@ export default function UnitMergesSettingsPage() {
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="bg-white border border-gray-100 rounded-xl report-table-wrap">
+          <table className="report-table w-full text-sm">
             <thead className="bg-gray-50 text-gray-600">
               <tr>
-                <th className="text-right px-4 py-2.5 font-semibold">الوحدة الأولى</th>
+                <th className="sticky-start text-right px-4 py-2.5 font-semibold">الوحدة الأولى</th>
                 <th className="text-center px-2 py-2.5 w-8"></th>
                 <th className="text-right px-4 py-2.5 font-semibold">الوحدة الثانية</th>
                 <th className="text-right px-4 py-2.5 font-semibold">الطابق</th>
@@ -193,7 +190,7 @@ export default function UnitMergesSettingsPage() {
                   key={m.id}
                   className="border-t border-gray-100 hover:bg-gray-50/60"
                 >
-                  <td className="px-4 py-2.5 font-semibold text-primary">
+                  <td className="sticky-start px-4 py-2.5 font-semibold text-primary">
                     {m.unitA.unitNumber}
                   </td>
                   <td className="text-center text-gray-400">
@@ -239,7 +236,7 @@ export default function UnitMergesSettingsPage() {
           }}
         />
       )}
-    </div>
+    </PageShell>
   );
 }
 

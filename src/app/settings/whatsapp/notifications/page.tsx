@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   Bell,
   BellOff,
-  ChevronLeft,
   Loader2,
   Moon,
   Save,
@@ -15,6 +14,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useWhatsAppPush } from "@/lib/whatsapp/hooks/useWhatsAppPush";
 import { useWhatsAppSound } from "@/lib/whatsapp/hooks/useWhatsAppSound";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 interface Prefs {
   pushEnabled: boolean;
@@ -81,35 +82,13 @@ export default function WhatsAppNotificationSettings() {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-4 pb-safe">
-      <div className="pt-2 sm:pt-4 border-b-2 border-gold/30 pb-3 sm:pb-4 flex items-start sm:items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <span
-            aria-hidden
-            className="hidden sm:inline-block w-1 h-8 bg-gold rounded-full shrink-0"
-          />
-          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center bg-green-50 border border-green-200 shrink-0">
-            <Bell size={20} className="text-green-600 sm:hidden" />
-            <Bell size={22} className="text-green-600 hidden sm:inline" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-primary font-[family-name:var(--font-amiri)] tracking-tight leading-tight">
-              إشعارات واتساب
-            </h1>
-            <p className="text-[11px] sm:text-sm text-gray-500 mt-0.5 sm:mt-1 truncate">
-              إعدادات الإشعارات الصوتية والدفع (Push) لهذا المستخدم
-            </p>
-          </div>
-        </div>
-        <Link
-          href="/settings/whatsapp"
-          className="tap-44 flex items-center justify-center gap-1 text-sm px-3 py-2 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50"
-          aria-label="العودة إلى إعدادات واتساب"
-        >
-          <ChevronLeft size={16} />
-          <span className="hidden sm:inline">إعدادات واتساب</span>
-        </Link>
-      </div>
+    <PageShell className="pb-safe">
+      <PageHeader
+        title="إشعارات واتساب"
+        description="إعدادات الإشعارات الصوتية والدفع (Push) لهذا المستخدم"
+        icon={<Bell size={22} />}
+        backHref="/settings/whatsapp"
+      />
 
       {loading || !prefs ? (
         <div className="bg-card-bg rounded-xl shadow-sm p-12 text-center">
@@ -319,6 +298,6 @@ export default function WhatsAppNotificationSettings() {
           </section>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

@@ -62,6 +62,54 @@ img, svg, video, iframe, canvas {
   .no-print {
     display: none !important;
   }
+  /* Print-friendly base: remove shadows/backgrounds, larger font on
+     financial reports, avoid row breaks mid-table. */
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  body {
+    font-size: 12pt;
+  }
+  .page-shell {
+    padding: 0 !important;
+  }
+  .bg-card-bg,
+  .bg-white {
+    background: #ffffff !important;
+  }
+  /* Report tables: drop sticky + horizontal scroll for a clean print. */
+  .report-table-wrap {
+    overflow: visible !important;
+  }
+  .report-table .sticky-start,
+  .report-table thead .sticky-start {
+    position: static !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+  .report-table thead {
+    display: table-header-group;
+  }
+  .report-table tfoot {
+    display: table-footer-group;
+  }
+  .report-table tr,
+  .report-table th,
+  .report-table td {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .report-table th,
+  .report-table td {
+    white-space: normal !important;
+  }
+  @page {
+    margin: 12mm;
+  }
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator {
@@ -222,6 +270,273 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .short-landscape-hide {
     display: none !important;
   }
+}
+
+/* ══════════════════════════════════════════════
+   System-wide Responsive Primitives
+   Applied via <PageShell>, <PageHeader>, <KpiGrid>,
+   <FilterBar>, <ResponsiveTable>, <ActionBar>.
+   Compliant with WCAG 2.2 AA, Apple HIG,
+   Material Design 3, ISO 9241-110.
+   ══════════════════════════════════════════════ */
+
+:root {
+  /* Fluid page padding: 12px on narrow mobile up to 24px on desktop. */
+  --page-px: clamp(0.75rem, 2vw, 1.5rem);
+  --page-py: clamp(0.75rem, 1.5vw, 1.5rem);
+  /* Stable tokens for safe area (alias of env() to allow overrides in tests). */
+  --safe-top: env(safe-area-inset-top);
+  --safe-bottom: env(safe-area-inset-bottom);
+  --safe-start: env(safe-area-inset-right);
+  --safe-end: env(safe-area-inset-left);
+}
+
+/* PageShell — base wrapper for every staff page. Ensures content never
+   forces horizontal overflow regardless of intrinsic child widths.
+   `.page-shell` alone = fluid padding + width clamp (safe for every page).
+   Add `.page-stack` on top when you want standardized vertical rhythm. */
+.page-shell {
+  padding-inline: var(--page-px);
+  padding-block: var(--page-py);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.page-stack {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.75rem, 1.5vw, 1rem);
+}
+
+/* KpiGrid — auto-fit grid so KPI cards wrap gracefully from 1-col (≤320px)
+   through 2–6 columns without explicit breakpoints. The `minmax` floor scales
+   with viewport so cards don't get squished on Fold closed. */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr));
+  gap: 0.625rem;
+}
+@media (min-width: 640px) {
+  .kpi-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
+    gap: 0.75rem;
+  }
+}
+@media (max-width: 320px) {
+  .kpi-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+}
+
+/* FilterBar — flex-wrap row with min-w-0 enforced on children so select/input
+   controls shrink instead of pushing siblings off-screen. */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.filter-bar > * {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+.filter-bar > input[type="search"],
+.filter-bar > input[type="text"],
+.filter-bar > .filter-bar-grow {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+/* ResponsiveTable — table on ≥ md, stacked cards below md. Desktop variant
+   uses classic <table>; mobile renders a list of cards via JS. The `.rt-*`
+   classes are applied by the primitive itself. */
+.rt-wrap {
+  width: 100%;
+  min-width: 0;
+}
+.rt-desktop {
+  display: none;
+}
+.rt-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+@media (min-width: 768px) {
+  .rt-desktop {
+    display: block;
+    overflow-x: auto;
+  }
+  .rt-mobile {
+    display: none;
+  }
+}
+.rt-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+}
+.rt-table thead th {
+  text-align: start;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: #6b7280;
+  padding: 0.625rem 0.75rem;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap;
+}
+.rt-table tbody td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
+}
+.rt-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.rt-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+/* Mobile card auto-layout (used when mobileCard is not supplied). */
+.rt-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 0.75rem 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.rt-card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.rt-card-label {
+  font-size: 0.7rem;
+  color: #6b7280;
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+.rt-card-value {
+  font-size: 0.875rem;
+  color: #111827;
+  min-width: 0;
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+
+/* Report tables: keep a classic <table> layout on every viewport with
+   a sticky first column so the row label stays visible while scrolling. */
+.report-table-wrap {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+  scrollbar-width: thin;
+}
+.report-table-wrap::-webkit-scrollbar {
+  height: 6px;
+}
+.report-table-wrap::-webkit-scrollbar-thumb {
+  background: rgba(14, 59, 51, 0.25);
+  border-radius: 3px;
+}
+.report-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+}
+.report-table th,
+.report-table td {
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+  white-space: nowrap;
+}
+.report-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f9fafb;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: #475569;
+}
+.report-table .sticky-start {
+  position: sticky;
+  inset-inline-start: 0;
+  background: #ffffff;
+  z-index: 1;
+  box-shadow: 1px 0 0 0 #f1f5f9;
+}
+.report-table thead .sticky-start {
+  background: #f9fafb;
+  z-index: 2;
+}
+
+/* ActionBar — inline on ≥ md, sticky dock on < md. The `always-sticky` variant
+   keeps the dock at the bottom even on desktop (used for long detail pages). */
+.action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.action-bar-sticky {
+  position: sticky;
+  bottom: 0;
+  inset-inline: 0;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: saturate(1.4) blur(8px);
+  padding: 0.625rem var(--page-px);
+  padding-bottom: calc(0.625rem + var(--safe-bottom));
+  border-top: 1px solid #e5e7eb;
+  z-index: 40;
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-inline: calc(-1 * var(--page-px));
+}
+@media (min-width: 768px) {
+  .action-bar-sticky-mobile {
+    position: static;
+    padding: 0;
+    padding-bottom: 0;
+    background: transparent;
+    backdrop-filter: none;
+    border-top: 0;
+    margin-inline: 0;
+  }
+}
+/* Buttons inside an ActionBar stretch on narrow screens so taps never miss. */
+.action-bar > *,
+.action-bar-sticky > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+@media (min-width: 480px) {
+  .action-bar > *,
+  .action-bar-sticky > * {
+    flex: 0 1 auto;
+  }
+}
+
+/* PageHeader helpers. */
+.page-header-title {
+  font-size: clamp(1.125rem, 2.5vw, 1.5rem);
+  font-weight: 700;
+  color: var(--color-primary);
+  line-height: 1.25;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ══════════════════════════════════════════════

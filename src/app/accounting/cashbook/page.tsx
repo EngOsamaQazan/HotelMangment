@@ -22,6 +22,9 @@ import {
 } from "lucide-react";
 import { cn, formatDate, formatAmount } from "@/lib/utils";
 import { Can } from "@/components/Can";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { KpiGrid } from "@/components/ui/KpiGrid";
 
 type AccountKey = "cash" | "bank" | "wallet";
 
@@ -293,34 +296,25 @@ export default function CashbookPage() {
   const isLastPage = page === totalPages;
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="border-b-2 border-gold/30 pb-3">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <span className="inline-block w-1 h-8 bg-gold rounded-full shrink-0" />
-            <div className="min-w-0">
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-primary">
-                الدفتر النقدي
-              </h1>
-              <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5 leading-snug">
-                يُقرأ مباشرة من القيود المحاسبية — مصدر بيانات واحد موحَّد
-              </p>
-            </div>
-          </div>
+    <PageShell>
+      <PageHeader
+        title="الدفتر النقدي"
+        description="يُقرأ مباشرة من القيود المحاسبية — مصدر بيانات واحد موحَّد"
+        actions={
           <Can permission="accounting.journal:create">
             <button
               onClick={() => {
                 setForm(buildEmptyForm());
                 setShowForm(true);
               }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium w-full sm:w-auto justify-center"
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium tap-44"
             >
               <Plus size={18} />
-              إضافة حركة
+              <span>إضافة حركة</span>
             </button>
           </Can>
-        </div>
-      </div>
+        }
+      />
 
       {/* Account balance cards (acts as tabs) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -439,7 +433,7 @@ export default function CashbookPage() {
           ))}
         </div>
       ) : ledger ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <KpiGrid>
           <SummaryCard
             title="الرصيد الافتتاحي"
             value={ledger.openingBalance}
@@ -464,7 +458,7 @@ export default function CashbookPage() {
             icon={Scale}
             color="blue"
           />
-        </div>
+        </KpiGrid>
       ) : null}
 
       {/* Transactions */}
@@ -916,7 +910,7 @@ export default function CashbookPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }
 

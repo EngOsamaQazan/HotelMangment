@@ -20,6 +20,14 @@ import {
 } from "@/lib/utils";
 import { Pagination } from "@/components/Pagination";
 import { Can } from "@/components/Can";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { KpiGrid } from "@/components/ui/KpiGrid";
+import { FilterBar } from "@/components/ui/FilterBar";
+import {
+  ResponsiveTable,
+  type ResponsiveTableColumn,
+} from "@/components/ui/ResponsiveTable";
 
 interface Unit {
   id: number;
@@ -142,28 +150,168 @@ export default function ReservationsPage() {
     setPage(1);
   }, [search, statusFilter]);
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <CalendarCheck className="text-primary" size={24} />
-          <h1 className="text-xl sm:text-2xl font-bold text-primary">سجل الحجوزات</h1>
+  const columns: ResponsiveTableColumn<Reservation>[] = [
+    {
+      key: "id",
+      label: "رقم",
+      cell: (r) => (
+        <div className="flex items-center gap-1.5">
+          <span className="font-medium text-gray-700">{r.id}</span>
+          <SourceBadge source={r.source} />
         </div>
-        <Can permission="reservations:create">
+      ),
+    },
+    {
+      key: "guest",
+      label: "اسم الضيف",
+      cell: (r) => (
+        <div className="font-medium text-gray-800">
+          {r.guestName}
+          {r.confirmationCode && (
+            <div
+              className="text-[10px] text-amber-700 font-mono mt-0.5"
+              dir="ltr"
+            >
+              {r.confirmationCode}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "unit",
+      label: "الوحدة",
+      cell: (r) => <span className="text-gray-600">{r.unit.unitNumber}</span>,
+    },
+    {
+      key: "stayType",
+      label: "نوع الإقامة",
+      cell: (r) => (
+        <span className="text-gray-600">
+          {stayTypeLabels[r.stayType] || r.stayType}
+        </span>
+      ),
+    },
+    {
+      key: "checkIn",
+      label: "الدخول",
+      cell: (r) => (
+        <span className="text-gray-600 whitespace-nowrap">
+          {formatDate(r.checkIn)}
+        </span>
+      ),
+    },
+    {
+      key: "checkOut",
+      label: "الخروج",
+      cell: (r) => (
+        <span className="text-gray-600 whitespace-nowrap">
+          {formatDate(r.checkOut)}
+        </span>
+      ),
+    },
+    {
+      key: "total",
+      label: "المبلغ",
+      cell: (r) => (
+        <span className="text-gray-700 font-medium whitespace-nowrap">
+          {formatAmount(r.totalAmount)}
+        </span>
+      ),
+    },
+    {
+      key: "paid",
+      label: "المدفوع",
+      cell: (r) => (
+        <span className="text-green-700 font-medium whitespace-nowrap">
+          {formatAmount(r.paidAmount)}
+        </span>
+      ),
+    },
+    {
+      key: "remaining",
+      label: "المتبقي",
+      cell: (r) => (
+        <span
+          className={cn(
+            "font-medium whitespace-nowrap",
+            parseFloat(r.remaining) > 0 ? "text-red-600" : "text-gray-500",
+          )}
+        >
+          {formatAmount(r.remaining)}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      label: "الحالة",
+      cell: (r) => (
+        <span
+          className={cn(
+            "px-3 py-1 rounded-full text-xs font-medium",
+            STATUS_COLORS[r.status] || "bg-gray-100 text-gray-600",
+          )}
+        >
+          {statusLabels[r.status] || r.status}
+        </span>
+      ),
+    },
+    {
+      key: "actions",
+      label: "إجراءات",
+      align: "center",
+      cell: (r) => (
+        <div className="flex items-center justify-center gap-1">
           <Link
-            href="/reservations/new"
-            className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-lg transition-colors font-medium w-full sm:w-auto"
+            href={`/reservations/${r.id}`}
+            className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+            title="عرض / تعديل"
           >
-            <Plus size={18} />
-            حجز جديد
+            <Eye size={16} />
           </Link>
-        </Can>
-      </div>
+          <Can permission="reservations:edit">
+            <Link
+              href={`/reservations/${r.id}`}
+              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+              title="تعديل"
+            >
+              <Pencil size={16} />
+            </Link>
+          </Can>
+          <Can permission="reservations:print">
+            <Link
+              href={`/reservations/${r.id}/contract`}
+              className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+              title="طباعة العقد"
+            >
+              <FileText size={16} />
+            </Link>
+          </Can>
+        </div>
+      ),
+    },
+  ];
 
-      {/* Summary strip */}
+  return (
+    <PageShell>
+      <PageHeader
+        title="سجل الحجوزات"
+        icon={<CalendarCheck size={24} />}
+        actions={
+          <Can permission="reservations:create">
+            <Link
+              href="/reservations/new"
+              className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors font-medium tap-44"
+            >
+              <Plus size={18} />
+              <span>حجز جديد</span>
+            </Link>
+          </Can>
+        }
+      />
+
       {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <KpiGrid>
           <SummaryCard
             label="السارية الآن"
             value={summary.active}
@@ -184,21 +332,31 @@ export default function ReservationsPage() {
             value={summary.upcomingThisWeek}
             tone="indigo"
           />
-        </div>
+        </KpiGrid>
       )}
 
-      {/* Tabs */}
-      <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 p-3">
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Tabs: horizontal scroll on < sm to avoid forcing line wraps that
+          would steal two or three rows of vertical space on Fold/compact phones. */}
+      <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 p-2 min-w-0">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-1 px-1">
           {TABS.map((t) => {
             const count =
               summary == null
                 ? null
                 : t.key === "all"
-                  ? summary.active + summary.upcoming + summary.completed + summary.cancelled
+                  ? summary.active +
+                    summary.upcoming +
+                    summary.completed +
+                    summary.cancelled
                   : t.key === "online"
                     ? (summary.onlineTotal ?? 0)
-                    : summary[t.key as "active" | "upcoming" | "completed" | "cancelled"];
+                    : summary[
+                        t.key as
+                          | "active"
+                          | "upcoming"
+                          | "completed"
+                          | "cancelled"
+                      ];
             const isActive = statusFilter === t.key;
             return (
               <button
@@ -206,13 +364,13 @@ export default function ReservationsPage() {
                 type="button"
                 onClick={() => setStatusFilter(t.key)}
                 className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
+                  "shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium border transition-colors tap-44",
                   isActive
                     ? "bg-primary text-white border-primary"
                     : "bg-white text-gray-600 border-gray-200 hover:border-primary/40 hover:text-primary",
                 )}
               >
-                <span>{t.label}</span>
+                <span className="whitespace-nowrap">{t.label}</span>
                 {count != null && (
                   <span
                     className={cn(
@@ -231,245 +389,42 @@ export default function ReservationsPage() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 p-4">
-        <div className="relative">
+      <FilterBar>
+        <div className="relative flex-1 min-w-0">
           <Search
             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
             size={18}
           />
           <input
-            type="text"
+            type="search"
             placeholder="بحث بالاسم أو رقم الهاتف أو الوحدة..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pr-10 pl-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
+            className="w-full pr-10 pl-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
           />
         </div>
-      </div>
+      </FilterBar>
 
-      {/* Table */}
-      <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        {loading ? (
-          <TableSkeleton />
-        ) : !data || data.reservations.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-            <CalendarCheck size={48} className="mb-3 opacity-50" />
-            <p className="text-lg font-medium">لا توجد حجوزات</p>
-            <p className="text-sm mt-1">قم بإضافة حجز جديد للبدء</p>
-          </div>
-        ) : (
-          <>
-            {/* Desktop Table */}
-            <div className="overflow-x-auto hidden lg:block">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="px-4 py-3 text-right font-semibold text-gray-600">
-                      رقم
-                    </th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-600">
-                      اسم الضيف
-                    </th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-600">
-                      الوحدة
-                    </th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-600">
-                      نوع الإقامة
-                    </th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-600">
-                      الدخول
-                    </th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-600">
-                      الخروج
-                    </th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-600">
-                      المبلغ
-                    </th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-600">
-                      المدفوع
-                    </th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-600">
-                      المتبقي
-                    </th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-600">
-                      الحالة
-                    </th>
-                    <th className="px-4 py-3 text-center font-semibold text-gray-600">
-                      إجراءات
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.reservations.map((r) => (
-                    <tr
-                      key={r.id}
-                      className={cn(
-                        "border-b border-gray-50 hover:bg-gray-50/50 transition-colors",
-                        r.source === "direct_web" && "bg-amber-50/30",
-                      )}
-                    >
-                      <td className="px-4 py-3 font-medium text-gray-700">
-                        <div className="flex items-center gap-1.5">
-                          <span>{r.id}</span>
-                          <SourceBadge source={r.source} />
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 font-medium text-gray-800">
-                        {r.guestName}
-                        {r.confirmationCode && (
-                          <div
-                            className="text-[10px] text-amber-700 font-mono mt-0.5"
-                            dir="ltr"
-                          >
-                            {r.confirmationCode}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-gray-600">
-                        {r.unit.unitNumber}
-                      </td>
-                      <td className="px-4 py-3 text-gray-600">
-                        {stayTypeLabels[r.stayType] || r.stayType}
-                      </td>
-                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                        {formatDate(r.checkIn)}
-                      </td>
-                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                        {formatDate(r.checkOut)}
-                      </td>
-                      <td className="px-4 py-3 text-gray-700 font-medium whitespace-nowrap">
-                        {formatAmount(r.totalAmount)}
-                      </td>
-                      <td className="px-4 py-3 text-green-700 font-medium whitespace-nowrap">
-                        {formatAmount(r.paidAmount)}
-                      </td>
-                      <td
-                        className={cn(
-                          "px-4 py-3 font-medium whitespace-nowrap",
-                          parseFloat(r.remaining) > 0
-                            ? "text-red-600"
-                            : "text-gray-500"
-                        )}
-                      >
-                        {formatAmount(r.remaining)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={cn(
-                            "px-3 py-1 rounded-full text-xs font-medium",
-                            STATUS_COLORS[r.status] || "bg-gray-100 text-gray-600"
-                          )}
-                        >
-                          {statusLabels[r.status] || r.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-1">
-                          <Link
-                            href={`/reservations/${r.id}`}
-                            className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                            title="عرض / تعديل"
-                          >
-                            <Eye size={16} />
-                          </Link>
-                          <Can permission="reservations:edit">
-                            <Link
-                              href={`/reservations/${r.id}`}
-                              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
-                              title="تعديل"
-                            >
-                              <Pencil size={16} />
-                            </Link>
-                          </Can>
-                          <Can permission="reservations:print">
-                            <Link
-                              href={`/reservations/${r.id}/contract`}
-                              className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                              title="طباعة العقد"
-                            >
-                              <FileText size={16} />
-                            </Link>
-                          </Can>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+      {loading ? (
+        <TableSkeleton />
+      ) : (
+        <>
+          <ResponsiveTable
+            columns={columns}
+            rows={data?.reservations ?? []}
+            getRowKey={(r) => r.id}
+            mobileCard={(r) => <ReservationCard reservation={r} />}
+            emptyState={
+              <div className="flex flex-col items-center justify-center py-10 text-gray-400">
+                <CalendarCheck size={48} className="mb-3 opacity-50" />
+                <p className="text-lg font-medium">لا توجد حجوزات</p>
+                <p className="text-sm mt-1">قم بإضافة حجز جديد للبدء</p>
+              </div>
+            }
+          />
 
-            {/* Mobile Cards */}
-            <div className="lg:hidden divide-y divide-gray-100">
-              {data.reservations.map((r) => (
-                <div
-                  key={r.id}
-                  className={cn(
-                    "p-4 space-y-3",
-                    r.source === "direct_web" && "bg-amber-50/30",
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400">#{r.id}</span>
-                      <span className="font-bold text-gray-800">{r.guestName}</span>
-                      <SourceBadge source={r.source} />
-                    </div>
-                    <span
-                      className={cn(
-                        "px-2.5 py-1 rounded-full text-xs font-medium",
-                        STATUS_COLORS[r.status] || "bg-gray-100 text-gray-600"
-                      )}
-                    >
-                      {statusLabels[r.status] || r.status}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
-                    <span>🏠 {r.unit.unitNumber}</span>
-                    <span>{stayTypeLabels[r.stayType] || r.stayType}</span>
-                  </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
-                    <span>📅 {formatDate(r.checkIn)} — {formatDate(r.checkOut)}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                    <div className="bg-gray-50 rounded-lg p-2">
-                      <p className="text-gray-400 mb-0.5">المبلغ</p>
-                      <p className="font-bold text-gray-800">{formatAmount(r.totalAmount)}</p>
-                    </div>
-                    <div className="bg-green-50 rounded-lg p-2">
-                      <p className="text-gray-400 mb-0.5">المدفوع</p>
-                      <p className="font-bold text-green-700">{formatAmount(r.paidAmount)}</p>
-                    </div>
-                    <div className={cn("rounded-lg p-2", parseFloat(r.remaining) > 0 ? "bg-red-50" : "bg-gray-50")}>
-                      <p className="text-gray-400 mb-0.5">المتبقي</p>
-                      <p className={cn("font-bold", parseFloat(r.remaining) > 0 ? "text-red-600" : "text-gray-500")}>
-                        {formatAmount(r.remaining)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 pt-1">
-                    <Link
-                      href={`/reservations/${r.id}`}
-                      className="flex-1 flex items-center justify-center gap-1 py-2 text-primary bg-primary/5 rounded-lg text-xs font-medium"
-                    >
-                      <Eye size={14} />
-                      عرض
-                    </Link>
-                    <Can permission="reservations:print">
-                      <Link
-                        href={`/reservations/${r.id}/contract`}
-                        className="flex-1 flex items-center justify-center gap-1 py-2 text-amber-600 bg-amber-50 rounded-lg text-xs font-medium"
-                      >
-                        <FileText size={14} />
-                        العقد
-                      </Link>
-                    </Can>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="px-4 py-3 border-t border-gold/20">
+          {data && data.total > 0 && (
+            <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 px-3 py-2">
               <Pagination
                 page={page}
                 pageSize={limit}
@@ -477,8 +432,92 @@ export default function ReservationsPage() {
                 onChange={setPage}
               />
             </div>
-          </>
-        )}
+          )}
+        </>
+      )}
+    </PageShell>
+  );
+}
+
+function ReservationCard({ reservation: r }: { reservation: Reservation }) {
+  return (
+    <div
+      className={cn(
+        "bg-white border border-gray-200 rounded-xl p-4 space-y-3",
+        r.source === "direct_web" && "bg-amber-50/40 border-amber-200",
+      )}
+    >
+      <div className="flex items-start justify-between gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <span className="text-xs text-gray-400 shrink-0">#{r.id}</span>
+          <span className="font-bold text-gray-800 truncate">
+            {r.guestName}
+          </span>
+          <SourceBadge source={r.source} />
+        </div>
+        <span
+          className={cn(
+            "shrink-0 px-2.5 py-1 rounded-full text-xs font-medium",
+            STATUS_COLORS[r.status] || "bg-gray-100 text-gray-600",
+          )}
+        >
+          {statusLabels[r.status] || r.status}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+        <span>🏠 {r.unit.unitNumber}</span>
+        <span>{stayTypeLabels[r.stayType] || r.stayType}</span>
+        <span className="whitespace-nowrap">
+          📅 {formatDate(r.checkIn)} — {formatDate(r.checkOut)}
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-2 text-center text-xs">
+        <div className="bg-gray-50 rounded-lg p-2 min-w-0">
+          <p className="text-gray-400 mb-0.5">المبلغ</p>
+          <p className="font-bold text-gray-800 truncate">
+            {formatAmount(r.totalAmount)}
+          </p>
+        </div>
+        <div className="bg-green-50 rounded-lg p-2 min-w-0">
+          <p className="text-gray-400 mb-0.5">المدفوع</p>
+          <p className="font-bold text-green-700 truncate">
+            {formatAmount(r.paidAmount)}
+          </p>
+        </div>
+        <div
+          className={cn(
+            "rounded-lg p-2 min-w-0",
+            parseFloat(r.remaining) > 0 ? "bg-red-50" : "bg-gray-50",
+          )}
+        >
+          <p className="text-gray-400 mb-0.5">المتبقي</p>
+          <p
+            className={cn(
+              "font-bold truncate",
+              parseFloat(r.remaining) > 0 ? "text-red-600" : "text-gray-500",
+            )}
+          >
+            {formatAmount(r.remaining)}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 pt-1">
+        <Link
+          href={`/reservations/${r.id}`}
+          className="flex-1 flex items-center justify-center gap-1 py-2 text-primary bg-primary/5 rounded-lg text-xs font-medium tap-44"
+        >
+          <Eye size={14} />
+          عرض
+        </Link>
+        <Can permission="reservations:print">
+          <Link
+            href={`/reservations/${r.id}/contract`}
+            className="flex-1 flex items-center justify-center gap-1 py-2 text-amber-600 bg-amber-50 rounded-lg text-xs font-medium tap-44"
+          >
+            <FileText size={14} />
+            العقد
+          </Link>
+        </Can>
       </div>
     </div>
   );
@@ -502,12 +541,12 @@ function SummaryCard({
   return (
     <div
       className={cn(
-        "rounded-xl border p-4 flex items-center justify-between shadow-sm",
+        "rounded-xl border p-3 flex items-center justify-between shadow-sm min-w-0",
         toneClasses[tone],
       )}
     >
-      <span className="text-sm font-medium">{label}</span>
-      <span className="text-2xl font-bold">{value}</span>
+      <span className="text-xs sm:text-sm font-medium truncate">{label}</span>
+      <span className="text-xl sm:text-2xl font-bold shrink-0">{value}</span>
     </div>
   );
 }
@@ -533,7 +572,7 @@ function SourceBadge({ source }: { source?: string | null }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full",
+        "inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0",
         cfg.className,
       )}
     >
@@ -544,7 +583,7 @@ function SourceBadge({ source }: { source?: string | null }) {
 
 function TableSkeleton() {
   return (
-    <div className="p-6 space-y-4">
+    <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
       <div className="flex items-center justify-center py-10">
         <Loader2 className="animate-spin text-primary" size={32} />
         <span className="mr-3 text-gray-500">جاري تحميل الحجوزات...</span>

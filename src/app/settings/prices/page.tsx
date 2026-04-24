@@ -12,13 +12,14 @@ import {
   CheckCircle2,
   AlertCircle,
   Power,
-  ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Can } from "@/components/Can";
 import { usePermissions } from "@/lib/permissions/client";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 interface UnitTypeLite {
   id: number;
@@ -204,34 +205,24 @@ export default function PricesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <Link
-            href="/settings"
-            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors mb-2"
-          >
-            <ArrowLeft size={14} />
-            العودة للإعدادات
-          </Link>
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <Tag className="text-primary" />
-            الأسعار الموسمية حسب نوع الوحدة
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            حدّد لكل موسم سعرًا يوميًّا/أسبوعيًّا/شهريًّا لكل نوع وحدة.
-          </p>
-        </div>
-        <Can permission="settings.prices:create">
-          <button
-            onClick={() => setShowNew(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium"
-          >
-            <Plus size={16} />
-            موسم جديد
-          </button>
-        </Can>
-      </div>
+    <PageShell className="gap-6">
+      <PageHeader
+        title="الأسعار الموسمية حسب نوع الوحدة"
+        description="حدّد لكل موسم سعرًا يوميًّا/أسبوعيًّا/شهريًّا لكل نوع وحدة."
+        icon={<Tag size={22} />}
+        backHref="/settings"
+        actions={
+          <Can permission="settings.prices:create">
+            <button
+              onClick={() => setShowNew(true)}
+              className="tap-44 flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium"
+            >
+              <Plus size={16} />
+              موسم جديد
+            </button>
+          </Can>
+        }
+      />
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
@@ -243,7 +234,7 @@ export default function PricesPage() {
           <p>لا توجد مواسم بعد. أضِف موسمًا لبدء التسعير.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(220px,260px)_1fr] gap-4 lg:gap-6">
           <aside className="space-y-2">
             {seasons.map((s) => (
               <div
@@ -345,11 +336,11 @@ export default function PricesPage() {
                     </Link>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                  <div className="report-table-wrap">
+                    <table className="report-table w-full text-sm">
                       <thead>
                         <tr className="bg-gray-50 text-gray-600 text-xs">
-                          <th className="text-right px-3 py-2 font-medium">نوع الوحدة</th>
+                          <th className="sticky-start text-right px-3 py-2 font-medium">نوع الوحدة</th>
                           <th className="text-center px-3 py-2 font-medium">الفئة</th>
                           <th className="text-center px-3 py-2 font-medium">يومي</th>
                           <th className="text-center px-3 py-2 font-medium">أسبوعي</th>
@@ -369,7 +360,7 @@ export default function PricesPage() {
                                 hasEdits ? "bg-yellow-50/60" : "hover:bg-gray-50/60",
                               )}
                             >
-                              <td className="px-3 py-2">
+                              <td className="sticky-start px-3 py-2">
                                 <div className="font-medium text-gray-800">
                                   {row.unitType.nameAr}
                                 </div>
@@ -495,6 +486,6 @@ export default function PricesPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

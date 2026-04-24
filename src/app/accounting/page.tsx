@@ -15,6 +15,8 @@ import {
   Receipt,
 } from "lucide-react";
 import { Can } from "@/components/Can";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 const SECTIONS: Array<{
   href: string;
@@ -104,20 +106,13 @@ const SECTIONS: Array<{
 
 export default function AccountingHomePage() {
   return (
-    <div className="space-y-6">
-      <div className="border-b-2 border-gold/30 pb-3">
-        <div className="flex items-center gap-3">
-          <span className="inline-block w-1 h-8 bg-gold rounded-full" />
-          <h1 className="text-2xl sm:text-3xl font-bold text-primary font-[family-name:var(--font-amiri)] tracking-tight">
-            النظام المحاسبي
-          </h1>
-        </div>
-        <p className="text-sm text-gray-500 mt-1 ms-4">
-          نظام قيد مزدوج كامل مع أطراف متعددة وتقارير مالية احترافية
-        </p>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="النظام المحاسبي"
+        description="نظام قيد مزدوج كامل مع أطراف متعددة وتقارير مالية احترافية"
+      />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] gap-4">
         {SECTIONS.map((s) => {
           const Icon = s.icon;
           return (
@@ -153,6 +148,6 @@ export default function AccountingHomePage() {
           );
         })}
       </div>
-    </div>
+    </PageShell>
   );
 }

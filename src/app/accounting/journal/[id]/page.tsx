@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
-  ArrowLeft,
   BookText,
   Loader2,
   AlertCircle,
@@ -13,6 +12,8 @@ import {
 } from "lucide-react";
 import { cn, formatAmount, formatDate } from "@/lib/utils";
 import { Can } from "@/components/Can";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 interface Line {
   id: number;
@@ -118,38 +119,39 @@ export default function JournalDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 no-print">
-        <Link
-          href="/accounting/journal"
-          className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-primary"
-        >
-          <ArrowLeft size={16} /> العودة
-        </Link>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark"
-          >
-            <Printer size={16} /> طباعة
-          </button>
-          {entry.status === "posted" && !entry.voidedAt && entry.source !== "reversal" && (
-            <Can permission="accounting.journal:void">
+    <PageShell>
+      <div className="no-print">
+        <PageHeader
+          title={`قيد ${entry.entryNumber}`}
+          icon={<BookText size={22} />}
+          backHref="/accounting/journal"
+          actions={
+            <>
               <button
-                onClick={handleVoid}
-                disabled={voiding}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50"
+                onClick={() => window.print()}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark tap-44"
               >
-                {voiding ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <RotateCcw size={16} />
-                )}
-                عكس القيد
+                <Printer size={16} /> <span>طباعة</span>
               </button>
-            </Can>
-          )}
-        </div>
+              {entry.status === "posted" && !entry.voidedAt && entry.source !== "reversal" && (
+                <Can permission="accounting.journal:void">
+                  <button
+                    onClick={handleVoid}
+                    disabled={voiding}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50 tap-44"
+                  >
+                    {voiding ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <RotateCcw size={16} />
+                    )}
+                    <span>عكس القيد</span>
+                  </button>
+                </Can>
+              )}
+            </>
+          }
+        />
       </div>
 
       <div className="bg-card-bg rounded-xl shadow-sm p-6 space-y-3">
@@ -224,21 +226,21 @@ export default function JournalDetailPage() {
       </div>
 
       <div className="bg-card-bg rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="report-table-wrap">
+          <table className="report-table">
             <thead>
-              <tr className="bg-gray-50 text-gray-600">
-                <th className="text-right px-4 py-3 font-medium">الحساب</th>
-                <th className="text-right px-4 py-3 font-medium">الطرف</th>
-                <th className="text-right px-4 py-3 font-medium">البيان</th>
-                <th className="text-right px-4 py-3 font-medium">مدين</th>
-                <th className="text-right px-4 py-3 font-medium">دائن</th>
+              <tr>
+                <th className="sticky-start text-right">الحساب</th>
+                <th className="text-right">الطرف</th>
+                <th className="text-right">البيان</th>
+                <th className="text-right">مدين</th>
+                <th className="text-right">دائن</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {entry.lines.map((l) => (
                 <tr key={l.id}>
-                  <td className="px-4 py-3">
+                  <td className="sticky-start">
                     <span className="font-mono text-xs text-gray-500">
                       {l.account.code}
                     </span>
@@ -246,7 +248,7 @@ export default function JournalDetailPage() {
                       {l.account.name}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td>
                     {l.party ? (
                       <Link
                         href={`/accounting/parties/${l.party.id}`}
@@ -258,13 +260,13 @@ export default function JournalDetailPage() {
                       <span className="text-gray-400">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="text-gray-600">
                     {l.description || "—"}
                   </td>
-                  <td className="px-4 py-3 font-medium text-green-700">
+                  <td className="font-medium text-green-700">
                     {l.debit > 0 ? formatAmount(l.debit) : ""}
                   </td>
-                  <td className="px-4 py-3 font-medium text-red-700">
+                  <td className="font-medium text-red-700">
                     {l.credit > 0 ? formatAmount(l.credit) : ""}
                   </td>
                 </tr>
@@ -272,13 +274,13 @@ export default function JournalDetailPage() {
             </tbody>
             <tfoot>
               <tr className="bg-gray-100 font-bold">
-                <td className="px-4 py-3" colSpan={3}>
+                <td className="sticky-start" colSpan={3}>
                   الإجمالي
                 </td>
-                <td className="px-4 py-3 text-green-700">
+                <td className="text-green-700">
                   {formatAmount(entry.totalDebit)}
                 </td>
-                <td className="px-4 py-3 text-red-700">
+                <td className="text-red-700">
                   {formatAmount(entry.totalCredit)}
                 </td>
               </tr>
@@ -286,6 +288,6 @@ export default function JournalDetailPage() {
           </table>
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }

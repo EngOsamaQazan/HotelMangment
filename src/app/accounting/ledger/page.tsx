@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { formatAmount, formatDate } from "@/lib/utils";
 import { Pagination, usePaginatedSlice } from "@/components/Pagination";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 const PAGE_SIZE = 20;
 
@@ -112,22 +114,22 @@ export default function LedgerPage() {
   }, [accountId, router]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 no-print">
-        <div className="flex items-center gap-3">
-          <BookOpen size={28} className="text-primary" />
-          <h1 className="text-xl sm:text-2xl font-bold text-primary">
-            الأستاذ العام
-          </h1>
-        </div>
-        {data && (
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark"
-          >
-            <Printer size={16} /> طباعة
-          </button>
-        )}
+    <PageShell>
+      <div className="no-print">
+        <PageHeader
+          title="الأستاذ العام"
+          icon={<BookOpen size={24} />}
+          actions={
+            data && (
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark tap-44"
+              >
+                <Printer size={16} /> <span>طباعة</span>
+              </button>
+            )
+          }
+        />
       </div>
 
       <div className="bg-card-bg rounded-xl p-3 sm:p-4 shadow-sm space-y-3 no-print">
@@ -381,6 +383,6 @@ export default function LedgerPage() {
           </div>
         </>
       )}
-    </div>
+    </PageShell>
   );
 }

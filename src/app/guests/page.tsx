@@ -30,6 +30,10 @@ import { findNationality } from "@/lib/countries";
 import { Pagination, usePaginatedSlice } from "@/components/Pagination";
 import { Can } from "@/components/Can";
 import { usePermissions } from "@/lib/permissions/client";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { KpiGrid } from "@/components/ui/KpiGrid";
+import { FilterBar } from "@/components/ui/FilterBar";
 
 const PAGE_SIZE = 20;
 
@@ -238,38 +242,26 @@ export default function GuestsPage() {
   const pagedGuests = usePaginatedSlice(guests, page, PAGE_SIZE);
 
   return (
-    <div className="space-y-5 sm:space-y-6">
-      {/* ------------------------------------------------------------------ */}
-      {/* Header                                                              */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-3">
-            <Users className="text-primary" size={24} />
-            <h1 className="text-xl sm:text-2xl font-bold text-primary">
-              سجل الضيوف
-            </h1>
-          </div>
-          <p className="text-sm text-gray-500 mt-1">
-            بطاقات الضيوف وسجل زياراتهم وإجراءات سريعة لكل ضيف
-          </p>
-        </div>
-        <Can permission="reservations:create">
-          <Link
-            href="/reservations/new"
-            className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-lg transition-colors font-medium w-full sm:w-auto shadow-sm"
-          >
-            <Plus size={18} />
-            حجز جديد
-          </Link>
-        </Can>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="سجل الضيوف"
+        description="بطاقات الضيوف وسجل زياراتهم وإجراءات سريعة لكل ضيف"
+        icon={<Users size={24} />}
+        actions={
+          <Can permission="reservations:create">
+            <Link
+              href="/reservations/new"
+              className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors font-medium tap-44 shadow-sm"
+            >
+              <Plus size={18} />
+              <span>حجز جديد</span>
+            </Link>
+          </Can>
+        }
+      />
 
-      {/* ------------------------------------------------------------------ */}
-      {/* KPI strip                                                           */}
-      {/* ------------------------------------------------------------------ */}
       {data && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <KpiGrid>
           <KpiCard
             icon={<Users size={18} />}
             label="إجمالي الضيوف"
@@ -318,14 +310,13 @@ export default function GuestsPage() {
             onClick={() => setSegment("balance")}
             active={segment === "balance"}
           />
-        </div>
+        </KpiGrid>
       )}
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Segment tabs + filters                                              */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 p-3 sm:p-4 space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Segment tabs: horizontal scroll on narrow screens keeps all chips
+          reachable without forcing 3 rows of wraps. */}
+      <div className="bg-card-bg rounded-xl shadow-sm border border-gray-100 p-3 sm:p-4 space-y-3 min-w-0">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-1 px-1">
           {SEGMENTS.map((s) => {
             const count =
               data && s.countKey ? data.summary[s.countKey] : null;
@@ -336,7 +327,7 @@ export default function GuestsPage() {
                 type="button"
                 onClick={() => setSegment(s.key)}
                 className={cn(
-                  "inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors",
+                  "shrink-0 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors whitespace-nowrap",
                   active
                     ? "bg-primary text-white border-primary shadow-sm"
                     : "bg-white text-gray-600 border-gray-200 hover:border-primary/40 hover:text-primary",
@@ -360,34 +351,36 @@ export default function GuestsPage() {
           })}
         </div>
 
-        <div className="flex flex-col md:flex-row md:items-center gap-3">
-          <div className="relative flex-1">
-            <Search
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-              size={18}
-            />
-            <input
-              type="text"
-              placeholder="بحث بالاسم أو رقم الهوية أو الهاتف أو الجنسية..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pr-10 pl-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
-            />
-          </div>
-          <select
-            value={nationality}
-            onChange={(e) => setNationality(e.target.value)}
-            className="w-full md:w-64 px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm bg-white"
-          >
-            <option value="">كل الجنسيات</option>
-            {data?.nationalities.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
+
+      <FilterBar>
+        <div className="relative flex-1 min-w-0">
+          <Search
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+            size={18}
+          />
+          <input
+            type="search"
+            placeholder="بحث بالاسم أو رقم الهوية أو الهاتف أو الجنسية..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pr-10 pl-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
+          />
+        </div>
+        <select
+          value={nationality}
+          onChange={(e) => setNationality(e.target.value)}
+          className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm bg-white min-w-0 max-w-full"
+          style={{ flex: "1 1 10rem" }}
+        >
+          <option value="">كل الجنسيات</option>
+          {data?.nationalities.map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </FilterBar>
 
       {/* ------------------------------------------------------------------ */}
       {/* List                                                                */}
@@ -467,7 +460,7 @@ export default function GuestsPage() {
           canCreate={canCreate}
         />
       )}
-    </div>
+    </PageShell>
   );
 }
 

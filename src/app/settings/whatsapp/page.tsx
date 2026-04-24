@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
-  ArrowLeft,
   Loader2,
   Save,
   MessageCircle,
@@ -28,6 +27,8 @@ import { cn } from "@/lib/utils";
 import { Can } from "@/components/Can";
 import { usePermissions } from "@/lib/permissions/client";
 import { AutoReplyRules } from "./_components/AutoReplyRules";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 interface PublicConfig {
   appId: string;
@@ -396,41 +397,25 @@ export default function WhatsAppSettingsPage() {
   const canEdit = can("settings.whatsapp:edit");
 
   return (
-    <div className="space-y-8">
-      <div className="pt-2 sm:pt-4 border-b-2 border-gold/30 pb-4 flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <span aria-hidden className="inline-block w-1 h-8 bg-gold rounded-full" />
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-green-50 border border-green-200">
-            <MessageCircle size={22} className="text-green-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-primary font-[family-name:var(--font-amiri)] tracking-tight">
-              إعدادات واتساب
-            </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              تكامل مع WhatsApp Business Cloud API من Meta
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
+    <PageShell className="gap-6 sm:gap-8">
+      <PageHeader
+        title="إعدادات واتساب"
+        description="تكامل مع WhatsApp Business Cloud API من Meta"
+        icon={<MessageCircle size={22} className="text-green-600" />}
+        backHref="/settings"
+        accentColor="#16a34a"
+        actions={
           <Link
             href="/settings/whatsapp/notifications"
-            className="flex items-center gap-2 px-3 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-gold-soft"
+            className="tap-44 flex items-center gap-2 px-3 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-gold-soft"
           >
             إعدادات الإشعارات
           </Link>
-          <Link
-            href="/settings"
-            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-primary"
-          >
-            <ArrowLeft size={16} />
-            الرجوع للإعدادات
-          </Link>
-        </div>
-      </div>
+        }
+      />
 
       {/* Status card */}
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]">
         <StatusCard
           title="حالة الاتصال"
           ok={cfg.lastVerifyOk}
@@ -724,7 +709,7 @@ export default function WhatsAppSettingsPage() {
           Meta.
         </p>
 
-        <div className="grid md:grid-cols-[200px_1fr] gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-[minmax(160px,200px)_1fr] gap-4 md:gap-5">
           {/* Profile picture */}
           <div className="space-y-3">
             <div className="relative w-40 h-40 mx-auto rounded-full overflow-hidden border-2 border-gold/30 bg-gray-50 flex items-center justify-center">
@@ -1047,7 +1032,7 @@ export default function WhatsAppSettingsPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }
 

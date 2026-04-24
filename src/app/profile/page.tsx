@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { cn, formatDate, roleLabels } from "@/lib/utils";
+import { PageShell } from "@/components/ui/PageShell";
 
 interface MeResponse {
   id: number;
@@ -275,8 +276,8 @@ export default function ProfilePage() {
   const roleLabel = roleLabels[me.role] ?? me.role;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <header className="bg-white rounded-xl border border-gray-200 p-5 flex items-center gap-4">
+    <PageShell className="max-w-4xl mx-auto">
+      <header className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 flex items-center gap-3 sm:gap-4">
         <div className="relative w-16 h-16 rounded-full overflow-hidden bg-primary/10 text-primary flex items-center justify-center text-xl font-bold shrink-0">
           {avatarSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -555,7 +556,7 @@ export default function ProfilePage() {
           </div>
         </form>
       </section>
-    </div>
+    </PageShell>
   );
 }
 

@@ -14,6 +14,9 @@ import {
 } from "lucide-react";
 import { cn, formatDate, formatAmount } from "@/lib/utils";
 import { Can } from "@/components/Can";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { KpiGrid } from "@/components/ui/KpiGrid";
 
 interface Reservation {
   id: number;
@@ -149,18 +152,23 @@ export default function MonthlyReportPage() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 no-print">
-        <h1 className="text-xl sm:text-2xl font-bold text-primary">التقرير الشهري</h1>
-        <Can permission="reports.monthly:export">
-          <button
-            onClick={() => window.print()}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium w-full sm:w-auto"
-          >
-            <Printer size={18} />
-            طباعة التقرير
-          </button>
-        </Can>
+    <PageShell>
+      <div className="no-print">
+        <PageHeader
+          title="التقرير الشهري"
+          icon={<BarChart3 size={24} />}
+          actions={
+            <Can permission="reports.monthly:export">
+              <button
+                onClick={() => window.print()}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium tap-44"
+              >
+                <Printer size={18} />
+                <span>طباعة التقرير</span>
+              </button>
+            </Can>
+          }
+        />
       </div>
 
       {/* Month/Year Selector */}
@@ -230,7 +238,7 @@ export default function MonthlyReportPage() {
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <KpiGrid>
             <ReportCard
               title="إجمالي الإيرادات"
               value={`${formatAmount(data.summary.totalIncome)} د.أ`}
@@ -255,7 +263,7 @@ export default function MonthlyReportPage() {
               icon={Percent}
               color="blue"
             />
-          </div>
+          </KpiGrid>
 
           {/* Unit Reports */}
           <div className="bg-card-bg rounded-xl shadow-sm overflow-hidden">
@@ -466,7 +474,7 @@ export default function MonthlyReportPage() {
           </div>
         </>
       ) : null}
-    </div>
+    </PageShell>
   );
 }
 

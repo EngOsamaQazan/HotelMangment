@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-  ArrowRight,
   CalendarCheck,
   Save,
   Loader2,
@@ -33,6 +32,9 @@ import {
 } from "@/components/ui/BookedDatePicker";
 import { BedIcon } from "@/components/unit-types/shared";
 import { usePermissions } from "@/lib/permissions/client";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { ActionBar } from "@/components/ui/ActionBar";
 
 interface UnitTypeBed {
   id: number;
@@ -465,16 +467,12 @@ export default function NewReservationPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href="/reservations" className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-            <ArrowRight size={20} className="text-gray-600" />
-          </Link>
-          <CalendarCheck className="text-primary" size={28} />
-          <h1 className="text-2xl font-bold text-primary">حجز جديد</h1>
-        </div>
-      </div>
+    <PageShell className="max-w-4xl mx-auto">
+      <PageHeader
+        title="حجز جديد"
+        icon={<CalendarCheck size={24} />}
+        backHref="/reservations"
+      />
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
@@ -996,23 +994,23 @@ export default function NewReservationPage() {
         </div>
 
         {/* Submit */}
-        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3">
+        <ActionBar variant="sticky-mobile" className="flex-col-reverse sm:flex-row items-stretch sm:items-center">
           <Link
             href="/reservations"
-            className="px-6 py-3 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors font-medium text-center"
+            className="px-6 py-3 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors font-medium text-center tap-44"
           >
             إلغاء
           </Link>
           <button
             type="submit"
             disabled={submitting}
-            className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white px-8 py-3 rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex-1 sm:flex-none"
+            className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white px-8 py-3 rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed tap-44"
           >
             {submitting ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
             {submitting ? "جاري الحفظ..." : "حفظ الحجز"}
           </button>
-        </div>
+        </ActionBar>
       </form>
-    </div>
+    </PageShell>
   );
 }

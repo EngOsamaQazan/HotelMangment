@@ -13,7 +13,12 @@ export default function ConversationPage({
   const conversationId = Number(raw);
 
   return (
-    <div className="flex flex-col md:flex-row -mx-4 md:-mx-6 -mt-4 md:-mt-6 -mb-4 md:-mb-6 h-[calc(100dvh-4rem)] md:h-[calc(100dvh-3rem)] min-h-0">
+    <div
+      className="flex flex-col md:flex-row h-[calc(100dvh-4rem)] md:h-[calc(100dvh-3rem)] min-h-0"
+      style={{
+        margin: "calc(-1 * var(--page-py)) calc(-1 * var(--page-px))",
+      }}
+    >
       <div className="hidden md:block">
         <ChatSidebar activeId={conversationId} />
       </div>

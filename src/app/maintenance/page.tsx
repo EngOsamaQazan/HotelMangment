@@ -22,6 +22,8 @@ import { cn, formatDate, formatAmount, statusLabels } from "@/lib/utils";
 import { Pagination, usePaginatedSlice } from "@/components/Pagination";
 import { Can } from "@/components/Can";
 import { UserAvatar } from "@/components/tasks/shared";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 const PAGE_SIZE = 20;
 
@@ -207,22 +209,25 @@ export default function MaintenancePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <h1 className="text-xl sm:text-2xl font-bold text-primary">سجل الصيانة</h1>
-        <Can permission="maintenance:create">
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium w-full sm:w-auto justify-center"
-          >
-            <Plus size={18} />
-            طلب صيانة جديد
-          </button>
-        </Can>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="سجل الصيانة"
+        icon={<Wrench size={22} />}
+        actions={
+          <Can permission="maintenance:create">
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium tap-44"
+            >
+              <Plus size={18} />
+              <span>طلب صيانة جديد</span>
+            </button>
+          </Can>
+        }
+      />
 
-      {/* Status Filter */}
-      <div className="flex gap-2 flex-wrap">
+      {/* Status Filter — horizontal scroll on narrow screens. */}
+      <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1">
         {(
           [
             { key: "all", label: "الكل" },
@@ -235,7 +240,7 @@ export default function MaintenancePage() {
             key={item.key}
             onClick={() => setFilterStatus(item.key)}
             className={cn(
-              "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+              "shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium transition-colors tap-44",
               filterStatus === item.key
                 ? "bg-primary text-white"
                 : "bg-card-bg text-gray-600 hover:bg-gray-100 shadow-sm"
@@ -580,7 +585,7 @@ export default function MaintenancePage() {
           }}
         />
       )}
-    </div>
+    </PageShell>
   );
 }
 

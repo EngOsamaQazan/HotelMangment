@@ -28,6 +28,7 @@ import { cn, formatDate, roleLabels } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions/client";
 import { Can } from "@/components/Can";
 import { UserAvatar } from "@/components/tasks/shared";
+import { PageShell } from "@/components/ui/PageShell";
 
 interface UserRecord {
   id: number;
@@ -250,7 +251,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <PageShell className="gap-6 sm:gap-8">
       {/* ─── Hero ─────────────────────────────────────── */}
       <section className="relative overflow-hidden rounded-2xl bg-gradient-to-bl from-primary/90 via-primary to-primary-dark text-white shadow-lg">
         <div
@@ -533,11 +534,11 @@ export default function SettingsPage() {
               <p>لا توجد أسعار موسمية</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="report-table-wrap">
+              <table className="report-table w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 text-gray-600">
-                    <th className="text-right px-3 py-3 font-medium">
+                    <th className="sticky-start text-right px-3 py-3 font-medium">
                       الموسم
                     </th>
                     <th className="text-right px-3 py-3 font-medium">
@@ -724,7 +725,7 @@ export default function SettingsPage() {
           onClose={() => setOverridesUser(null)}
         />
       )}
-    </div>
+    </PageShell>
   );
 }
 
@@ -871,7 +872,7 @@ function ModuleGrid({ search }: { search: string }) {
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]">
       {visible.map((m) => {
         const Icon = m.icon;
         const tone = TONE_CLASSES[m.tone];

@@ -15,6 +15,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { usePermissions } from "@/lib/permissions/client";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 interface Permission {
   id: number;
@@ -268,42 +270,41 @@ export default function RolesPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <Shield className="w-7 h-7 text-primary" />
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">إدارة الأدوار والصلاحيات</h1>
-            <p className="text-sm text-gray-500">تحكّم في من يستطيع الوصول إلى كل قسم في النظام</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {canSync && (
-            <button
-              onClick={() => setShowSyncConfirm(true)}
-              disabled={syncing}
-              title="يسحب أي صلاحيات/أقسام جديدة من الكود إلى قاعدة البيانات"
-              className="border border-primary/40 text-primary bg-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/5 disabled:opacity-60"
-            >
-              {syncing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4" />
-              )}
-              تحديث الصلاحيات
-            </button>
-          )}
-          {canCreate && (
-            <button
-              onClick={() => setShowCreate(true)}
-              className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90"
-            >
-              <Plus className="w-4 h-4" />
-              دور جديد
-            </button>
-          )}
-        </div>
-      </div>
+    <PageShell className="max-w-7xl mx-auto gap-6">
+      <PageHeader
+        title="إدارة الأدوار والصلاحيات"
+        description="تحكّم في من يستطيع الوصول إلى كل قسم في النظام"
+        icon={<Shield size={22} />}
+        actions={
+          <>
+            {canSync && (
+              <button
+                onClick={() => setShowSyncConfirm(true)}
+                disabled={syncing}
+                title="يسحب أي صلاحيات/أقسام جديدة من الكود إلى قاعدة البيانات"
+                className="tap-44 border border-primary/40 text-primary bg-white px-3 sm:px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/5 disabled:opacity-60 text-sm"
+              >
+                {syncing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                <span className="hidden sm:inline">تحديث الصلاحيات</span>
+                <span className="sm:hidden">تحديث</span>
+              </button>
+            )}
+            {canCreate && (
+              <button
+                onClick={() => setShowCreate(true)}
+                className="tap-44 bg-primary text-white px-3 sm:px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/90 text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                دور جديد
+              </button>
+            )}
+          </>
+        }
+      />
 
       {error && (
         <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-lg flex items-center gap-2">
@@ -318,7 +319,7 @@ export default function RolesPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(240px,280px)_1fr] gap-4 lg:gap-6">
         {/* Roles list */}
         <aside className="bg-white rounded-2xl border border-gray-200 p-3 h-fit">
           <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 px-2">الأدوار</div>
@@ -598,6 +599,6 @@ export default function RolesPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

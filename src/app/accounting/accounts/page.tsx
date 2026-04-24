@@ -5,6 +5,8 @@ import { BookOpen, Plus, Loader2, AlertCircle, Lock, Eye, X } from "lucide-react
 import Link from "next/link";
 import { cn, formatAmount } from "@/lib/utils";
 import { Can } from "@/components/Can";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 interface Account {
   id: number;
@@ -111,26 +113,24 @@ export default function AccountsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <BookOpen size={28} className="text-primary" />
-          <h1 className="text-xl sm:text-2xl font-bold text-primary">
-            دليل الحسابات
-          </h1>
-        </div>
-        <Can permission="accounting.accounts:create">
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm font-medium w-full sm:w-auto justify-center"
-          >
-            <Plus size={18} />
-            إضافة حساب
-          </button>
-        </Can>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="دليل الحسابات"
+        icon={<BookOpen size={24} />}
+        actions={
+          <Can permission="accounting.accounts:create">
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm font-medium tap-44"
+            >
+              <Plus size={18} />
+              <span>إضافة حساب</span>
+            </button>
+          </Can>
+        }
+      />
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1">
         {[
           { key: "all", label: "الكل" },
           { key: "asset", label: "الأصول" },
@@ -143,7 +143,7 @@ export default function AccountsPage() {
             key={t.key}
             onClick={() => setTypeFilter(t.key)}
             className={cn(
-              "px-4 py-1.5 rounded-lg text-sm font-medium transition-colors border",
+              "shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium transition-colors border tap-44",
               typeFilter === t.key
                 ? "bg-primary text-white border-primary"
                 : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
@@ -403,6 +403,6 @@ export default function AccountsPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

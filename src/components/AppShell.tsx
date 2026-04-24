@@ -39,7 +39,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <UserMenu variant="light" />
           <NotificationsBell iconClassName="text-gray-600 hover:bg-gray-100" />
         </div>
-        <div className="flex-1 p-4 md:p-6 min-w-0">
+        <div className="flex-1 page-shell min-w-0">
           <RoutePermissionGate>{children}</RoutePermissionGate>
         </div>
       </main>

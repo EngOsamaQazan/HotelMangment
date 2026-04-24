@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
   FileText,
-  ArrowLeft,
   Loader2,
   AlertCircle,
   User,
@@ -20,6 +19,9 @@ import {
 import { cn, formatAmount, formatDate } from "@/lib/utils";
 import { Pagination, usePaginatedSlice } from "@/components/Pagination";
 import { Can } from "@/components/Can";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { FilterBar } from "@/components/ui/FilterBar";
 
 const PAGE_SIZE = 20;
 
@@ -166,30 +168,32 @@ export default function PartyStatementPage() {
   const balance = data.closingBalance;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
-        <Link
-          href="/accounting/parties"
-          className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-primary"
-        >
-          <ArrowLeft size={16} /> العودة للقائمة
-        </Link>
-        <div className="flex items-center gap-2">
-          <Can permission="accounting.parties:edit">
-            <Link
-              href={`/accounting/parties?edit=${id}`}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
-            >
-              <Pencil size={16} /> تعديل
-            </Link>
-          </Can>
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark"
-          >
-            <Printer size={16} /> طباعة
-          </button>
-        </div>
+    <PageShell>
+      <div className="no-print">
+        <PageHeader
+          title={data.party.name}
+          description={TYPE_LABELS[data.party.type]}
+          icon={<User size={22} />}
+          backHref="/accounting/parties"
+          actions={
+            <>
+              <Can permission="accounting.parties:edit">
+                <Link
+                  href={`/accounting/parties?edit=${id}`}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 tap-44"
+                >
+                  <Pencil size={16} /> <span>تعديل</span>
+                </Link>
+              </Can>
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark tap-44"
+              >
+                <Printer size={16} /> <span>طباعة</span>
+              </button>
+            </>
+          }
+        />
       </div>
 
       <div className="bg-card-bg rounded-xl shadow-sm p-5 space-y-3">
@@ -378,37 +382,39 @@ export default function PartyStatementPage() {
         </div>
       )}
 
-      <div className="bg-card-bg rounded-xl p-3 sm:p-4 shadow-sm flex flex-wrap items-center gap-3 no-print">
-        <span className="text-sm text-gray-500">الفترة:</span>
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-gray-400">من</label>
-          <input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="border rounded-lg px-3 py-1.5 text-sm"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-gray-400">إلى</label>
-          <input
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="border rounded-lg px-3 py-1.5 text-sm"
-          />
-        </div>
-        {(from || to) && (
-          <button
-            onClick={() => {
-              setFrom("");
-              setTo("");
-            }}
-            className="text-xs text-danger hover:underline"
-          >
-            مسح
-          </button>
-        )}
+      <div className="bg-card-bg rounded-xl p-3 sm:p-4 shadow-sm no-print">
+        <FilterBar>
+          <span className="text-sm text-gray-500 shrink-0">الفترة:</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <label className="text-xs text-gray-400 shrink-0">من</label>
+            <input
+              type="date"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              className="border rounded-lg px-3 py-1.5 text-sm w-full min-w-0"
+            />
+          </div>
+          <div className="flex items-center gap-2 min-w-0">
+            <label className="text-xs text-gray-400 shrink-0">إلى</label>
+            <input
+              type="date"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              className="border rounded-lg px-3 py-1.5 text-sm w-full min-w-0"
+            />
+          </div>
+          {(from || to) && (
+            <button
+              onClick={() => {
+                setFrom("");
+                setTo("");
+              }}
+              className="text-xs text-danger hover:underline shrink-0"
+            >
+              مسح
+            </button>
+          )}
+        </FilterBar>
       </div>
 
       <div className="bg-card-bg rounded-xl shadow-sm overflow-hidden">
@@ -580,6 +586,6 @@ export default function PartyStatementPage() {
           </>
         )}
       </div>
-    </div>
+    </PageShell>
   );
 }

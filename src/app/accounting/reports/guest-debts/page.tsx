@@ -15,6 +15,9 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { cn, formatDate, formatAmount } from "@/lib/utils";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { KpiGrid } from "@/components/ui/KpiGrid";
 
 interface DebtReservation {
   id: number;
@@ -92,32 +95,24 @@ export default function GuestDebtsReportPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b-2 border-gold/30 pb-3">
-        <div>
-          <div className="flex items-center gap-3">
-            <span className="inline-block w-1 h-8 bg-gold rounded-full" />
-            <h1 className="text-xl sm:text-2xl font-bold text-primary font-[family-name:var(--font-amiri)]">
-              تقرير ذمم الضيوف
-            </h1>
-          </div>
-          <p className="text-xs text-gray-500 mt-1 ms-4">
-            الذمم المستحقة على الضيوف بتفصيل الحجز — مربوطة بحساب 1100 ذمم
-            الضيوف في النظام المحاسبي
-          </p>
-        </div>
-        <button
-          onClick={() => window.print()}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-gold rounded-lg hover:bg-primary-dark transition-colors text-sm no-print self-start"
-        >
-          <Printer size={16} />
-          طباعة
-        </button>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="تقرير ذمم الضيوف"
+        description="الذمم المستحقة على الضيوف بتفصيل الحجز — مربوطة بحساب 1100 ذمم الضيوف"
+        icon={<FileText size={24} />}
+        actions={
+          <button
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-gold rounded-lg hover:bg-primary-dark transition-colors text-sm no-print tap-44"
+          >
+            <Printer size={16} />
+            <span>طباعة</span>
+          </button>
+        }
+      />
 
       {/* Filters */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4 no-print">
+      <div className="bg-white border border-gray-200 rounded-xl p-3 sm:p-4 no-print">
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
           <div className="flex-1 w-full sm:w-auto">
             <label className="block text-xs text-gray-500 mb-1">
@@ -149,7 +144,7 @@ export default function GuestDebtsReportPage() {
       ) : data ? (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <KpiGrid>
             <div className="bg-gradient-to-l from-red-500 to-red-600 rounded-2xl shadow-lg p-5 text-white">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
@@ -225,7 +220,7 @@ export default function GuestDebtsReportPage() {
                 </div>
               </div>
             </div>
-          </div>
+          </KpiGrid>
 
           {/* Table */}
           <div className="bg-card-bg rounded-xl shadow-sm overflow-hidden">
@@ -238,11 +233,11 @@ export default function GuestDebtsReportPage() {
             ) : (
               <>
                 {/* Desktop */}
-                <div className="overflow-x-auto hidden md:block">
-                  <table className="w-full text-sm">
+                <div className="report-table-wrap hidden md:block">
+                  <table className="report-table">
                     <thead>
-                      <tr className="bg-gray-50 text-gray-600">
-                        <th className="text-right px-4 py-3 font-medium">
+                      <tr>
+                        <th className="sticky-start text-right">
                           <span className="flex items-center gap-1">
                             <User size={14} />
                             اسم الضيف
@@ -293,7 +288,7 @@ export default function GuestDebtsReportPage() {
                               r.mismatch && "bg-amber-50/40"
                             )}
                           >
-                            <td className="px-4 py-3">
+                            <td className="sticky-start">
                               <div>
                                 <span className="font-medium text-gray-800">
                                   {r.guestName}
@@ -396,7 +391,7 @@ export default function GuestDebtsReportPage() {
                     </tbody>
                     <tfoot>
                       <tr className="bg-red-50 font-bold text-gray-800 border-t-2 border-red-200">
-                        <td className="px-4 py-3" colSpan={3}>
+                        <td className="sticky-start" colSpan={3}>
                           الإجمالي ({data.count} حجز)
                         </td>
                         <td className="px-4 py-3">
@@ -531,6 +526,6 @@ export default function GuestDebtsReportPage() {
           </div>
         </>
       ) : null}
-    </div>
+    </PageShell>
   );
 }

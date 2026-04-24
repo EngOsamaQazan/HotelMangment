@@ -6,11 +6,13 @@ import {
   Receipt,
   Loader2,
   AlertCircle,
-  ArrowLeft,
   User,
   ChevronLeft,
 } from "lucide-react";
 import { cn, formatAmount } from "@/lib/utils";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { KpiGrid } from "@/components/ui/KpiGrid";
 
 interface EmployeeSummary {
   id: number;
@@ -93,30 +95,20 @@ export default function PayrollListPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Link
-          href="/accounting"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-primary"
-        >
-          <ArrowLeft size={16} /> المحاسبة
-        </Link>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <Receipt size={28} className="text-primary" />
-        <h1 className="text-xl sm:text-2xl font-bold text-primary">
-          الرواتب والأجور
-        </h1>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="الرواتب والأجور"
+        icon={<Receipt size={24} />}
+        backHref="/accounting"
+      />
 
       {/* Period */}
-      <div className="bg-card-bg rounded-xl p-4 shadow-sm flex flex-wrap items-center gap-3">
-        <span className="text-sm text-gray-500">استحقاقات شهر:</span>
+      <div className="bg-card-bg rounded-xl p-3 sm:p-4 shadow-sm flex flex-wrap items-center gap-3">
+        <span className="text-sm text-gray-500 shrink-0">استحقاقات شهر:</span>
         <select
           value={month}
           onChange={(e) => setMonth(Number(e.target.value))}
-          className="border rounded-lg px-3 py-1.5 text-sm"
+          className="border rounded-lg px-3 py-2 text-sm min-w-0"
         >
           {ARABIC_MONTHS.map((m, i) => (
             <option key={i} value={i + 1}>
@@ -130,12 +122,12 @@ export default function PayrollListPage() {
           max="2030"
           value={year}
           onChange={(e) => setYear(Number(e.target.value))}
-          className="border rounded-lg px-3 py-1.5 text-sm w-24"
+          className="border rounded-lg px-3 py-2 text-sm w-24"
         />
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <KpiGrid>
         <SummaryCard
           label="إجمالي المستحق"
           value={totalGross}
@@ -151,7 +143,7 @@ export default function PayrollListPage() {
           value={totalAdvances}
           color="text-red-700"
         />
-      </div>
+      </KpiGrid>
 
       {error ? (
         <div className="flex flex-col items-center py-10 gap-3">
@@ -181,7 +173,7 @@ export default function PayrollListPage() {
           )}
         </>
       )}
-    </div>
+    </PageShell>
   );
 }
 
