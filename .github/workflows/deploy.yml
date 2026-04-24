@@ -263,6 +263,19 @@ jobs:
             if [ -d .next/standalone ]; then
               [ -d public ]        && cp -rn public        .next/standalone/          || true
               [ -d .next/static ]  && cp -rn .next/static  .next/standalone/.next/    || true
+
+              # Next 16 + Turbopack occasionally emits SSR chunks into
+              # .next/server/chunks/ssr that are referenced from page
+              # bundles already in .next/standalone/.next/server/app but
+              # never copied over by `output: 'standalone'`. Missing even
+              # one such chunk turns every client-component page into a
+              # 500 with "Cannot find module .../ssr/_xxx._.js". Rsyncing
+              # the whole chunks/ tree is cheap (<5 MB) and idempotent.
+              if [ -d .next/server/chunks ]; then
+                mkdir -p .next/standalone/.next/server/chunks
+                cp -rn .next/server/chunks/. .next/standalone/.next/server/chunks/ || true
+              fi
+
               if [ -f "$SHARED/google-vision-key.json" ]; then
                 ln -sfn "$SHARED/google-vision-key.json" .next/standalone/google-vision-key.json
               fi
@@ -289,12 +302,24 @@ jobs:
             sudo /bin/systemctl restart mafhotel-realtime.service
 
             # ───── Health check ──────────────────────────────────────
+            # Probe both hosts (admin + public) on representative
+            # client-component pages so we catch the Turbopack/standalone
+            # chunk-miss regression (which only 500s client pages, not
+            # /login or /landing).
             echo "==> Health check"
             sleep 3
+            probe_once() {
+              local url="$1" want="$2"
+              local code
+              code=$(curl -sko /dev/null -w "%{http_code}" -m 6 "$url" || echo 000)
+              [ "$code" = "$want" ] && return 0 || { echo "    FAIL $url -> $code (want $want)"; return 1; }
+            }
             for i in 1 2 3 4 5 6 7 8; do
-              CODE=$(curl -sko /dev/null -w "%{http_code}" -m 6 https://mafhotel.com/login || echo 000)
-              echo "    attempt $i: HTTP $CODE"
-              if [ "$CODE" = "200" ]; then
+              echo "    attempt $i"
+              if probe_once https://admin.mafhotel.com/login    200 && \
+                 probe_once https://mafhotel.com/landing        200 && \
+                 probe_once https://mafhotel.com/book           200 && \
+                 probe_once https://mafhotel.com/signin         200; then
                 echo "✅ deployed $SHA"
                 exit 0
               fi
