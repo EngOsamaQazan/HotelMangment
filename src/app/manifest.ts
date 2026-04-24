@@ -9,10 +9,11 @@ import { SITE } from "@/lib/seo/site";
  *   • يسمح بإضافة الموقع كتطبيق على الشاشة الرئيسية لجهاز الزائر.
  *   • يُستخدم من سفاري/أندرويد لتحديد لون الحالة (theme_color).
  *
- * الأيقونات (192×192 و512×512) تأتي من مجلد `public/` المولَّد بواسطة
- * `scripts/_gen-brand-icons.cjs` — التصميم المبسّط (حرف «م» ذهبي على
- * خلفية زمرّدية مع إطار ذهبي) الذي تظهر به الأيقونة على الشاشة الرئيسية
- * بعد تثبيت التطبيق كـ PWA على الموبايل.
+ * الأيقونات تأتي من مجلد `public/` وتُولَّد بواسطة
+ * `scripts/_gen-brand-icons.cjs` انطلاقًا من صورة الهوية المعتمدة
+ * `public/brand-icon-source.png` (مربّع أخضر مع «المفرق HOTEL» الذهبي).
+ * النسخة maskable تحتوي مساحة أمان (safe zone) إضافية حتى لا يُقصّ
+ * الشعار عند تطبيق قناع الأندرويد الدائري/المستدير.
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -42,7 +43,7 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: "any",
       },
       {
-        src: "/icon-512.png",
+        src: "/icon-maskable-512.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
