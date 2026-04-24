@@ -14,9 +14,9 @@ interface Props {
 /** Segmented tabs: Mine / Unassigned / All + status pills. */
 export function FilterTabs({ scope, setScope, status, setStatus, counts }: Props) {
   const tabs: { key: ScopeFilter; label: string; count: number }[] = [
+    { key: "all", label: "الكل", count: counts.all },
     { key: "mine", label: "المسندة لي", count: counts.mine },
     { key: "unassigned", label: "غير مسندة", count: counts.unassigned },
-    { key: "all", label: "الكل", count: counts.all },
   ];
 
   const statuses: { key: StatusFilter; label: string }[] = [

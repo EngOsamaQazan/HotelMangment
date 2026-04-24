@@ -72,7 +72,10 @@ function WhatsAppInboxInner() {
   const isBelowLg = useIsBelowLg();
 
   // ─── Filters ──────────────────────────────────────────────
-  const [scope, setScope] = useState<ScopeFilter>("mine");
+  // Default to "الكل" so staff see the full inbox on first open — the old
+  // "mine"-first default was hiding unassigned threads from anyone who
+  // hadn't claimed one yet.
+  const [scope, setScope] = useState<ScopeFilter>("all");
   const [status, setStatus] = useState<StatusFilter>("open");
   const [search, setSearch] = useState("");
 
