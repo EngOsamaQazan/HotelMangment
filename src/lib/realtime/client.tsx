@@ -60,8 +60,16 @@ export interface WhatsAppMessagePayload {
   contactPhone: string;
   contactName?: string | null;
   messageId: number;
+  /** Preview body ("📷 صورة" for images) — suitable for toasts + OS push. */
   body?: string | null;
+  /** Real caption / text — `null` for media with no caption. Use for merging. */
+  rawBody?: string | null;
   type?: string;
+  /** Meta media id — present for image/video/audio/document/sticker rows. */
+  mediaId?: string | null;
+  mediaMimeType?: string | null;
+  mediaFilename?: string | null;
+  mediaSize?: number | null;
   createdAt?: string;
   status?: string;
   errorCode?: string | null;

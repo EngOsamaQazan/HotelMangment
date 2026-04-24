@@ -123,12 +123,24 @@ function WhatsAppInboxInner() {
   const [newTo, setNewTo] = useState("");
   const [composerText, setComposerText] = useState("");
   const [sending, setSending] = useState(false);
-  // On desktop show details panel by default; on smaller screens keep it hidden
-  // until the user explicitly opens it (so it doesn't obscure the thread).
+  // On desktop (≥ lg) the contact details live inline beside the thread, so
+  // we default them to open. On anything smaller (tablet/mobile) the panel is
+  // an overlay — keep it CLOSED by default so landing here from a push
+  // notification doesn't pop a big sheet on top of the conversation.
+  //
+  // NOTE: `useIsBelowLg` is SSR-safe and starts at `false` on first render,
+  // only flipping to the real value inside a client effect. The old code
+  // ran the auto-open branch during that initial `false` tick on mobile —
+  // and never reset it once the real media query resolved. Fix: one-shot
+  // init using the authoritative `matchMedia` result inside an effect.
   const [showDetails, setShowDetails] = useState(false);
+  const showDetailsInitRef = useRef(false);
   useEffect(() => {
-    if (!isBelowLg) setShowDetails(true);
-  }, [isBelowLg]);
+    if (showDetailsInitRef.current) return;
+    if (typeof window === "undefined") return;
+    showDetailsInitRef.current = true;
+    setShowDetails(window.matchMedia("(min-width: 1024px)").matches);
+  }, []);
 
   // ─── Mobile history-state Back handling ───────────────────
   // When the user taps a thread on mobile we push a history entry so the
@@ -216,34 +228,49 @@ function WhatsAppInboxInner() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [data.messages]);
 
+  // ─── Refresh on tab return ────────────────────────────────
+  // Socket.IO occasionally drops events during background / sleep / weak-
+  // signal periods — especially on mobile when the browser parks the tab.
+  // Whenever the tab becomes visible again (or the window regains focus)
+  // refetch the inbox list + active thread so nothing is silently missing.
+  // Cheap: the list query is already indexed and capped at 80, and the
+  // messages query at 200.
+  useEffect(() => {
+    const refresh = () => {
+      data.loadList();
+      data.loadCounts();
+      if (data.selectedPhone) void data.loadMessages(data.selectedPhone);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", refresh);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", refresh);
+    };
+    // We intentionally re-bind when the selected phone changes so the focus
+    // handler captures the latest phone, not a stale closure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.selectedPhone]);
+
   // ─── Realtime hookup ──────────────────────────────────────
   useWhatsAppRealtime({
     conversationId: data.activeConversation?.id ?? null,
     onMessageNew: (p) => {
+      // The realtime payload is a *signal*, not a full Message row — it
+      // carries a preview body ("📷 صورة") and omits media fields. For
+      // the currently-open thread we must refetch the authoritative row
+      // so captions, media thumbnails, and status all match the DB.
+      // (Merging the signal directly made images render as the preview
+      //  text "📷 صورة" on desktop — bug reported 2026-04-24.)
       if (
         data.selectedPhone &&
         p.contactPhone === data.selectedPhone &&
         !showNew
       ) {
-        data.mergeIncomingMessage({
-          id: p.messageId,
-          direction:
-            p.op === "message:new" && p.type && p.type !== "template"
-              ? "inbound"
-              : "inbound",
-          contactPhone: p.contactPhone,
-          contactName: p.contactName ?? null,
-          type: p.type ?? "text",
-          body: p.body ?? null,
-          templateName: null,
-          status: p.status ?? "received",
-          errorCode: null,
-          errorMessage: null,
-          sentAt: null,
-          deliveredAt: null,
-          readAt: null,
-          createdAt: p.createdAt ?? new Date().toISOString(),
-        });
+        void data.loadMessages(data.selectedPhone);
         data.markRead(p.contactPhone);
       }
 

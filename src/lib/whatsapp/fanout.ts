@@ -26,6 +26,14 @@ export interface FanoutMessageInput {
   body: string | null;
   type: string;
   createdAt: Date;
+  /** Meta media id — present for image/video/audio/document/sticker rows.
+   *  Surfacing it in the realtime payload lets open tabs render the
+   *  thumbnail immediately instead of treating the preview body
+   *  ("📷 صورة") as the actual message content. */
+  mediaId?: string | null;
+  mediaMimeType?: string | null;
+  mediaFilename?: string | null;
+  mediaSize?: number | null;
 }
 
 function isWithinQuietHours(start: string | null, end: string | null): boolean {
@@ -132,6 +140,9 @@ export async function fanoutInboundMessage(input: FanoutMessageInput) {
     }
 
     // Live fan-out via pg_notify → realtime microservice → Socket.IO rooms.
+    // `body` here is the *preview* (“📷 صورة” for images) — kept for the
+    // toast description. `rawBody` is the real caption (may be null) so the
+    // client can merge the message correctly without a refetch.
     await pgNotify("wa_events", {
       op: "message:new",
       conversationId: input.conversationId,
@@ -139,7 +150,12 @@ export async function fanoutInboundMessage(input: FanoutMessageInput) {
       contactName: input.contactName,
       messageId: input.messageId,
       body,
+      rawBody: input.body,
       type: input.type,
+      mediaId: input.mediaId ?? null,
+      mediaMimeType: input.mediaMimeType ?? null,
+      mediaFilename: input.mediaFilename ?? null,
+      mediaSize: input.mediaSize ?? null,
       createdAt: input.createdAt.toISOString(),
       targetUserIds,
     });

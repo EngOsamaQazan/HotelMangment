@@ -183,6 +183,9 @@ async function handleInbound(msg: WebhookInboundMessage, contactName: string | n
   });
 
   // 5. Fan-out (notifications + pg_notify + Web Push). Never throws.
+  // Passing mediaId through lets the realtime layer render image/video/
+  // sticker thumbnails immediately in open tabs instead of falling back
+  // to the preview string "📷 صورة" as if it were the message body.
   await fanoutInboundMessage({
     messageId: stored.id,
     conversationId: conversation.id,
@@ -191,6 +194,9 @@ async function handleInbound(msg: WebhookInboundMessage, contactName: string | n
     body,
     type,
     createdAt: messageAt,
+    mediaId: media?.id ?? null,
+    mediaMimeType: media?.mimeType ?? null,
+    mediaFilename: media?.filename ?? null,
   });
 
   // 6. Auto-reply engine — keyword/welcome/away rules. Never throws.
