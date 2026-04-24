@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { UserMenu } from "@/components/UserMenu";
 import { RoutePermissionGate } from "@/components/RoutePermissionGate";
+import { StaffManifestSwitch } from "@/components/StaffManifestSwitch";
 
 const AUTH_ROUTES = new Set(["/login", "/signin", "/signup"]);
 
@@ -33,6 +34,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
+      {/**
+       * يُبدِّل `<link rel="manifest">` إلى manifest الطاقم (`/staff-manifest.webmanifest`)
+       * طالما المستخدم داخل لوحة الإدارة، فيُصبح تثبيت الـ PWA من أيّ
+       * صفحة طاقم (مثل إعدادات إشعارات الواتساب) ينتج تطبيقًا مخصَّصًا:
+       * هويّة «واتساب المفرق»، start_url = `/whatsapp` → يفتح مباشرة
+       * على صندوق المحادثات عند النقر على أيقونته على الشاشة الرئيسيّة.
+       */}
+      <StaffManifestSwitch />
       <Sidebar />
       <main className="flex-1 md:mr-64 pt-16 md:pt-0 bg-page-bg min-h-screen flex flex-col min-w-0 overflow-x-hidden">
         <div className="hidden md:flex items-center justify-end gap-2 px-6 py-2 border-b border-gray-200 bg-white/60 backdrop-blur-sm sticky top-0 z-30">

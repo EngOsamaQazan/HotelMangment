@@ -17,6 +17,10 @@ import { SITE } from "@/lib/seo/site";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    // `id` صريح (وليس start_url) لنتمكّن من تثبيت تطبيق طاقم منفصل
+    // (id: "/staff", يُقدَّم من `/staff-manifest.webmanifest`) على نفس
+    // الأصل. بدون حقل `id` مختلف، يعامل Chrome التطبيقَين كتطبيق واحد.
+    id: "/",
     name: SITE.nameAr,
     short_name: SITE.nameAr,
     description: SITE.descriptionAr,

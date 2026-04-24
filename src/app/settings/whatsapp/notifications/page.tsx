@@ -99,42 +99,67 @@ export default function WhatsAppNotificationSettings() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-3 sm:gap-4">
-          {/* ─── Install as PWA ─── */}
+          {/* ─── Install Staff PWA ─── */}
           {!pwa.isInstalled && (
-            <section className="md:col-span-2 bg-gradient-to-br from-primary/5 to-emerald-50 border border-primary/20 rounded-xl shadow-sm p-4 sm:p-5 md:p-6 space-y-3">
+            <section className="md:col-span-2 bg-gradient-to-br from-emerald-50 via-primary/5 to-emerald-100/50 border border-emerald-300 rounded-xl shadow-sm p-4 sm:p-5 md:p-6 space-y-3">
               <header className="flex items-center gap-2">
-                <Smartphone size={18} className="text-primary" />
+                <div className="relative">
+                  <Smartphone size={20} className="text-primary" />
+                  <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-[#25D366] border-2 border-white rounded-full" />
+                </div>
                 <h2 className="font-bold text-gray-800">
-                  ثبّت التطبيق لتجربة إشعارات احترافيّة
+                  ثبّت تطبيق «واتساب المفرق» المخصَّص للطاقم
                 </h2>
               </header>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                عند فتح الموقع من متصفّح Chrome أو Safari يظهر شعار المتصفّح
-                بجانب كل إشعار. بعد تثبيت التطبيق على الشاشة الرئيسية، يصبح
-                الإشعار بهويّة <strong>فندق المفرق</strong> كاملة — دون أي
-                أثر للمتصفّح — تمامًا كإشعارات WhatsApp الأصليّة.
-              </p>
+              <div className="text-sm text-gray-700 leading-relaxed space-y-2">
+                <p>
+                  تطبيق منفصل تمامًا عن تطبيق الضيوف — هويّة{" "}
+                  <strong className="text-[#128C7E]">واتساب المفرق</strong>{" "}
+                  مع أيقونة خاصّة بالطاقم، وعند النقر عليه من الشاشة الرئيسيّة
+                  <strong>
+                    {" "}
+                    يفتح مباشرة على صندوق محادثات الواتساب
+                  </strong>{" "}
+                  — دون مروره على الصفحة الرئيسيّة أو المتصفّح.
+                </p>
+                <ul className="list-disc ps-4 text-gray-600 space-y-0.5">
+                  <li>
+                    إشعارات بهويّة الفندق كاملةً — بدون شعار Chrome أو Safari
+                  </li>
+                  <li>زرّ «ردّ سريع» مباشرة من الإشعار على أندرويد</li>
+                  <li>اختصارات سريعة: الواتساب، الحجوزات، المهام، الصيانة</li>
+                  <li>
+                    مختلف عن تطبيق الضيوف المتاح على{" "}
+                    <code className="text-xs bg-white border border-gray-200 rounded px-1">
+                      mafhotel.com
+                    </code>
+                  </li>
+                </ul>
+              </div>
               {pwa.canInstall ? (
                 <button
                   onClick={async () => {
                     const outcome = await pwa.install();
                     if (outcome === "accepted")
-                      toast.success("تم التثبيت على شاشتك الرئيسيّة");
+                      toast.success(
+                        "تم تثبيت «واتساب المفرق» — افتحه من الشاشة الرئيسيّة"
+                      );
                     else if (outcome === "dismissed")
                       toast.info("يمكنك التثبيت لاحقًا من قائمة المتصفّح");
                   }}
-                  className="tap-44 flex items-center gap-1.5 text-sm px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark"
+                  className="tap-44 flex items-center gap-1.5 text-sm px-4 py-2 bg-[#128C7E] text-white rounded-lg hover:bg-[#075E54] shadow-sm"
                 >
                   <Smartphone size={14} />
-                  تثبيت التطبيق الآن
+                  تثبيت «واتساب المفرق» الآن
                 </button>
               ) : pwa.isIOS ? (
                 <div className="bg-white border border-gray-200 rounded-lg p-3 text-sm text-gray-700 leading-relaxed">
                   <strong>على iPhone/iPad:</strong> اضغط زرّ المشاركة{" "}
                   <span className="inline-block align-text-bottom">⬆️</span>{" "}
                   في شريط Safari ثم اختر{" "}
-                  <strong>«إضافة إلى الشاشة الرئيسية»</strong>. بعدها افتح
-                  الموقع من أيقونة الفندق على الشاشة وليس من Safari.
+                  <strong>«إضافة إلى الشاشة الرئيسية»</strong>. المهم أن
+                  تُثبّته من <em>هذه الصفحة</em> بالذات حتى يفتح على صندوق
+                  الواتساب مباشرة.
                 </div>
               ) : (
                 <div className="bg-white border border-gray-200 rounded-lg p-3 text-sm text-gray-700 leading-relaxed">
@@ -150,7 +175,8 @@ export default function WhatsAppNotificationSettings() {
           {pwa.isInstalled && (
             <section className="md:col-span-2 bg-emerald-50 border border-emerald-200 rounded-xl shadow-sm p-3 text-sm text-emerald-800 flex items-center gap-2">
               <Smartphone size={16} />
-              التطبيق مثبَّت — الإشعارات تصل بهويّة فندق المفرق كاملة.
+              التطبيق مثبَّت — افتح «واتساب المفرق» من الشاشة الرئيسيّة ليفتح
+              مباشرة على صندوق المحادثات.
             </section>
           )}
 

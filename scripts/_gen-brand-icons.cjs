@@ -18,6 +18,9 @@
  *   - public/whatsapp-badge.png     (96x96)    — شارة أحاديّة اللون (بيضاء على شفاف)
  *                                                 لشريط حالة أندرويد — بدونها
  *                                                 يظهر مربّع أبيض فارغ.
+ *   - public/staff-icon-192.png     (192x192)  — أيقونة PWA الطاقم (شعار الفندق
+ *   - public/staff-icon-512.png     (512x512)    + شارة واتساب خضراء في الزاوية
+ *   - public/staff-icon-maskable.png(512x512)    لتمييزها عن تطبيق الضيف).
  *
  * ملاحظات:
  *   1. الشعار في الصورة الأصلية يشغل ~44% من المركز. نقصّ مربّعًا مركزيًّا
@@ -106,6 +109,53 @@ async function writeMonochromeBadge({ size, out }) {
   console.log(`✓ ${path.relative(ROOT, out)}  (${size}x${size}, monochrome)`);
 }
 
+/**
+ * يولّد أيقونة مميّزة لتطبيق الطاقم (staff PWA): نفس شعار الفندق مع
+ * شارة واتساب خضراء دائريّة في الزاوية اليمنى السفليّة. الهدف أن يفرّق
+ * المستخدم بصريًّا بين «تطبيق الفندق» (ضيوف) و«واتساب المفرق» (طاقم)
+ * على الشاشة الرئيسيّة.
+ */
+async function writeStaffIcon({ size, out, maskable = false }) {
+  const tightRatio = maskable ? 0.9 : 0.62;
+  const cropped = await cropCenterSquare(tightRatio);
+  const base = await sharp(cropped)
+    .resize(size, size, { fit: "cover" })
+    .png()
+    .toBuffer();
+
+  // الشارة أصغر قليلاً في النسخة القابلة للقصّ (maskable) لتبقى داخل
+  // منطقة الأمان بعد قصّ الأندرويد الدائري.
+  const badgeRatio = maskable ? 0.26 : 0.34;
+  const badgeSize = Math.round(size * badgeRatio);
+  const padding = Math.round(size * (maskable ? 0.08 : 0.02));
+
+  // شارة خضراء واتساب مع سمّاعة بيضاء (SVG مضمّن).
+  const badgeSvg = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+       <circle cx="50" cy="50" r="46" fill="#25D366" stroke="#ffffff" stroke-width="6"/>
+       <path fill="#ffffff" d="M50 22a28 28 0 00-24 42l-4 14 14-4a28 28 0 1014-52zm16 40c-1 3-5 5-7 6-2 0-5 1-8 0a31 31 0 01-15-13c-2-5-3-9-1-11 1-2 3-3 4-3h2c1 0 1 0 2 1l3 6-1 3-2 2a19 19 0 009 9l2-2c1-1 2-1 3-1l7 3c0 0 0 0 1 1 0-0 0 1 0 1 0 1 0 2-1 2z"/>
+     </svg>`
+  );
+  const badge = await sharp(badgeSvg)
+    .resize(badgeSize, badgeSize)
+    .png()
+    .toBuffer();
+
+  await sharp(base)
+    .composite([
+      {
+        input: badge,
+        left: size - badgeSize - padding,
+        top: size - badgeSize - padding,
+      },
+    ])
+    .png({ compressionLevel: 9 })
+    .toFile(out);
+  console.log(
+    `✓ ${path.relative(ROOT, out)}  (${size}x${size}, staff${maskable ? ", maskable" : ""})`
+  );
+}
+
 async function writeOgCard({ out }) {
   const width = 1200;
   const height = 630;
@@ -176,6 +226,21 @@ async function writeOgCard({ out }) {
   await writeMonochromeBadge({
     size: 96,
     out: path.join(PUBLIC_DIR, "whatsapp-badge.png"),
+  });
+
+  // أيقونات PWA للطاقم (staff app): شعار الفندق + شارة واتساب في الزاوية.
+  await writeStaffIcon({
+    size: 192,
+    out: path.join(PUBLIC_DIR, "staff-icon-192.png"),
+  });
+  await writeStaffIcon({
+    size: 512,
+    out: path.join(PUBLIC_DIR, "staff-icon-512.png"),
+  });
+  await writeStaffIcon({
+    size: 512,
+    maskable: true,
+    out: path.join(PUBLIC_DIR, "staff-icon-maskable.png"),
   });
 
   // بطاقات OG/Twitter بنسبة أوسع.
