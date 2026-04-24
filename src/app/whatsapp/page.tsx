@@ -326,6 +326,41 @@ function WhatsAppInboxInner() {
     [data],
   );
 
+  const sendMediaFile = useCallback(
+    async (to: string, file: File, caption: string, kind: "image" | "video" | "document" | "audio") => {
+      setSending(true);
+      try {
+        const fd = new FormData();
+        fd.append("to", to);
+        fd.append("kind", kind);
+        if (caption) fd.append("caption", caption);
+        fd.append("file", file, file.name);
+        const res = await fetch("/api/whatsapp/send-media", {
+          method: "POST",
+          body: fd,
+        });
+        await readJsonSafe(res, "فشل الإرسال");
+        toast.success("تم الإرسال");
+        const normalized = to.replace(/\D/g, "");
+        data.setSelectedPhone(normalized);
+        await Promise.all([data.loadMessages(normalized), data.loadList()]);
+      } catch (err) {
+        const raw = err instanceof Error ? err.message : "فشل الإرسال";
+        if (isReengagementError(null, raw)) {
+          toast.error(
+            "مضى أكثر من 24 ساعة — لا يمكن إرسال الوسائط إلا داخل نافذة 24 ساعة.",
+            { duration: 6000 },
+          );
+        } else {
+          toast.error(humanizeWaError(null, raw));
+        }
+      } finally {
+        setSending(false);
+      }
+    },
+    [data],
+  );
+
   const sendNote = useCallback(
     async (text: string) => {
       if (!data.selectedPhone) return;
@@ -533,6 +568,9 @@ function WhatsAppInboxInner() {
                 sending={sending}
                 onSend={(t) => send(active.contactPhone, t)}
                 onSendNote={sendNote}
+                onSendMedia={(file, caption, kind) =>
+                  sendMediaFile(active.contactPhone, file, caption, kind)
+                }
                 onOpenTemplate={() => {
                   setTemplateTo(`+${active.contactPhone}`);
                   setTemplateModalOpen(true);
@@ -612,6 +650,7 @@ function ActiveConversation({
   sending,
   onSend,
   onSendNote,
+  onSendMedia,
   onOpenTemplate,
   onConversationChanged,
   bottomRef,
@@ -628,6 +667,11 @@ function ActiveConversation({
   sending: boolean;
   onSend: (t: string) => Promise<void>;
   onSendNote: (t: string) => Promise<void>;
+  onSendMedia: (
+    file: File,
+    caption: string,
+    kind: "image" | "video" | "document" | "audio",
+  ) => Promise<void>;
   onOpenTemplate: () => void;
   onConversationChanged: () => void;
   bottomRef: React.RefObject<HTMLDivElement | null>;
@@ -674,6 +718,7 @@ function ActiveConversation({
           sending={sending}
           onSend={onSend}
           onSendNote={onSendNote}
+          onSendMedia={onSendMedia}
           onOpenTemplate={onOpenTemplate}
         />
       </Can>

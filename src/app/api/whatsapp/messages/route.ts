@@ -55,6 +55,11 @@ export async function GET(req: Request) {
           reservationId: true,
           sentByUserId: true,
           createdAt: true,
+          mediaId: true,
+          mediaMimeType: true,
+          mediaFilename: true,
+          mediaSize: true,
+          isInternalNote: true,
         },
       });
       return NextResponse.json(rows.reverse());

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Settings,
   Users,
@@ -18,6 +18,10 @@ import {
   DoorOpen,
   Network,
   MessageCircle,
+  Bell,
+  Search,
+  ChevronLeft,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { cn, formatDate, roleLabels } from "@/lib/utils";
@@ -78,6 +82,7 @@ export default function SettingsPage() {
   const [editedPrices, setEditedPrices] = useState<Record<number, Partial<SeasonalPrice>>>({});
   const [savingPriceId, setSavingPriceId] = useState<number | null>(null);
   const [overridesUser, setOverridesUser] = useState<UserRecord | null>(null);
+  const [search, setSearch] = useState("");
   const { can } = usePermissions();
 
   const fetchUsers = useCallback(async () => {
@@ -246,100 +251,91 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="pt-2 sm:pt-4 border-b-2 border-gold/30 pb-4">
-        <div className="flex items-center gap-3">
-          <span
-            aria-hidden
-            className="inline-block w-1 h-8 bg-gold rounded-full"
-          />
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-primary/5 border border-gold/30">
-            <Settings size={22} className="text-gold-dark" />
+      {/* ─── Hero ─────────────────────────────────────── */}
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-bl from-primary/90 via-primary to-primary-dark text-white shadow-lg">
+        <div
+          aria-hidden
+          className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_20%_20%,#fff_0,transparent_40%),radial-gradient(circle_at_80%_80%,#fff_0,transparent_40%)]"
+        />
+        <div className="relative px-5 sm:px-8 py-6 sm:py-8 flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/20 flex items-center justify-center shadow-inner">
+              <Settings size={28} className="text-gold" />
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold font-[family-name:var(--font-amiri)] tracking-tight">
+                مركز الإعدادات
+              </h1>
+              <p className="text-sm text-white/70 mt-1 max-w-xl leading-relaxed">
+                مركز قيادة فندق المفرق — كل ما يحتاجه المدراء لضبط المنظومة،
+                إدارة الصلاحيات، الأسعار، والتكاملات.
+              </p>
+            </div>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-primary font-[family-name:var(--font-amiri)] tracking-tight">
-            الإعدادات
-          </h1>
+          <div className="flex items-center gap-2 text-[11px]">
+            <StatPill
+              label="مستخدمون"
+              value={loadingUsers ? "…" : String(users.length)}
+            />
+            <StatPill
+              label="مواسم"
+              value={loadingPrices ? "…" : String(prices.length)}
+            />
+          </div>
         </div>
-        <p className="text-sm text-gray-500 mt-2 ms-4">
-          إدارة المستخدمين، الصلاحيات، والأسعار الموسمية
-        </p>
-      </div>
+      </section>
 
-      {/* Section 1: User Management */}
+      {/* ─── Modules — searchable grid ───────────────── */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+            <Sparkles size={18} className="text-primary" />
+            الوحدات والتكاملات
+          </h2>
+          <div className="relative flex-1 sm:flex-none sm:min-w-[280px]">
+            <Search
+              size={14}
+              className="absolute top-1/2 -translate-y-1/2 start-3 text-gray-400"
+            />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="ابحث في الوحدات…"
+              className="w-full border border-gray-200 rounded-lg ps-8 pe-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            />
+          </div>
+        </div>
+        <ModuleGrid search={search} />
+      </section>
+
+      {/* ─── Users ───────────────────────────────────── */}
       <section className="space-y-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <h2 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center gap-2">
-            <Users size={20} className="text-primary" />
-            إدارة المستخدمين
-          </h2>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Can permission="settings.unit_types:view">
-              <Link
-                href="/settings/unit-types"
-                className="flex items-center gap-2 px-4 py-2.5 border border-primary text-primary rounded-lg hover:bg-gold-soft transition-colors text-sm font-medium flex-1 sm:flex-none justify-center"
-              >
-                <BedDouble size={18} />
-                أنواع الوحدات
-              </Link>
-            </Can>
-            <Can permission="rooms:view">
-              <Link
-                href="/settings/unit-merges"
-                className="flex items-center gap-2 px-4 py-2.5 border border-primary text-primary rounded-lg hover:bg-gold-soft transition-colors text-sm font-medium flex-1 sm:flex-none justify-center"
-              >
-                <DoorOpen size={18} />
-                دمج الوحدات
-              </Link>
-            </Can>
-            <Can permission="settings.prices:view">
-              <Link
-                href="/settings/prices"
-                className="flex items-center gap-2 px-4 py-2.5 border border-primary text-primary rounded-lg hover:bg-gold-soft transition-colors text-sm font-medium flex-1 sm:flex-none justify-center"
-              >
-                <Tag size={18} />
-                الأسعار حسب النوع
-              </Link>
-            </Can>
-            <Can permission="settings.booking:view">
-              <Link
-                href="/settings/booking"
-                className="flex items-center gap-2 px-4 py-2.5 border border-primary text-primary rounded-lg hover:bg-gold-soft transition-colors text-sm font-medium flex-1 sm:flex-none justify-center"
-              >
-                <Network size={18} />
-                Booking.com
-              </Link>
-            </Can>
-            <Can permission="settings.whatsapp:view">
-              <Link
-                href="/settings/whatsapp"
-                className="flex items-center gap-2 px-4 py-2.5 border border-primary text-primary rounded-lg hover:bg-gold-soft transition-colors text-sm font-medium flex-1 sm:flex-none justify-center"
-              >
-                <MessageCircle size={18} />
-                واتساب
-              </Link>
-            </Can>
-            <Can permission="settings.roles:view">
-              <Link
-                href="/settings/roles"
-                className="flex items-center gap-2 px-4 py-2.5 border border-primary text-primary rounded-lg hover:bg-gold-soft transition-colors text-sm font-medium flex-1 sm:flex-none justify-center"
-              >
-                <Shield size={18} />
-                الأدوار والصلاحيات
-              </Link>
-            </Can>
-            <Can permission="settings.users:create">
-              <button
-                onClick={() => {
-                  setShowUserForm(true);
-                  setEditUser(null);
-                  setUserForm(emptyUserForm);
-                }}
-                className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium flex-1 sm:flex-none justify-center"
-              >
-                <Plus size={18} />
-                إضافة مستخدم
-              </button>
-            </Can>
+          <div>
+            <h2 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center gap-2">
+              <Users size={20} className="text-primary" />
+              المستخدمون وفريق العمل
+            </h2>
+            <p className="text-xs text-gray-500 mt-1">
+              {users.length > 0
+                ? `${users.length} مستخدم في الفريق`
+                : "لا يوجد مستخدمون بعد"}
+            </p>
           </div>
+          <Can permission="settings.users:create">
+            <button
+              onClick={() => {
+                setShowUserForm(true);
+                setEditUser(null);
+                setUserForm(emptyUserForm);
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium w-full sm:w-auto justify-center shadow-sm"
+            >
+              <Plus size={18} />
+              إضافة مستخدم
+            </button>
+          </Can>
         </div>
 
         <div className="bg-card-bg rounded-xl shadow-sm overflow-hidden">
@@ -514,12 +510,17 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* Section 2: Seasonal Prices */}
+      {/* ─── Seasonal Prices ────────────────────────── */}
       <section className="space-y-4">
-        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-          <Tag size={20} className="text-primary" />
-          الأسعار الموسمية
-        </h2>
+        <div>
+          <h2 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center gap-2">
+            <Tag size={20} className="text-primary" />
+            الأسعار الموسمية
+          </h2>
+          <p className="text-xs text-gray-500 mt-1">
+            عدِّل السعر مباشرة في الجدول — التغييرات المعلّقة تظهر بخلفية صفراء.
+          </p>
+        </div>
 
         <div className="bg-card-bg rounded-xl shadow-sm overflow-hidden">
           {loadingPrices ? (
@@ -723,6 +724,192 @@ export default function SettingsPage() {
           onClose={() => setOverridesUser(null)}
         />
       )}
+    </div>
+  );
+}
+
+function StatPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-white/10 backdrop-blur-sm border border-white/15 rounded-lg px-3 py-2 text-center min-w-[70px]">
+      <div className="text-lg font-bold text-gold leading-none">{value}</div>
+      <div className="text-[10px] text-white/70 mt-1">{label}</div>
+    </div>
+  );
+}
+
+interface ModuleTile {
+  key: string;
+  label: string;
+  description: string;
+  href: string;
+  permission: string;
+  icon: React.ElementType;
+  tone: "gold" | "emerald" | "sky" | "violet" | "rose" | "amber";
+}
+
+const MODULES: ModuleTile[] = [
+  {
+    key: "roles",
+    label: "الأدوار والصلاحيات",
+    description: "تحكم في من يرى ماذا ويفعل ماذا — نظام صلاحيات مرن حسب الدور.",
+    href: "/settings/roles",
+    permission: "settings.roles:view",
+    icon: Shield,
+    tone: "violet",
+  },
+  {
+    key: "unit-types",
+    label: "أنواع الوحدات",
+    description: "إدارة أنواع الغرف والشقق في الفندق.",
+    href: "/settings/unit-types",
+    permission: "settings.unit_types:view",
+    icon: BedDouble,
+    tone: "gold",
+  },
+  {
+    key: "unit-merges",
+    label: "دمج الوحدات",
+    description: "دمج غرف متجاورة لإنشاء أجنحة أو شقق كبيرة.",
+    href: "/settings/unit-merges",
+    permission: "rooms:view",
+    icon: DoorOpen,
+    tone: "amber",
+  },
+  {
+    key: "prices",
+    label: "الأسعار حسب النوع",
+    description: "أسعار مخصصة لكل نوع وحدة — تتجاوز الأسعار الموسمية العامة.",
+    href: "/settings/prices",
+    permission: "settings.prices:view",
+    icon: Tag,
+    tone: "emerald",
+  },
+  {
+    key: "booking",
+    label: "تكامل Booking.com",
+    description: "مزامنة الحجوزات والأسعار مع منصة Booking.com.",
+    href: "/settings/booking",
+    permission: "settings.booking:view",
+    icon: Network,
+    tone: "sky",
+  },
+  {
+    key: "whatsapp",
+    label: "واتساب الأعمال (WhatsApp)",
+    description: "تكامل Meta Cloud API: الاعتمادات، القوالب، الردود التلقائية.",
+    href: "/settings/whatsapp",
+    permission: "settings.whatsapp:view",
+    icon: MessageCircle,
+    tone: "emerald",
+  },
+  {
+    key: "whatsapp-notifications",
+    label: "إشعارات واتساب",
+    description: "تحكم في إشعارات الصوت، وBrowser Push، وحساسية الرسائل.",
+    href: "/settings/whatsapp/notifications",
+    permission: "settings.whatsapp:view",
+    icon: Bell,
+    tone: "rose",
+  },
+];
+
+const TONE_CLASSES: Record<ModuleTile["tone"], { bg: string; text: string; ring: string }> = {
+  gold: {
+    bg: "bg-gold-soft",
+    text: "text-gold-dark",
+    ring: "group-hover:ring-gold/40",
+  },
+  emerald: {
+    bg: "bg-emerald-50",
+    text: "text-emerald-700",
+    ring: "group-hover:ring-emerald-200",
+  },
+  sky: {
+    bg: "bg-sky-50",
+    text: "text-sky-700",
+    ring: "group-hover:ring-sky-200",
+  },
+  violet: {
+    bg: "bg-violet-50",
+    text: "text-violet-700",
+    ring: "group-hover:ring-violet-200",
+  },
+  rose: {
+    bg: "bg-rose-50",
+    text: "text-rose-700",
+    ring: "group-hover:ring-rose-200",
+  },
+  amber: {
+    bg: "bg-amber-50",
+    text: "text-amber-700",
+    ring: "group-hover:ring-amber-200",
+  },
+};
+
+function ModuleGrid({ search }: { search: string }) {
+  const { can } = usePermissions();
+  const normalised = search.trim().toLowerCase();
+  const visible = useMemo(
+    () =>
+      MODULES.filter((m) => can(m.permission)).filter((m) => {
+        if (!normalised) return true;
+        return (
+          m.label.toLowerCase().includes(normalised) ||
+          m.description.toLowerCase().includes(normalised) ||
+          m.key.includes(normalised)
+        );
+      }),
+    [normalised, can],
+  );
+
+  if (visible.length === 0) {
+    return (
+      <div className="text-xs text-gray-400 text-center py-8 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+        لا توجد وحدات متاحة{normalised ? " لهذه البحث" : ""}.
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {visible.map((m) => {
+        const Icon = m.icon;
+        const tone = TONE_CLASSES[m.tone];
+        return (
+          <Link
+            key={m.key}
+            href={m.href}
+            className={cn(
+              "group relative bg-white border border-gray-100 rounded-2xl p-4 hover:border-primary/40 hover:shadow-md transition-all ring-1 ring-transparent",
+              tone.ring,
+            )}
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className={cn(
+                  "w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105",
+                  tone.bg,
+                  tone.text,
+                )}
+              >
+                <Icon size={22} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="font-bold text-gray-800 text-sm">{m.label}</h3>
+                  <ChevronLeft
+                    size={14}
+                    className="text-gray-300 group-hover:text-primary transition-colors shrink-0"
+                  />
+                </div>
+                <p className="text-[11px] text-gray-500 mt-1 leading-relaxed line-clamp-2">
+                  {m.description}
+                </p>
+              </div>
+            </div>
+          </Link>
+        );
+      })}
     </div>
   );
 }

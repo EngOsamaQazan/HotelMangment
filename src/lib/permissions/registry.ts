@@ -421,6 +421,8 @@ export const RESOURCES: ResourceDef[] = [
       "/api/whatsapp/unread-count",
       "/api/whatsapp/send",
       "/api/whatsapp/send-template",
+      "/api/whatsapp/send-media",
+      "/api/whatsapp/media/[id]",
       "/api/whatsapp/templates",
       "/api/whatsapp/profile",
       "/api/whatsapp/profile/picture",
@@ -471,6 +473,8 @@ export const RESOURCES: ResourceDef[] = [
       "/api/whatsapp/config",
       "/api/whatsapp/probe",
       "/api/whatsapp/deploy",
+      "/api/whatsapp/auto-replies",
+      "/api/whatsapp/auto-replies/[id]",
     ],
     extraActions: [
       { key: "probe", label: "اختبار الاتصال بالـ API" },

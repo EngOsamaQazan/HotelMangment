@@ -1266,6 +1266,18 @@ model WhatsAppMessage {
   conversationId  Int?      @map("conversation_id")
   /// Reserved for a future "internal note" UX — never sent to Meta.
   isInternalNote  Boolean   @default(false) @map("is_internal_note")
+  /// Meta Media ID — for inbound image/video/audio/document/sticker we proxy
+  /// downloads through `/api/whatsapp/media/[id]`. For outbound media we also
+  /// keep the id so the preview survives restarts. Null for text messages.
+  mediaId         String?   @map("media_id")
+  /// image/jpeg, image/png, video/mp4, audio/ogg, application/pdf, …
+  mediaMimeType   String?   @map("media_mime_type")
+  /// Original filename (documents) or generated name (images/videos).
+  mediaFilename   String?   @map("media_filename")
+  /// SHA-256 hex returned by Meta — handy for dedupe / audit.
+  mediaSha256     String?   @map("media_sha256")
+  /// Byte size (best-effort — set from Content-Length during download).
+  mediaSize       Int?      @map("media_size")
   createdAt       DateTime  @default(now()) @map("created_at")
 
   conversation WhatsAppConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
@@ -1274,7 +1286,52 @@ model WhatsAppMessage {
   @@index([direction, status])
   @@index([reservationId])
   @@index([conversationId, createdAt])
+  @@index([mediaId])
   @@map("whatsapp_messages")
+}
+
+/// A keyword-based auto-reply rule. Evaluated in order of `priority` when an
+/// inbound WhatsApp text arrives; the first match fires a reply. Only runs
+/// when the conversation is within the 24h customer-service window and not
+/// muted, to avoid Meta policy violations.
+model WhatsAppAutoReplyRule {
+  id          Int      @id @default(autoincrement())
+  /// Human-readable label shown in the admin UI.
+  name        String
+  /// "keyword" (default): contains, case-insensitive.
+  /// "exact": whole-message equality (trimmed, case-insensitive).
+  /// "regex": JS regex source (sandboxed with 1 s timeout in the engine).
+  /// "welcome": no text match — fires only on the first inbound message
+  /// of a new conversation (customer's first contact).
+  /// "away": fires only outside business hours (quietHoursStart/End).
+  matchMode   String   @default("keyword") @map("match_mode")
+  /// Pipe-separated triggers for keyword/exact/regex modes ("سعر|الأسعار|price").
+  triggers    String   @default("")
+  /// Plain-text reply. Interpolation: {{contactName}} {{firstName}} {{hotelName}}.
+  replyText   String   @map("reply_text")
+  /// Optional approved template name — if set, sent instead of `replyText`
+  /// so the rule can fire even outside the 24h window.
+  templateName String? @map("template_name")
+  /// "HH:mm" quiet-hours window in Asia/Amman. When "away" match mode is on
+  /// the rule fires only inside this window; otherwise it just suppresses.
+  quietHoursStart String? @map("quiet_hours_start")
+  quietHoursEnd   String? @map("quiet_hours_end")
+  /// Lower = earlier in evaluation. Default 100.
+  priority    Int      @default(100)
+  /// Cooldown between auto-replies to the same contact (minutes). Stops
+  /// loops / harassment; 0 disables.
+  cooldownMinutes Int  @default(60) @map("cooldown_minutes")
+  /// Optional tag added to the contact on match, for segmentation.
+  addTag      String?  @map("add_tag")
+  isActive    Boolean  @default(true) @map("is_active")
+  timesFired  Int      @default(0) @map("times_fired")
+  lastFiredAt DateTime? @map("last_fired_at")
+  createdByUserId Int? @map("created_by_user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive, priority])
+  @@map("whatsapp_auto_reply_rules")
 }
 
 /// Cached snapshot of the message templates registered on the WABA. The

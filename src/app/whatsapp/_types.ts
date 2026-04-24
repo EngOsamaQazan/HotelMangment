@@ -47,6 +47,11 @@ export interface Message {
   readAt: string | null;
   createdAt: string;
   isInternalNote?: boolean;
+  /** Meta media id — present for image/video/audio/document/sticker. */
+  mediaId?: string | null;
+  mediaMimeType?: string | null;
+  mediaFilename?: string | null;
+  mediaSize?: number | null;
 }
 
 export interface TemplateRow {

@@ -17,6 +17,7 @@ import {
   fanoutInboundMessage,
   notifyMessageStatus,
 } from "@/lib/whatsapp/fanout";
+import { runAutoReply } from "@/lib/whatsapp/autoReply";
 
 /**
  * WhatsApp Business Cloud webhook.
@@ -101,7 +102,7 @@ export async function POST(req: Request) {
 // ───────────────────────── handlers ─────────────────────────
 
 async function handleInbound(msg: WebhookInboundMessage, contactName: string | null) {
-  const { type, body, template } = extractInboundContent(msg);
+  const { type, body, template, media } = extractInboundContent(msg);
 
   // 1. Phonebook: ensure a contact row exists and is up to date.
   const contact = await upsertContact({
@@ -126,6 +127,10 @@ async function handleInbound(msg: WebhookInboundMessage, contactName: string | n
         rawJson: msg as unknown as object,
         status: "received",
         sentAt: new Date(Number(msg.timestamp) * 1000),
+        mediaId: media?.id ?? null,
+        mediaMimeType: media?.mimeType ?? null,
+        mediaFilename: media?.filename ?? null,
+        mediaSha256: media?.sha256 ?? null,
       },
       update: { contactName: contactName ?? undefined },
     });
@@ -159,6 +164,10 @@ async function handleInbound(msg: WebhookInboundMessage, contactName: string | n
       reservationId,
       conversationId: conversation.id,
       sentAt: messageAt,
+      mediaId: media?.id ?? null,
+      mediaMimeType: media?.mimeType ?? null,
+      mediaFilename: media?.filename ?? null,
+      mediaSha256: media?.sha256 ?? null,
     },
     update: {
       // Idempotency — Meta may redeliver the same message id.
@@ -182,6 +191,20 @@ async function handleInbound(msg: WebhookInboundMessage, contactName: string | n
     body,
     type,
     createdAt: messageAt,
+  });
+
+  // 6. Auto-reply engine — keyword/welcome/away rules. Never throws.
+  const isFirstInbound =
+    !!conversation.firstInboundAt &&
+    Math.abs(conversation.firstInboundAt.getTime() - messageAt.getTime()) < 2000;
+  await runAutoReply({
+    contactPhone: msg.from,
+    body,
+    messageId: stored.id,
+    conversationId: conversation.id,
+    contactName,
+    isFirstInbound,
+    isMuted: conversation.isMuted,
   });
 }
 
@@ -221,28 +244,97 @@ async function handleStatus(st: WebhookStatus) {
   }
 }
 
+interface MediaMeta {
+  id: string;
+  mimeType: string | null;
+  filename: string | null;
+  sha256: string | null;
+}
+
 function extractInboundContent(msg: WebhookInboundMessage): {
   type: string;
   body: string | null;
   template: string | null;
+  media: MediaMeta | null;
 } {
   switch (msg.type) {
     case "text":
-      return { type: "text", body: msg.text?.body ?? null, template: null };
+      return {
+        type: "text",
+        body: msg.text?.body ?? null,
+        template: null,
+        media: null,
+      };
     case "image":
-      return { type: "image", body: msg.image?.caption ?? null, template: null };
+      return {
+        type: "image",
+        body: msg.image?.caption ?? null,
+        template: null,
+        media: msg.image?.id
+          ? {
+              id: msg.image.id,
+              mimeType: msg.image.mime_type ?? null,
+              filename: null,
+              sha256: msg.image.sha256 ?? null,
+            }
+          : null,
+      };
     case "document":
       return {
         type: "document",
         body: msg.document?.caption ?? msg.document?.filename ?? null,
         template: null,
+        media: msg.document?.id
+          ? {
+              id: msg.document.id,
+              mimeType: msg.document.mime_type ?? null,
+              filename: msg.document.filename ?? null,
+              sha256: msg.document.sha256 ?? null,
+            }
+          : null,
       };
     case "audio":
-      return { type: "audio", body: null, template: null };
+      return {
+        type: "audio",
+        body: null,
+        template: null,
+        media: msg.audio?.id
+          ? {
+              id: msg.audio.id,
+              mimeType: msg.audio.mime_type ?? null,
+              filename: null,
+              sha256: msg.audio.sha256 ?? null,
+            }
+          : null,
+      };
     case "video":
-      return { type: "video", body: msg.video?.caption ?? null, template: null };
+      return {
+        type: "video",
+        body: msg.video?.caption ?? null,
+        template: null,
+        media: msg.video?.id
+          ? {
+              id: msg.video.id,
+              mimeType: msg.video.mime_type ?? null,
+              filename: null,
+              sha256: msg.video.sha256 ?? null,
+            }
+          : null,
+      };
     case "sticker":
-      return { type: "sticker", body: null, template: null };
+      return {
+        type: "sticker",
+        body: null,
+        template: null,
+        media: msg.sticker?.id
+          ? {
+              id: msg.sticker.id,
+              mimeType: msg.sticker.mime_type ?? null,
+              filename: null,
+              sha256: msg.sticker.sha256 ?? null,
+            }
+          : null,
+      };
     case "location": {
       const loc = msg.location;
       const where = loc ? `${loc.latitude},${loc.longitude}` : null;
@@ -250,19 +342,26 @@ function extractInboundContent(msg: WebhookInboundMessage): {
         type: "location",
         body: loc?.name || loc?.address || where,
         template: null,
+        media: null,
       };
     }
     case "reaction":
-      return { type: "reaction", body: msg.reaction?.emoji ?? null, template: null };
+      return {
+        type: "reaction",
+        body: msg.reaction?.emoji ?? null,
+        template: null,
+        media: null,
+      };
     case "button":
       return {
         type: "button",
         body: msg.button?.text ?? msg.button?.payload ?? null,
         template: null,
+        media: null,
       };
     case "interactive":
-      return { type: "interactive", body: null, template: null };
+      return { type: "interactive", body: null, template: null, media: null };
     default:
-      return { type: msg.type || "unknown", body: null, template: null };
+      return { type: msg.type || "unknown", body: null, template: null, media: null };
   }
 }

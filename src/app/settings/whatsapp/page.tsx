@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Can } from "@/components/Can";
 import { usePermissions } from "@/lib/permissions/client";
+import { AutoReplyRules } from "./_components/AutoReplyRules";
 
 interface PublicConfig {
   appId: string;
@@ -974,6 +975,9 @@ export default function WhatsAppSettingsPage() {
           </div>
         )}
       </section>
+
+      {/* Auto-reply rules */}
+      <AutoReplyRules />
 
       {showRegisterDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">

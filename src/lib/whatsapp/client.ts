@@ -302,6 +302,134 @@ export async function uploadFileHandle(
   return uploaded.h;
 }
 
+// ─────────────────────────── Media upload / download / send ─────────────
+
+/**
+ * Upload media to `/{phone_number_id}/media` — returns a Meta media id that
+ * can then be plugged into a `sendMedia({ mediaId })` call. Preferred over
+ * attaching raw URLs because Meta caches/optimises the bytes and the send
+ * works even before our domain is publicly reachable.
+ *
+ * Two upload targets exist in Graph:
+ *   1. `/{phone_number_id}/media` — media messages (this function).
+ *   2. `/{APP_ID}/uploads`        — business-profile picture handles (above).
+ * Do not mix them.
+ */
+export async function uploadMedia(args: {
+  bytes: Buffer | ArrayBuffer;
+  mimeType: string;
+  filename: string;
+}): Promise<{ id: string }> {
+  const cfg = await loadRuntimeConfig();
+  const byteLength =
+    args.bytes instanceof Buffer ? args.bytes.length : args.bytes.byteLength;
+  const arrayBuffer =
+    args.bytes instanceof Buffer
+      ? args.bytes.buffer.slice(
+          args.bytes.byteOffset,
+          args.bytes.byteOffset + args.bytes.byteLength,
+        )
+      : args.bytes;
+
+  // Graph /media upload uses multipart/form-data.
+  const form = new FormData();
+  const blob = new Blob([arrayBuffer as ArrayBuffer], { type: args.mimeType });
+  form.append("file", blob, args.filename);
+  form.append("type", args.mimeType);
+  form.append("messaging_product", "whatsapp");
+
+  let url = `${GRAPH_ROOT}/${cfg.apiVersion}/${cfg.phoneNumberId}/media`;
+  if (cfg.appSecret) {
+    url = appendQuery(
+      url,
+      "appsecret_proof",
+      buildAppSecretProof(cfg.accessToken, cfg.appSecret),
+    );
+  }
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${cfg.accessToken}` },
+    body: form,
+  });
+  return graphJson<{ id: string }>(res).then((j) => {
+    if (!j.id) throw new Error(`media upload returned no id (size=${byteLength})`);
+    return j;
+  });
+}
+
+export type SendMediaKind = "image" | "document" | "video" | "audio" | "sticker";
+
+export interface SendMediaArgs {
+  to: string;
+  kind: SendMediaKind;
+  mediaId: string;
+  caption?: string;
+  filename?: string;
+}
+
+/** Send a media message by referencing an already-uploaded Meta media id. */
+export async function sendMedia(args: SendMediaArgs): Promise<GraphSendResponse> {
+  const cfg = await loadRuntimeConfig();
+  const mediaObj: Record<string, unknown> = { id: args.mediaId };
+  if (args.caption && (args.kind === "image" || args.kind === "video" || args.kind === "document")) {
+    mediaObj.caption = args.caption;
+  }
+  if (args.filename && args.kind === "document") {
+    mediaObj.filename = args.filename;
+  }
+  const res = await graphFetch(cfg, `/${cfg.phoneNumberId}/messages`, {
+    method: "POST",
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: args.to,
+      type: args.kind,
+      [args.kind]: mediaObj,
+    }),
+  });
+  return graphJson<GraphSendResponse>(res);
+}
+
+export interface MediaInfo {
+  url: string;
+  mime_type: string;
+  sha256?: string;
+  file_size?: number;
+  id: string;
+  messaging_product?: string;
+}
+
+/**
+ * Resolve a Meta media id to a short-lived signed URL. URLs expire after
+ * ~5 minutes and require the bearer token on the download request.
+ */
+export async function getMediaInfo(mediaId: string): Promise<MediaInfo> {
+  const cfg = await loadRuntimeConfig();
+  const res = await graphFetch(cfg, `/${encodeURIComponent(mediaId)}`);
+  return graphJson<MediaInfo>(res);
+}
+
+/**
+ * Fetch the raw media bytes + metadata for a given id. Returns the bearer
+ * token in the headers so the proxy route can stream back to the browser
+ * without buffering the whole file in memory.
+ */
+export async function fetchMediaStream(
+  mediaId: string,
+): Promise<{ response: Response; info: MediaInfo }> {
+  const cfg = await loadRuntimeConfig();
+  const info = await getMediaInfo(mediaId);
+  if (!info.url) throw new Error("Meta لم يُرجع رابط للملف");
+  const res = await fetch(info.url, {
+    headers: { Authorization: `Bearer ${cfg.accessToken}` },
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new WhatsAppApiError(res.status, txt || `media fetch ${res.status}`);
+  }
+  return { response: res, info };
+}
+
 // ─────────────────────────── Read receipts ───────────────────────────────
 
 /**
@@ -423,11 +551,17 @@ export interface WebhookInboundMessage {
   timestamp: string;
   type: string;
   text?: { body: string };
-  image?: { id: string; caption?: string; mime_type?: string };
-  document?: { id: string; caption?: string; filename?: string; mime_type?: string };
-  audio?: { id: string; mime_type?: string };
-  video?: { id: string; caption?: string; mime_type?: string };
-  sticker?: { id: string; mime_type?: string };
+  image?: { id: string; caption?: string; mime_type?: string; sha256?: string };
+  document?: {
+    id: string;
+    caption?: string;
+    filename?: string;
+    mime_type?: string;
+    sha256?: string;
+  };
+  audio?: { id: string; mime_type?: string; sha256?: string };
+  video?: { id: string; caption?: string; mime_type?: string; sha256?: string };
+  sticker?: { id: string; mime_type?: string; sha256?: string };
   location?: { latitude: number; longitude: number; name?: string; address?: string };
   interactive?: unknown;
   reaction?: { emoji: string; message_id: string };
