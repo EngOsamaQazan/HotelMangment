@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
+import { headers } from "next/headers";
 import { SITE_URL } from "@/lib/seo/site";
+import { classifyHost } from "@/lib/hosts";
 
 /**
  * Dynamic robots.txt served at `/robots.txt`.
@@ -8,10 +10,21 @@ import { SITE_URL } from "@/lib/seo/site";
  * تفاصيل الأنواع، الصفحات القانونية) ونحظر كل ما يخصّ لوحة تحكّم
  * الموظفين وحساب الضيف الشخصي وAPI.
  *
+ * إضافة: إذا وصل الطلب من نطاق الإدارة (`admin.mafhotel.com`) نُرجع
+ * `Disallow: /` لجميع الزواحف — لا شيء على هذا النطاق معدّ للفهرسة.
+ *
  * هذا يحلّ محل `public/robots.txt` القديم — Next.js يُفضّل هذا الملف
  * المُولَّد ديناميكياً لأنه يقرأ `SITE_URL` من البيئة تلقائياً.
  */
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const hostKind = classifyHost((await headers()).get("host"));
+
+  if (hostKind === "admin") {
+    return {
+      rules: [{ userAgent: "*", disallow: "/" }],
+    };
+  }
+
   return {
     rules: [
       {

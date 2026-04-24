@@ -1,14 +1,21 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import {
+  classifyHost,
+  getAdminHost,
+  getPublicHost,
+  isHostSplitEnabled,
+  type HostKind,
+} from "@/lib/hosts";
 
 /**
- * Top-level gate. Two distinct audiences live side-by-side:
+ * Top-level gate. Two distinct audiences live side-by-side, on two hosts:
  *
- *   • staff  → can access admin paths (/, /reservations, /rooms, ...)
- *   • guest  → can access /account/*, /book/checkout, /book/confirm/*
+ *   • staff  → `admin.mafhotel.com` (admin dashboard + staff APIs)
+ *   • guest  → `mafhotel.com` (landing, booking funnel, `/account`)
  *
- * Anonymous visitors can still browse /landing, /book, /book/results, and
- * /book/type/* — the gate only kicks in for authenticated-only pages.
+ * In local dev both audiences keep sharing `localhost:3000` (host split is
+ * disabled when `ADMIN_HOST` is not configured — see `src/lib/hosts.ts`).
  *
  * Fine-grained permission checks still run inside each Route Handler / page
  * via `requirePermission()` and `<Can>`.
@@ -90,6 +97,41 @@ const STAFF_ONLY_API_PREFIXES = [
   "/api/booking",
 ];
 
+/**
+ * Paths that belong to the public/guest site. On the admin host these are
+ * rewritten to the public host (and vice-versa). Keep them prefix-exact.
+ *
+ * Note: `/signin`, `/signup`, `/landing`, `/book`, `/about`, `/privacy`,
+ * `/terms`, `/account`, `/api/guest-auth`, `/api/guest-me`, `/api/book`,
+ * `/api/files/unit-photo`, `/api/files/unit-type-photo` → public host.
+ */
+const PUBLIC_HOST_PATH_PREFIXES = [
+  "/signin",
+  "/signup",
+  "/landing",
+  "/privacy",
+  "/terms",
+  "/about",
+  "/book",
+  "/account",
+  "/api/guest-auth",
+  "/api/guest-me",
+  "/api/book",
+  "/api/files/unit-photo",
+  "/api/files/unit-type-photo",
+];
+
+/**
+ * Paths that belong to the admin host. On the public host these redirect to
+ * the admin subdomain (except the ones a browser absolutely needs to reach
+ * either way — like `/api/auth/*`, which is shared by both audiences).
+ */
+const ADMIN_HOST_PATH_PREFIXES = [
+  "/login",
+  ...STAFF_ONLY_PREFIXES,
+  ...STAFF_ONLY_API_PREFIXES,
+];
+
 const PUBLIC_FILES = new Set([
   "/icon.png",
   "/apple-icon.png",
@@ -116,9 +158,41 @@ function matchesPrefixList(pathname: string, list: string[]): boolean {
   return list.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
+function buildCrossHostRedirect(
+  req: NextRequest,
+  targetHost: string,
+  pathname: string,
+): NextResponse {
+  const proto =
+    req.headers.get("x-forwarded-proto") ?? req.nextUrl.protocol.replace(":", "");
+  const url = `${proto}://${targetHost}${pathname}${req.nextUrl.search}`;
+  return NextResponse.redirect(url, 308);
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const isApi = pathname.startsWith("/api/");
+  const hostHeader = req.headers.get("host");
+  const hostKind: HostKind = classifyHost(hostHeader);
+  const splitEnabled = isHostSplitEnabled();
+
+  // ─── 1. Host-level routing (production only) ────────────────────────────
+  //
+  // Send each request to the subdomain that owns the path. `/api/auth/*` is
+  // intentionally excluded because NextAuth callbacks need to post back to
+  // whichever host initiated the flow.
+  //
+  // We do this BEFORE the auth check so a guest typing `mafhotel.com/login`
+  // or a staff member clicking an old `mafhotel.com/reservations` bookmark
+  // lands on the right host without first seeing an auth error.
+  if (splitEnabled && !isApi) {
+    if (hostKind === "admin" && matchesPrefixList(pathname, PUBLIC_HOST_PATH_PREFIXES)) {
+      return buildCrossHostRedirect(req, getPublicHost(), pathname);
+    }
+    if (hostKind === "public" && matchesPrefixList(pathname, ADMIN_HOST_PATH_PREFIXES)) {
+      return buildCrossHostRedirect(req, getAdminHost(), pathname);
+    }
+  }
 
   if (isPublic(pathname)) return NextResponse.next();
 
@@ -137,11 +211,16 @@ export async function middleware(req: NextRequest) {
         { status: 401 },
       );
     }
-    // Root: anonymous visitors see the marketing site, not the admin login.
+    // Root handling depends on the host:
+    //   • public host → marketing site at /landing
+    //   • admin host  → staff login
     if (pathname === "/") {
-      const landingUrl = req.nextUrl.clone();
-      landingUrl.pathname = "/landing";
-      return NextResponse.redirect(landingUrl);
+      const target = req.nextUrl.clone();
+      target.pathname = hostKind === "admin" ? "/login" : "/landing";
+      if (hostKind === "admin") {
+        target.searchParams.set("next", "/");
+      }
+      return NextResponse.redirect(target);
     }
     // Guest pages redirect to /signin; staff pages to /login.
     const isGuestArea = matchesPrefixList(pathname, GUEST_ONLY_PREFIXES);
@@ -156,7 +235,7 @@ export async function middleware(req: NextRequest) {
   const needsStaff =
     matchesPrefixList(pathname, STAFF_ONLY_PREFIXES) ||
     matchesPrefixList(pathname, STAFF_ONLY_API_PREFIXES) ||
-    pathname === "/";
+    (pathname === "/" && hostKind !== "public");
 
   if (needsGuest && audience !== "guest") {
     if (isApi) {
@@ -165,7 +244,11 @@ export async function middleware(req: NextRequest) {
         { status: 403 },
       );
     }
-    // Staff hitting /account → back to staff dashboard; anonymous → signin.
+    // Staff hitting /account → admin dashboard on the admin host;
+    // anonymous users (shouldn't happen here, token exists) → signin.
+    if (audience === "staff" && splitEnabled) {
+      return buildCrossHostRedirect(req, getAdminHost(), "/");
+    }
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = audience === "staff" ? "/" : "/signin";
     if (audience !== "staff") {
@@ -183,7 +266,10 @@ export async function middleware(req: NextRequest) {
         { status: 403 },
       );
     }
-    // Guest trying to reach an admin page → send them to their own /account.
+    // Guest trying to reach an admin page → their own /account on public host.
+    if (audience === "guest" && splitEnabled) {
+      return buildCrossHostRedirect(req, getPublicHost(), "/account");
+    }
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = audience === "guest" ? "/account" : "/login";
     if (audience !== "guest") {
@@ -192,6 +278,19 @@ export async function middleware(req: NextRequest) {
       redirectUrl.search = "";
     }
     return NextResponse.redirect(redirectUrl);
+  }
+
+  // ─── 2. Authenticated but on the wrong host ─────────────────────────────
+  //
+  // Staff session browsing the public host root → admin dashboard.
+  // Guest session browsing the admin host root → /account on public host.
+  if (splitEnabled && pathname === "/") {
+    if (hostKind === "public" && audience === "staff") {
+      return buildCrossHostRedirect(req, getAdminHost(), "/");
+    }
+    if (hostKind === "admin" && audience === "guest") {
+      return buildCrossHostRedirect(req, getPublicHost(), "/account");
+    }
   }
 
   return NextResponse.next();

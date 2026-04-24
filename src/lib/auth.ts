@@ -1,9 +1,73 @@
-import { NextAuthOptions } from "next-auth";
+import { NextAuthOptions, type CookiesOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import { normalizePhone } from "./phone";
 import guestJwt from "./guest-auth/jwt";
+
+/**
+ * Cross-subdomain session support.
+ *
+ * In production the app is served on two hostnames:
+ *   • `admin.mafhotel.com` (staff UI)
+ *   • `mafhotel.com`        (guest/public UI)
+ *
+ * Setting `SESSION_COOKIE_DOMAIN=.mafhotel.com` makes the NextAuth session
+ * cookie valid on both, so logging in on one host carries over to the other
+ * (and our middleware can trust the same JWT regardless of which subdomain
+ * the request lands on).
+ *
+ * Leave it unset in dev — cookies scope to `localhost` by default.
+ */
+function buildAuthCookies(): Partial<CookiesOptions> | undefined {
+  const domain = process.env.SESSION_COOKIE_DOMAIN?.trim();
+  if (!domain) return undefined;
+
+  const useSecurePrefix = process.env.NODE_ENV === "production";
+  const sessionCookieName = useSecurePrefix
+    ? "__Secure-next-auth.session-token"
+    : "next-auth.session-token";
+  const callbackCookieName = useSecurePrefix
+    ? "__Secure-next-auth.callback-url"
+    : "next-auth.callback-url";
+  const csrfCookieName = useSecurePrefix
+    ? "__Host-next-auth.csrf-token"
+    : "next-auth.csrf-token";
+
+  return {
+    sessionToken: {
+      name: sessionCookieName,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: useSecurePrefix,
+        domain,
+      },
+    },
+    callbackUrl: {
+      name: callbackCookieName,
+      options: {
+        sameSite: "lax",
+        path: "/",
+        secure: useSecurePrefix,
+        domain,
+      },
+    },
+    // `__Host-` prefix MUST NOT set a Domain attribute, so fall back to a
+    // plain-name cookie that can be shared across subdomains.
+    csrfToken: {
+      name: useSecurePrefix ? "next-auth.csrf-token" : csrfCookieName,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: useSecurePrefix,
+        domain,
+      },
+    },
+  };
+}
 
 /**
  * NextAuth configuration — two Credentials providers:
@@ -180,5 +244,6 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
   },
+  cookies: buildAuthCookies(),
 };
 

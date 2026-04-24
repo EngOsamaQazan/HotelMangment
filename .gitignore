@@ -58,6 +58,21 @@ next-env.d.ts
 
 tmp-import/
 excel-import-preview.json
+
+# Ad-hoc debugging artefacts (server inspection scripts, Webmin helpers,
+# screenshots captured by MCP browser tooling, saved HTML snippets).
+# They are kept out of source control to avoid polluting the repository.
+_*.sh
+_*.ps1
+*.png
+*.jpg
+*.jpeg
+/init.html
+/login_resp.html
+/out.html
+/shell.html
+/.playwright-mcp/
+
 import-guests-preview.json
 
 # PM2

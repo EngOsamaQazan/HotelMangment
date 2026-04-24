@@ -5,8 +5,10 @@
 - **المسار على السيرفر**: `/opt/hotel-app`
 - **قاعدة البيانات**: PostgreSQL محلّي على نفس السيرفر (`postgres` service على `127.0.0.1:5432`)
 - **مدير العمليات**: PM2 (خدمة `hotel-app`)
-- **الـ Reverse Proxy**: Apache 2 (VirtualHost: `hotel.aqssat.co`)
-- **الشهادة**: Let's Encrypt عبر certbot
+- **الـ Reverse Proxy**: Apache 2، نطاقان يُقدَّمان من نفس عملية Next.js:
+  - `mafhotel.com` — الموقع العام للضيوف (الهبوط + الحجز + `/account`).
+  - `admin.mafhotel.com` — لوحة إدارة الفندق (الموظفون فقط، `/login`).
+- **الشهادة**: Let's Encrypt عبر certbot (شهادة واحدة تغطي النطاقين).
 - **النشر التلقائي**: GitHub Actions → SSH → git pull → npm ci → build → PM2 restart
 
 راجع تفاصيل النشر الآلي في: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml).
@@ -16,8 +18,25 @@
 ## البنية التحتية
 
 - **السيرفر**: Ubuntu Linux
-- **النطاق**: `hotel.aqssat.co`
+- **النطاقات**:
+  - `mafhotel.com` (+ `www.mafhotel.com`) — واجهة الضيوف.
+  - `admin.mafhotel.com` — واجهة الإدارة.
 - **الـ IP**: `31.220.82.115`
+
+### كيف يعمل فصل النطاقين
+
+نسخة واحدة من Next.js تعمل على المنفذ `3000`؛ Apache يوجّه كِلا النطاقين إليها.
+ملف `src/middleware.ts` يقرأ رأس `Host` ويوجِّه كل طلب للنطاق المناسب:
+
+- مسارات الموظفين (`/`, `/reservations`, `/rooms`, `/settings`, …، `/login`)
+  تعمل فقط على `admin.mafhotel.com`. لو أتى أحدهم من النطاق العام يُعاد توجيهه.
+- مسارات الضيوف (`/landing`, `/book`, `/signin`, `/signup`, `/account`, `/about`,
+  `/privacy`, `/terms`) تعمل فقط على `mafhotel.com`. زيارتها من نطاق الإدارة
+  تُعاد توجيهها تلقائياً.
+- `/api/auth/*` مشترك بين النطاقين ليتمكّن NextAuth من إنهاء جلسات من أيّهما.
+
+الجلسة تُحفظ في كوكي واحد مدى النطاق الأصل (`SESSION_COOKIE_DOMAIN=.mafhotel.com`)
+فلا يحتاج المستخدم إعادة الدخول عند التنقّل بين النطاقين.
 
 ### المتطلبات المثبّتة على السيرفر
 
@@ -66,18 +85,26 @@ cd hotel-app
 SECRET=$(openssl rand -base64 48)
 
 cat > /opt/hotel-app/.env <<EOF
-# Production environment for hotel.aqssat.co
+# Production environment for mafhotel.com + admin.mafhotel.com
 NODE_ENV=production
 
 # قاعدة البيانات الإنتاجية (Postgres محلي على السيرفر)
 DATABASE_URL="postgresql://fakher_user:FakherHotel2026Secure@127.0.0.1:5432/fakher_hotel?schema=public"
 
-# NextAuth
+# NextAuth — URL واجهة الإدارة (مكان صفحة /login)
 NEXTAUTH_SECRET=${SECRET}
-NEXTAUTH_URL=https://hotel.aqssat.co
+NEXTAUTH_URL=https://admin.mafhotel.com
 
-# Public
-NEXT_PUBLIC_SITE_URL=https://hotel.aqssat.co
+# النطاق العام (للضيوف) — يُستخدم في canonical URLs و Meta tags
+NEXT_PUBLIC_SITE_URL=https://mafhotel.com
+
+# فصل النطاقات (إدارة ↔ عام) — اضبطها في الإنتاج فقط.
+ADMIN_HOST=admin.mafhotel.com
+PUBLIC_HOST=mafhotel.com
+# أسماء إضافية تُعامَل كالنطاق العام (www مُضاف تلقائياً؛ أبقِها فارغة إن لم يوجد بديل)
+PUBLIC_HOST_ALIASES=
+# كوكي جلسة مشترك بين النطاقين (لاحظ النقطة في البداية)
+SESSION_COOKIE_DOMAIN=.mafhotel.com
 
 # Realtime (Socket.IO)
 REALTIME_PORT=3001
@@ -115,30 +142,48 @@ pm2 save
 pm2 startup   # يطبع أمراً يُنفَّذ مرة واحدة لتفعيل إقلاع PM2 تلقائياً
 ```
 
-### 5) إعداد Apache VirtualHost
+### 5) إعداد Apache VirtualHosts (نطاقان)
+
+النطاقان يشتركان في نفس عملية Next.js (PORT 3000) والـ Socket.IO (PORT 3001).
 
 ```bash
-# نسخ ملف الإعداد من المستودع
-cp /opt/hotel-app/deployment/apache/hotel.aqssat.co-le-ssl.conf \
-   /etc/apache2/sites-available/
+# انسخ ملفات الإعداد الأربعة من المستودع (HTTP + HTTPS لكل نطاق)
+cp /opt/hotel-app/deploy/apache/mafhotel.com.conf             /etc/apache2/sites-available/
+cp /opt/hotel-app/deploy/apache/mafhotel.com-le-ssl.conf      /etc/apache2/sites-available/
+cp /opt/hotel-app/deploy/apache/admin.mafhotel.com.conf       /etc/apache2/sites-available/
+cp /opt/hotel-app/deploy/apache/admin.mafhotel.com-le-ssl.conf /etc/apache2/sites-available/
 
-# تفعيل الوحدات اللازمة والموقع
-a2enmod proxy proxy_http ssl headers expires
-a2ensite hotel.aqssat.co-le-ssl
+# الوحدات اللازمة
+a2enmod proxy proxy_http proxy_wstunnel ssl headers expires rewrite
 
-# اختبار الإعدادات وإعادة التحميل
+# فعّل المواقع الأربعة
+a2ensite mafhotel.com
+a2ensite mafhotel.com-le-ssl
+a2ensite admin.mafhotel.com
+a2ensite admin.mafhotel.com-le-ssl
+
+# اختبار وإعادة التحميل
 apache2ctl configtest && systemctl reload apache2
 ```
 
-راجع تفاصيل إعداد Apache وسبب تجاوز الكاش لمسار `/api/*` في:
-[`deployment/apache/README.md`](../deployment/apache/README.md).
+### 6) شهادة SSL لكلا النطاقين
 
-### 6) الحصول على شهادة SSL
+أصدر شهادة Let's Encrypt واحدة تغطّي كلا النطاقين (و www):
 
 ```bash
-certbot --apache -d hotel.aqssat.co \
-        --non-interactive --agree-tos -m YOUR_EMAIL@example.com
+certbot --apache \
+        -d mafhotel.com -d www.mafhotel.com -d admin.mafhotel.com \
+        --non-interactive --agree-tos -m admin@mafhotel.com
 systemctl reload apache2
+```
+
+تحقّق من عمل النطاقين:
+
+```bash
+curl -sI https://mafhotel.com/landing        | head -n 1   # HTTP/2 200
+curl -sI https://admin.mafhotel.com/login    | head -n 1   # HTTP/2 200
+curl -sI https://mafhotel.com/reservations   | head -n 1   # HTTP/2 308 → admin.mafhotel.com
+curl -sI https://admin.mafhotel.com/landing  | head -n 1   # HTTP/2 308 → mafhotel.com
 ```
 
 ---
@@ -217,9 +262,11 @@ ss -tlnp | grep 3000    # هل المنفذ 3000 يستمع؟
 
 ```bash
 apache2ctl configtest
-curl -sI http://127.0.0.1:3000      # هل Next.js يستجيب محلياً؟
-curl -sI https://hotel.aqssat.co    # من الخارج؟
-tail -f /var/log/apache2/hotel.aqssat.co_error.log
+curl -sI http://127.0.0.1:3000                           # هل Next.js يستجيب محلياً؟
+curl -sI https://mafhotel.com                            # الموقع العام
+curl -sI https://admin.mafhotel.com                      # لوحة الإدارة
+tail -f /var/log/apache2/mafhotel.com-ssl-error.log
+tail -f /var/log/apache2/admin.mafhotel.com-ssl-error.log
 ```
 
 ### قاعدة البيانات لا تتصل
