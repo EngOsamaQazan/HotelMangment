@@ -294,8 +294,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 /* Kanban horizontal scroller: smooth touch scroll + safe-area aware.
-   The page wrapper already adds edge padding (-mx-*/px-*) so the scroll
-   bleeds to the viewport edges but the first column stays inset. */
+   The page wrapper already adds edge padding (negative margin + matching
+   px utility) so the scroll bleeds to the viewport edges but the first
+   column stays inset. */
 .kanban-scroll {
   -webkit-overflow-scrolling: touch;
   scroll-padding-inline: 1rem;
