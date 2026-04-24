@@ -245,9 +245,16 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 /* Board page shell — stretches to fill the AppShell content area so the
    kanban column gets whatever vertical space is left over.
    Mobile: compensates pt-16 (fixed top nav) + p-4 page padding.
-   Desktop: compensates user-menu bar + p-6 page padding. */
+   Desktop: compensates user-menu bar + p-6 page padding.
+   `min-width: 0` is critical: without it the flex-column children would
+   report their intrinsic min-content width (huge for kanban columns)
+   which the browser uses to expand the column and push siblings off
+   the viewport edge. */
 .board-page {
   min-height: calc(100dvh - 6rem);
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
 }
 @media (min-width: 768px) {
   .board-page {

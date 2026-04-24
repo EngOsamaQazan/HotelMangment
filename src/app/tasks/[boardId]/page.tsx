@@ -58,6 +58,27 @@ export default function BoardPage({
   const [labelFilter, setLabelFilter] = useState<number | "all">("all");
   const [tab, setTab] = useState<"board" | "members" | "labels">("board");
   const refetchTimeout = useRef<number | null>(null);
+  const kanbanScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Convert vertical mouse-wheel to horizontal kanban scroll on desktop —
+  // trackpad users already get two-axis scrolling natively, but mouse-only
+  // desktops cannot otherwise navigate a wide kanban without dragging the
+  // scrollbar. We skip when shift is held (native horizontal scroll) and
+  // when the wheel delta is primarily horizontal.
+  useEffect(() => {
+    const el = kanbanScrollRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (e.shiftKey) return;
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      const canScroll = el.scrollWidth > el.clientWidth;
+      if (!canScroll) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [tab, board?.columns.length]);
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -258,8 +279,10 @@ export default function BoardPage({
 
   return (
     <div className="board-page flex flex-col gap-2 sm:gap-3 pb-[env(safe-area-inset-bottom)]">
-      {/* Top bar — single compact row on all sizes */}
-      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+      {/* Top bar — title row (always) + tabs row (its own line).
+          Keeping tabs on a dedicated row avoids any flex overflow / RTL
+          edge-cases on very narrow devices (Fold 7 folded, 280-360px). */}
+      <div className="flex items-center gap-2 min-w-0 max-w-full">
         <Link
           href="/tasks"
           aria-label="العودة للّوحات"
@@ -273,52 +296,52 @@ export default function BoardPage({
           aria-hidden="true"
         />
         <div className="min-w-0 flex-1">
-          <h1 className="text-sm sm:text-lg md:text-xl lg:text-2xl font-bold text-primary truncate leading-tight">
+          <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-primary truncate leading-tight">
             {board.name}
           </h1>
           {board.description && (
-            <p className="hidden sm:block text-[11px] md:text-xs text-gray-500 line-clamp-1 leading-tight">
+            <p className="hidden md:block text-xs text-gray-500 truncate leading-tight">
               {board.description}
             </p>
           )}
         </div>
-        <div
-          role="tablist"
-          aria-label="أقسام اللوحة"
-          className="flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden text-[11px] sm:text-xs md:text-sm shrink-0"
-        >
-          {(
-            [
-              { key: "board", label: "اللوحة", Icon: KanbanSquare },
-              { key: "members", label: "الأعضاء", Icon: UsersIcon },
-              { key: "labels", label: "التسميات", Icon: TagIcon },
-            ] as const
-          ).map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              role="tab"
-              aria-selected={tab === key}
-              aria-label={label}
-              title={label}
-              onClick={() => setTab(key)}
-              className={cn(
-                "flex items-center justify-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 min-h-[36px] min-w-[36px] sm:min-h-[40px] transition-colors whitespace-nowrap touch-manipulation font-medium",
-                tab === key
-                  ? "bg-primary text-white"
-                  : "text-gray-600 hover:bg-gray-50 active:bg-gray-100",
-              )}
-            >
-              <Icon size={14} aria-hidden="true" />
-              <span className="hidden sm:inline">{label}</span>
-            </button>
-          ))}
-        </div>
+      </div>
+      <div
+        role="tablist"
+        aria-label="أقسام اللوحة"
+        className="flex items-stretch bg-white border border-gray-200 rounded-lg overflow-hidden text-xs sm:text-sm w-full max-w-full sm:w-auto sm:self-start"
+      >
+        {(
+          [
+            { key: "board", label: "اللوحة", Icon: KanbanSquare },
+            { key: "members", label: "الأعضاء", Icon: UsersIcon },
+            { key: "labels", label: "التسميات", Icon: TagIcon },
+          ] as const
+        ).map(({ key, label, Icon }) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={tab === key}
+            aria-label={label}
+            title={label}
+            onClick={() => setTab(key)}
+            className={cn(
+              "flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 min-h-[40px] transition-colors whitespace-nowrap touch-manipulation font-medium",
+              tab === key
+                ? "bg-primary text-white"
+                : "text-gray-600 hover:bg-gray-50 active:bg-gray-100",
+            )}
+          >
+            <Icon size={14} aria-hidden="true" />
+            <span>{label}</span>
+          </button>
+        ))}
       </div>
 
       {tab === "board" && (
         <>
           {/* Filters — horizontal on all sizes, compact height */}
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap bg-card-bg rounded-lg px-2 py-1.5 shadow-sm">
+          <div className="flex items-center gap-1.5 sm:gap-2 bg-card-bg rounded-lg px-2 py-1.5 shadow-sm min-w-0 max-w-full">
             <span className="text-[11px] sm:text-xs text-gray-500 flex items-center gap-1 px-1 shrink-0">
               <Filter size={12} aria-hidden="true" />
               <span className="hidden sm:inline">فلاتر</span>
@@ -335,7 +358,7 @@ export default function BoardPage({
                   v === "all" ? "all" : v === "me" ? "me" : Number(v),
                 );
               }}
-              className="flex-1 min-w-[90px] sm:min-w-[120px] text-[11px] sm:text-xs md:text-sm border border-gray-200 rounded-md px-1.5 sm:px-2 py-1 min-h-[32px] sm:min-h-[34px] focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+              className="flex-1 min-w-0 text-[11px] sm:text-xs md:text-sm border border-gray-200 rounded-md px-1.5 sm:px-2 py-1 min-h-[32px] sm:min-h-[34px] focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
             >
               <option value="all">كل المُسندين</option>
               <option value="me">المُسندة إليّ</option>
@@ -356,7 +379,7 @@ export default function BoardPage({
                   e.target.value === "all" ? "all" : Number(e.target.value),
                 )
               }
-              className="flex-1 min-w-[90px] sm:min-w-[120px] text-[11px] sm:text-xs md:text-sm border border-gray-200 rounded-md px-1.5 sm:px-2 py-1 min-h-[32px] sm:min-h-[34px] focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+              className="flex-1 min-w-0 text-[11px] sm:text-xs md:text-sm border border-gray-200 rounded-md px-1.5 sm:px-2 py-1 min-h-[32px] sm:min-h-[34px] focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
             >
               <option value="all">كل التسميات</option>
               {board.labels.map((l) => (
@@ -375,7 +398,10 @@ export default function BoardPage({
             onDragEnd={handleDragEnd}
             onDragCancel={() => setActiveCard(null)}
           >
-            <div className="kanban-scroll flex-1 min-h-0 flex gap-2.5 sm:gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain pb-3 -mx-4 md:-mx-6 px-4 md:px-6 snap-x snap-mandatory md:snap-none scroll-smooth">
+            <div
+              ref={kanbanScrollRef}
+              className="kanban-scroll flex-1 min-h-0 flex gap-2.5 sm:gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain pb-3 -mx-4 md:-mx-6 px-4 md:px-6 snap-x snap-mandatory md:snap-none scroll-smooth"
+            >
               {board.columns.map((col) => (
                 <KanbanColumn
                   key={col.id}
