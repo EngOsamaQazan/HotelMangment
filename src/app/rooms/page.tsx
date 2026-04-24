@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   BedDouble,
   Home,
@@ -127,7 +128,13 @@ export default function RoomsPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>(null);
+  const searchParams = useSearchParams();
+  const initialStatus = (() => {
+    const s = searchParams.get("status");
+    if (s === "available" || s === "occupied" || s === "maintenance") return s;
+    return null;
+  })();
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialStatus);
 
   const fetchUnits = useCallback(async () => {
     try {
@@ -145,6 +152,15 @@ export default function RoomsPage() {
   useEffect(() => {
     fetchUnits();
   }, [fetchUnits]);
+
+  useEffect(() => {
+    const s = searchParams.get("status");
+    if (s === "available" || s === "occupied" || s === "maintenance") {
+      setStatusFilter(s);
+    } else if (s === null) {
+      setStatusFilter(null);
+    }
+  }, [searchParams]);
 
   async function handleStatusChange(unitId: number, newStatus: string) {
     setUpdatingStatus(true);

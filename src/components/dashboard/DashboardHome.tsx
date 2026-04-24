@@ -79,6 +79,8 @@ const statCards = [
     iconBg: "bg-gold/15",
     iconColor: "text-gold-dark",
     valueColor: "text-primary",
+    href: "/rooms",
+    permission: "rooms:view",
   },
   {
     key: "occupied" as const,
@@ -88,6 +90,8 @@ const statCards = [
     iconBg: "bg-red-50",
     iconColor: "text-red-600",
     valueColor: "text-red-600",
+    href: "/rooms?status=occupied",
+    permission: "rooms:view",
   },
   {
     key: "available" as const,
@@ -97,6 +101,8 @@ const statCards = [
     iconBg: "bg-green-50",
     iconColor: "text-green-600",
     valueColor: "text-green-600",
+    href: "/rooms?status=available",
+    permission: "rooms:view",
   },
   {
     key: "activeReservations" as const,
@@ -106,6 +112,8 @@ const statCards = [
     iconBg: "bg-blue-50",
     iconColor: "text-blue-600",
     valueColor: "text-blue-600",
+    href: "/reservations",
+    permission: "reservations:view",
   },
 ];
 
@@ -174,42 +182,64 @@ export function DashboardHome() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {loading
           ? [1, 2, 3, 4].map((i) => <StatCardSkeleton key={i} />)
-          : statCards.map((card) => (
-              <div
-                key={card.key}
-                className="relative bg-card-bg rounded-xl shadow-sm border border-gray-100 p-3 sm:p-5 overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5"
-              >
-                <span
-                  className={cn(
-                    "absolute top-0 inset-x-0 h-[2px]",
-                    card.accent
-                  )}
-                />
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-xs sm:text-sm text-gray-500 mb-1 truncate">
-                      {card.label}
-                    </p>
-                    <p
+          : statCards.map((card) => {
+              const cardInner = (
+                <>
+                  <span
+                    className={cn(
+                      "absolute top-0 inset-x-0 h-[2px]",
+                      card.accent
+                    )}
+                  />
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm text-gray-500 mb-1 truncate">
+                        {card.label}
+                      </p>
+                      <p
+                        className={cn(
+                          "text-xl sm:text-3xl font-bold tabular-nums",
+                          card.valueColor
+                        )}
+                      >
+                        {data?.stats[card.key] ?? 0}
+                      </p>
+                    </div>
+                    <div
                       className={cn(
-                        "text-xl sm:text-3xl font-bold tabular-nums",
-                        card.valueColor
+                        "p-2 sm:p-3 rounded-xl shrink-0",
+                        card.iconBg
                       )}
                     >
-                      {data?.stats[card.key] ?? 0}
-                    </p>
+                      <card.icon size={22} className={card.iconColor} />
+                    </div>
                   </div>
-                  <div
-                    className={cn(
-                      "p-2 sm:p-3 rounded-xl shrink-0",
-                      card.iconBg
-                    )}
-                  >
-                    <card.icon size={22} className={card.iconColor} />
-                  </div>
+                </>
+              );
+              const staticCard = (
+                <div className="relative bg-card-bg rounded-xl shadow-sm border border-gray-100 p-3 sm:p-5 overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5">
+                  {cardInner}
                 </div>
-              </div>
-            ))}
+              );
+              const linkCard = (
+                <Link
+                  href={card.href}
+                  className="relative block bg-card-bg rounded-xl shadow-sm border border-gray-100 p-3 sm:p-5 overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5 hover:border-gold/40 focus:outline-none focus:ring-2 focus:ring-gold/40"
+                  aria-label={`${card.label}: ${data?.stats[card.key] ?? 0}`}
+                >
+                  {cardInner}
+                </Link>
+              );
+              return (
+                <Can
+                  key={card.key}
+                  permission={card.permission}
+                  fallback={staticCard}
+                >
+                  {linkCard}
+                </Can>
+              );
+            })}
       </div>
 
       {/* Quick Actions */}
