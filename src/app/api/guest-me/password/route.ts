@@ -35,6 +35,18 @@ export async function POST(request: Request) {
   if (!account) {
     return NextResponse.json({ error: "الحساب غير موجود" }, { status: 404 });
   }
+  // Passwordless / social-only guests have no `passwordHash`. They can't
+  // change a password they never had — they should set one via the password
+  // reset / OTP flow first.
+  if (!account.passwordHash) {
+    return NextResponse.json(
+      {
+        error:
+          "حسابك بدون كلمة مرور. استخدم رمز واتساب للدخول أو اضبط كلمة مرور من خيار «نسيت كلمة المرور».",
+      },
+      { status: 400 },
+    );
+  }
 
   const ok = await bcrypt.compare(current, account.passwordHash);
   if (!ok) {

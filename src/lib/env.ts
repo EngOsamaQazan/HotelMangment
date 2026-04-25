@@ -154,6 +154,43 @@ export const env = {
   get BUILD_ID(): string {
     return optional(process.env.BUILD_ID, "dev");
   },
+
+  // ── Social Sign-In (اختياري — تُفعَّل إذا كانت القيم مضبوطة) ──
+  /** معرّف عميل Google OAuth — يفعّل زر "متابعة باستخدام Google". */
+  get GOOGLE_CLIENT_ID(): string {
+    return optional(process.env.GOOGLE_CLIENT_ID);
+  },
+  /** سرّ عميل Google OAuth. */
+  get GOOGLE_CLIENT_SECRET(): string {
+    return optional(process.env.GOOGLE_CLIENT_SECRET);
+  },
+  /** Service ID من Apple Developer — يفعّل زر "متابعة باستخدام Apple". */
+  get APPLE_CLIENT_ID(): string {
+    return optional(process.env.APPLE_CLIENT_ID);
+  },
+  /**
+   * Apple يطلب JWT موقّعاً بمفتاح خاص بدلاً من سرّ نصّي. مرّر JWT جاهزاً
+   * (يمكن توليده بـ `apple-signin-auth` أو يدوياً) أو ضع PKCS8 + key id +
+   * team id واتركها لـ next-auth (يقبل كائناً JSON). للحفاظ على البساطة هنا
+   * نقبل JWT مكتمل (سلسلة) فقط.
+   */
+  get APPLE_CLIENT_SECRET(): string {
+    return optional(process.env.APPLE_CLIENT_SECRET);
+  },
+
+  /** هل ميزة Google Sign-In مفعّلة (server-side check). */
+  get isGoogleAuthEnabled(): boolean {
+    return Boolean(
+      (process.env.GOOGLE_CLIENT_ID ?? "").trim() &&
+        (process.env.GOOGLE_CLIENT_SECRET ?? "").trim(),
+    );
+  },
+  get isAppleAuthEnabled(): boolean {
+    return Boolean(
+      (process.env.APPLE_CLIENT_ID ?? "").trim() &&
+        (process.env.APPLE_CLIENT_SECRET ?? "").trim(),
+    );
+  },
 } as const;
 
 /**

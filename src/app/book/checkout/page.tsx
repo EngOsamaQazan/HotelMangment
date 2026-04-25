@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { GuestShell } from "@/components/public/GuestShell";
 import { formatPhoneDisplay } from "@/lib/phone";
+import { UnifiedAuthGate } from "@/components/auth/UnifiedAuthGate";
 import {
   Loader2,
   AlertTriangle,
@@ -104,6 +105,18 @@ function CheckoutInner() {
   const [confirming, setConfirming] = useState(false);
 
   const isGuest = session?.user?.audience === "guest";
+  const guestNeedsPhone = isGuest && !session?.user?.phone;
+
+  // Social-only signups have audience=guest but no phone yet. Send them to
+  // /account/complete-profile, which links a phone via OTP and bounces them
+  // back here automatically.
+  useEffect(() => {
+    if (!guestNeedsPhone) return;
+    const target = `/account/complete-profile?next=${encodeURIComponent(
+      "/book/checkout",
+    )}`;
+    router.replace(target);
+  }, [guestNeedsPhone, router]);
 
   // When the URL lacks booking context (e.g. guest just came back from
   // /signin?next=/book/checkout), try to rehydrate it from the short-lived
@@ -312,7 +325,7 @@ function CheckoutInner() {
                   <Loader2 size={16} className="animate-spin" /> جارٍ التحقّق من الجلسة…
                 </div>
               ) : !isGuest ? (
-                <SignInGate
+                <CheckoutAuthGate
                   pending={{
                     ...(isMerge ? { mergeId } : { unitTypeId }),
                     checkIn,
@@ -320,6 +333,11 @@ function CheckoutInner() {
                     guests,
                   }}
                 />
+              ) : guestNeedsPhone ? (
+                <div className="bg-gold-soft/30 border border-gold/30 rounded-2xl p-5 flex items-center gap-2 text-sm text-gray-600">
+                  <Loader2 size={16} className="animate-spin" /> جارٍ
+                  استكمال بيانات حسابك…
+                </div>
               ) : (
                 <GuestDetails
                   session={session}
@@ -478,10 +496,10 @@ function Stat({
   );
 }
 
-function SignInGate({ pending }: { pending: PendingCheckout }) {
-  // Stash the booking context once when the gate mounts so /signin and
-  // /signup can return here with just `?next=/book/checkout` — no ugly
-  // double-encoded query payload in the address bar.
+function CheckoutAuthGate({ pending }: { pending: PendingCheckout }) {
+  // Stash the booking context so the social OAuth round-trip and the
+  // /account/complete-profile detour can return here with just
+  // `?next=/book/checkout` and rebuild the URL from sessionStorage.
   function stash() {
     if (typeof window === "undefined") return;
     try {
@@ -494,31 +512,15 @@ function SignInGate({ pending }: { pending: PendingCheckout }) {
     }
   }
   return (
-    <section className="bg-white rounded-2xl border border-gold/30 shadow-sm p-6 text-center">
-      <h3 className="text-lg font-bold text-primary mb-1">
-        سجّل دخولك لمتابعة الحجز
-      </h3>
-      <p className="text-sm text-gray-600 mb-4">
-        نستخدم رقم هاتفك لإرسال تأكيد الحجز عبر واتساب. إنشاء الحساب يستغرق
-        دقيقة واحدة فقط.
-      </p>
-      <div className="flex flex-col sm:flex-row gap-2 justify-center">
-        <Link
-          href={{ pathname: "/signin", query: { next: "/book/checkout" } }}
-          onClick={stash}
-          className="px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary-dark shadow"
-        >
-          لديّ حساب — تسجيل الدخول
-        </Link>
-        <Link
-          href={{ pathname: "/signup", query: { next: "/book/checkout" } }}
-          onClick={stash}
-          className="px-5 py-2.5 bg-white border border-primary text-primary text-sm font-bold rounded-lg hover:bg-gold-soft/40"
-        >
-          إنشاء حساب جديد
-        </Link>
-      </div>
-    </section>
+    <UnifiedAuthGate
+      next="/book/checkout"
+      variant="checkout"
+      socialEnabled={{
+        google: process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "1",
+        apple: process.env.NEXT_PUBLIC_APPLE_AUTH_ENABLED === "1",
+      }}
+      beforeRedirect={stash}
+    />
   );
 }
 

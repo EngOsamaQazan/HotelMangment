@@ -1,9 +1,13 @@
 import { NextAuthOptions, type CookiesOptions } from "next-auth";
+import type { Provider } from "next-auth/providers/index";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
+import AppleProvider from "next-auth/providers/apple";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import { normalizePhone } from "./phone";
 import guestJwt from "./guest-auth/jwt";
+import { findOrCreateGuestFromSocial, type SocialProvider } from "./guest-auth/social";
 
 /**
  * Cross-subdomain session support.
@@ -69,17 +73,22 @@ function buildAuthCookies(): Partial<CookiesOptions> | undefined {
   };
 }
 
-/**
- * NextAuth configuration — two Credentials providers:
- *
- *   • "credentials"         → hotel staff (User table, role-based RBAC)
- *   • "guest-credentials"   → end-users that book online (GuestAccount table)
- *
- * Both issue JWT sessions; the distinction lives in the `audience` claim
- * consumed by `src/middleware.ts` and any server-side permission guards.
- */
-export const authOptions: NextAuthOptions = {
-  providers: [
+function isGoogleEnabled(): boolean {
+  return Boolean(
+    (process.env.GOOGLE_CLIENT_ID ?? "").trim() &&
+      (process.env.GOOGLE_CLIENT_SECRET ?? "").trim(),
+  );
+}
+
+function isAppleEnabled(): boolean {
+  return Boolean(
+    (process.env.APPLE_CLIENT_ID ?? "").trim() &&
+      (process.env.APPLE_CLIENT_SECRET ?? "").trim(),
+  );
+}
+
+function buildProviders(): Provider[] {
+  const providers: Provider[] = [
     CredentialsProvider({
       id: "credentials",
       name: "credentials",
@@ -102,7 +111,7 @@ export const authOptions: NextAuthOptions = {
 
         const isValid = await bcrypt.compare(
           credentials.password,
-          user.passwordHash
+          user.passwordHash,
         );
         if (!isValid) return null;
 
@@ -155,8 +164,10 @@ export const authOptions: NextAuthOptions = {
         });
         if (!guest || guest.disabledAt) return null;
 
-        // Path B: password login.
+        // Path B: password login. Legacy accounts still use this; new ones
+        // (created after April 2026) have no password and must use OTP.
         if (!otpToken) {
+          if (!guest.passwordHash) return null;
           const ok = await bcrypt.compare(password, guest.passwordHash);
           if (!ok) return null;
         }
@@ -172,13 +183,106 @@ export const authOptions: NextAuthOptions = {
           email: guest.email ?? `${guest.phone}@guest.local`,
           avatarUrl: guest.avatarUrl ?? null,
           audience: "guest" as const,
-          phone: guest.phone,
+          phone: guest.phone ?? null,
         };
       },
     }),
-  ],
+  ];
+
+  if (isGoogleEnabled()) {
+    providers.push(
+      GoogleProvider({
+        clientId: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        // Cache the user-presented chooser between sign-ins so returning
+        // guests don't have to re-pick their account every time.
+        authorization: { params: { prompt: "select_account" } },
+      }),
+    );
+  }
+  if (isAppleEnabled()) {
+    providers.push(
+      AppleProvider({
+        clientId: process.env.APPLE_CLIENT_ID!,
+        clientSecret: process.env.APPLE_CLIENT_SECRET!,
+      }),
+    );
+  }
+
+  return providers;
+}
+
+/**
+ * NextAuth configuration — Credentials providers for staff and guests, plus
+ * optional Google / Apple OAuth providers for the guest funnel (enabled
+ * only when their env vars are set).
+ *
+ *   • "credentials"         → hotel staff (User table, role-based RBAC)
+ *   • "guest-credentials"   → end-users that book online (GuestAccount table)
+ *   • "google" / "apple"    → social sign-in for guests; the OAuth profile
+ *     is mapped to a GuestAccount in the `jwt` callback below, with
+ *     `phone === null` until the user completes phone verification at
+ *     /account/complete-profile.
+ *
+ * Both issue JWT sessions; the distinction lives in the `audience` claim
+ * consumed by `src/middleware.ts` and any server-side permission guards.
+ */
+export const authOptions: NextAuthOptions = {
+  providers: buildProviders(),
   callbacks: {
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user, account, profile, trigger }) {
+      // ─── First call after a successful sign-in ────────────────────────
+      // For OAuth providers (google/apple) NextAuth gives us `account` and
+      // `profile` once. We use them to upsert the GuestAccount + identity
+      // and overwrite the token claims with our own canonical values.
+      if (account && (account.provider === "google" || account.provider === "apple")) {
+        const provider = account.provider as SocialProvider;
+        const providerId =
+          (account.providerAccountId as string | undefined) ??
+          (typeof profile === "object" && profile && "sub" in profile
+            ? String((profile as { sub?: unknown }).sub ?? "")
+            : "");
+        if (!providerId) {
+          // Without a stable subject we cannot key the identity. Refuse.
+          throw new Error("[auth] OAuth profile missing `sub` — refusing sign-in.");
+        }
+
+        const profileObj = (profile ?? {}) as {
+          email?: string;
+          email_verified?: boolean;
+          name?: string;
+          picture?: string;
+          given_name?: string;
+          family_name?: string;
+        };
+        const resolved = await findOrCreateGuestFromSocial({
+          provider,
+          providerId,
+          email: profileObj.email ?? user?.email ?? null,
+          emailVerified: Boolean(profileObj.email_verified),
+          name:
+            profileObj.name ??
+            user?.name ??
+            ([profileObj.given_name, profileObj.family_name]
+              .filter(Boolean)
+              .join(" ") ||
+              null),
+          avatarUrl: profileObj.picture ?? null,
+        });
+
+        token.id = String(resolved.guestAccountId);
+        token.audience = "guest";
+        token.role = undefined;
+        token.name = resolved.fullName;
+        token.email =
+          resolved.email ??
+          (resolved.phone ? `${resolved.phone}@guest.local` : null);
+        token.phone = resolved.phoneVerifiedAt ? resolved.phone : null;
+        token.avatarUrl = resolved.avatarUrl ?? null;
+        return token;
+      }
+
+      // ─── Credentials flow (staff or guest-credentials) ─────────────────
       if (user) {
         const u = user as typeof user & {
           audience?: "staff" | "guest";
@@ -200,13 +304,21 @@ export const authOptions: NextAuthOptions = {
           if (token.audience === "guest") {
             const fresh = await prisma.guestAccount.findUnique({
               where: { id: numericId },
-              select: { fullName: true, email: true, phone: true, avatarUrl: true },
+              select: {
+                fullName: true,
+                email: true,
+                phone: true,
+                phoneVerifiedAt: true,
+                avatarUrl: true,
+              },
             });
             if (fresh) {
               token.name = fresh.fullName;
-              token.email = fresh.email ?? `${fresh.phone}@guest.local`;
+              token.email =
+                fresh.email ??
+                (fresh.phone ? `${fresh.phone}@guest.local` : null);
               token.avatarUrl = fresh.avatarUrl ?? null;
-              token.phone = fresh.phone;
+              token.phone = fresh.phoneVerifiedAt ? fresh.phone : null;
             }
           } else {
             const fresh = await prisma.user.findUnique({

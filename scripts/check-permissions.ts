@@ -49,6 +49,8 @@ const ALLOWLIST: string[] = [
   "/signup",
   "/book",
   "/account",
+  // WhatsApp click-to-login landing page (public — verifies a signed token).
+  "/auth/wa",
   "/api/guest-auth",
   "/api/guest-me",
   "/api/book",

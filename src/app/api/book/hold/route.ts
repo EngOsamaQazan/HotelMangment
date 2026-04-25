@@ -92,6 +92,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "الحساب غير متاح" }, { status: 403 });
     }
 
+    // A guest without a verified phone (typically a Google/Apple-only signup
+    // that hasn't completed /account/complete-profile yet) cannot place a
+    // booking — we need a WhatsApp number to send the confirmation/voucher to.
+    if (!guest.phone) {
+      return NextResponse.json(
+        {
+          error:
+            "أكمل بياناتك أولاً برقم هاتف للتواصل عبر واتساب قبل تأكيد الحجز.",
+          code: "phone_required",
+          redirect: "/account/complete-profile",
+        },
+        { status: 409 },
+      );
+    }
+    const guestPhone = normalizePhone(guest.phone) ?? guest.phone;
+
     const hold = Number.isFinite(mergeId)
       ? await createMergeHold({
           mergeId,
@@ -100,7 +116,7 @@ export async function POST(request: Request) {
           guests,
           guestAccountId: guest.id,
           guestName: guest.fullName,
-          phone: normalizePhone(guest.phone) ?? guest.phone,
+          phone: guestPhone,
           nationality: guest.nationality,
           idNumber: guest.idNumber,
           notes: body.notes ?? null,
@@ -112,7 +128,7 @@ export async function POST(request: Request) {
           guests,
           guestAccountId: guest.id,
           guestName: guest.fullName,
-          phone: normalizePhone(guest.phone) ?? guest.phone,
+          phone: guestPhone,
           nationality: guest.nationality,
           idNumber: guest.idNumber,
           notes: body.notes ?? null,
