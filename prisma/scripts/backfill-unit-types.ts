@@ -17,7 +17,8 @@ const prisma = new PrismaClient();
 // Canonical mapping: unitNumber → UnitType.code
 // (agreed with business; do not change without a new plan)
 // ────────────────────────────────────────────────────────────────────────
-const UNIT_TO_TYPE: Record<string, string> = {
+/** Physical unit number → canonical `UnitType.code` (single source of truth for re-linking). */
+export const UNIT_TO_TYPE: Record<string, string> = {
   "01":  "APT-1BR-DBL",
   "02":  "APT-1BR-DBL",
   "03":  "APT-1BR-DBL",
@@ -33,6 +34,8 @@ const UNIT_TO_TYPE: Record<string, string> = {
   "107": "HTL-TRIPLE",
   "108": "HTL-KING",
   "109": "HTL-QUAD",
+  // أضف رقم الغرفة الفعلي لجناح شهر العسل VIP، مثال:
+  // "110": "HTL-VIP-HONEYMOON-JAC",
 };
 
 async function main() {
@@ -99,9 +102,11 @@ async function main() {
   }
 }
 
-main()
-  .catch((e) => {
-    console.error("❌ فشل backfill:", e);
-    process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
+if (require.main === module) {
+  main()
+    .catch((e) => {
+      console.error("❌ فشل backfill:", e);
+      process.exit(1);
+    })
+    .finally(() => prisma.$disconnect());
+}

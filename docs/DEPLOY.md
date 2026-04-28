@@ -276,6 +276,41 @@ sudo -u postgres psql -c "\l"                          # قائمة القواع
 psql -U fakher_user -h 127.0.0.1 -d fakher_hotel -c \\dt
 ```
 
+### Cursor MCP لقاعدة الإنتاج (Windows + SSH)
+
+Postgres على السيرفر يستمع على `127.0.0.1:5432` فقط؛ على جهازك يُفضّل **نفق SSH** ثم توجيه MCP إلى المنفذ المحلي.
+
+1. **نفق SSH** (اترك الطرفية مفتوحة أثناء العمل مع MCP):
+
+   ```powershell
+   cd C:\Users\PC\Desktop\Programing\HotelMangment
+   npm run tunnel:prod-db
+   ```
+
+   الافتراضي في السكربت: مستخدم `root` (متوافق مع مفتاح `SSHKeys\tayseer_prod_id_ed25519`). لمستخدم آخر:  
+   `npm run tunnel:prod-db -- -SshUser ubuntu`
+
+   المفتاح الافتراضي في السكربت: `SSHKeys\tayseer_prod_id_ed25519` — غيّره من المعامل `-IdentityFile` إن لزم.
+
+2. **سلسلة الاتصال لـ MCP** (مرة واحدة، خارج Git):
+
+   - انسخ القالب:  
+     `%USERPROFILE%\.cursor\mcp-servers\mafhotel-prod-postgres\connection.url.example`  
+     إلى `connection.url` في نفس المجلد.
+   - عرّض قيمة `DATABASE_URL` من السيرفر (`grep DATABASE_URL /opt/hotel-app/.env`) وانسخ **المستخدم وكلمة المرور واسم القاعدة**، وضعها في `connection.url` مع:
+     - المضيف: `127.0.0.1`
+     - المنفذ: `15432` (نفس المنفذ في `scripts/ssh-tunnel-prod-db.ps1`)
+
+   مثال شكل السطر (بدون تعليقات داخل الملف الفعلي إن أمكن):
+
+   `postgresql://fakher_user:PASSWORD@127.0.0.1:15432/fakher_hotel?schema=public`
+
+3. **إعداد Cursor**: `mcp.json` يستدعي  
+   `%USERPROFILE%\.cursor\mcp-servers\mafhotel-prod-postgres\launch.cjs`  
+   ولا يخزّن كلمة المرور في JSON.
+
+4. أعد تشغيل Cursor (أو **Reload MCP**) بعد تعديل `connection.url` أو بعد فتح النفق.
+
 ### الكاش يعرض بيانات قديمة
 
 راجع [`deployment/apache/README.md`](../deployment/apache/README.md) — يجب أن يرجع
