@@ -100,20 +100,32 @@ const ARABIC_NUMBER_WORDS: Array<[RegExp, number]> = [
 ];
 
 function extractGuestCount(text: string): number | undefined {
+  // Strip date-like tokens FIRST so "15/5 إلى 19/7 شخصين" doesn't let the
+  // digit-noun regex grab "7" (the month) as the guest count just because
+  // it happens to sit next to "شخصين". The original code dropped this
+  // sanitization and silently quoted 7 guests for a 2-adult booking.
+  const sanitized = text
+    .replace(/\d{4}[-/]\d{1,2}[-/]\d{1,2}/g, " ") // ISO YYYY-MM-DD
+    .replace(/\d{1,2}[-/]\d{1,2}[-/]\d{2,4}/g, " ") // DMY full
+    .replace(/\d{1,2}[-/]\d{1,2}\b/g, " "); // bare DD/MM (rest of the year)
+
   // Form 1 — digit + noun (most reliable).
-  const digit = /(\d{1,2})\s*(?:ضيف|ضيوف|أشخاص|اشخاص|شخص|نفر|persons?|guests?|pax)/i.exec(text);
+  const digit = /(\d{1,2})\s*(?:ضيف|ضيوف|أشخاص|اشخاص|شخص|نفر|persons?|guests?|pax|بالغ(?:ين|ون|ان)?)/i.exec(
+    sanitized,
+  );
   if (digit) {
     const g = Number(digit[1]);
     if (g >= 1 && g <= 20) return g;
   }
-  // Forms 2 + 3 — dual / spelled-out.
+  // Forms 2 + 3 — dual / spelled-out (run on sanitized text too so a
+  // lingering "شخصين بالغين" still matches without competing dates).
   for (const [re, n] of ARABIC_NUMBER_WORDS) {
-    if (re.test(text)) return n;
+    if (re.test(sanitized)) return n;
   }
   // Last resort — a lone "ل" + small number ("لـ 2"). Must NOT match
   // the day/year inside a date token, so we require word boundaries
   // around the digits.
-  const loose = /(?:^|\s)(?:ل|لـ)\s*(\d{1,2})(?!\d|[-/])/.exec(text);
+  const loose = /(?:^|\s)(?:ل|لـ)\s*(\d{1,2})(?!\d|[-/])/.exec(sanitized);
   if (loose) {
     const g = Number(loose[1]);
     if (g >= 1 && g <= 20) return g;
