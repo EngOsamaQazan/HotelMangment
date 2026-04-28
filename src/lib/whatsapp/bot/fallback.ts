@@ -9,6 +9,7 @@ import {
   sendBotImageByUrl,
 } from "./sender";
 import { HOLD_TTL_MINUTES } from "@/lib/booking/hold";
+import { publicPhotoUrl } from "@/lib/public-image";
 
 /**
  * Deterministic, rule-based dialog driver. Activates whenever the LLM is
@@ -297,6 +298,64 @@ async function presentQuote(
   });
 }
 
+/**
+ * Shared finaliser used by BOTH "confirm after preview" (when photos are
+ * present) and the legacy "نعم، أكِّد" button (when there are no photos and
+ * we go straight from the option list to the quote bubble).
+ *
+ * Creates the hold, generates a payment link, sends it as the next bubble.
+ * On payment-provider failure it auto-escalates so the guest is never
+ * stranded with a stuck hold.
+ */
+async function executeBookingConfirmation(
+  phone: string,
+  kind: "unit" | "merge",
+  id: number,
+  checkIn: string,
+  checkOut: string,
+  guests: number,
+  ctx: ToolContext,
+): Promise<void> {
+  const hold = await runTool(
+    "createHold",
+    { kind, id, checkIn, checkOut, guests },
+    ctx,
+  );
+  if (!hold.ok) {
+    await sendBotText(phone, hold.error.message, { origin: "bot:fallback" });
+    return;
+  }
+  const link = await runTool(
+    "createPaymentLink",
+    { holdId: hold.data.holdId },
+    ctx,
+  );
+  if (!link.ok) {
+    await runTool(
+      "escalateToHuman",
+      {
+        reason: "payment_issue",
+        summaryAr:
+          `الضيف ثبّت حجزاً (#${hold.data.holdId}) لكن بوابة الدفع غير مهيأة. الرجاء التواصل لإكمال الدفع يدوياً.`,
+      },
+      ctx,
+    );
+    await sendBotText(
+      phone,
+      "ثبّتت الحجز بنجاح ✅ سأحوّلك لزميل بشري لإكمال الدفع. لحظات من فضلك 🙏",
+      { origin: "bot:fallback" },
+    );
+    return;
+  }
+  await sendBotText(
+    phone,
+    `🎉 ممتاز! المجموع: ${link.data.amount} ${link.data.currency}\n` +
+      `ادفع خلال ${HOLD_TTL_MINUTES} دقيقة عبر هذا الرابط الآمن:\n${link.data.url}\n\n` +
+      `بمجرد إتمام الدفع، ستصلك رسالة التأكيد + العقد فوراً.`,
+    { origin: "bot:fallback", previewUrl: true },
+  );
+}
+
 // ──────────────────── room photo preview helpers ────────────────────────
 
 /**
@@ -305,8 +364,11 @@ async function presentQuote(
  *   • kind="merge" → photos of *both* unit types in the merge (left first),
  *     deduped, capped to 3 to keep the preview lightweight.
  *
- * Returns ordered photos with the primary one first. URLs are validated to
- * be HTTPS (Meta refuses http and same-origin uploads need to be CDN-hosted).
+ * Returns absolute HTTPS URLs only — this is what Meta needs (it refuses
+ * http and refuses relative/auth-gated paths). Internally-stored references
+ * like `stored:2026/04/foo.jpg` are rewritten into
+ *   <botPublicBaseUrl>/api/files/unit-type-photo/<photoId>
+ * which the public file endpoint serves anonymously with cache headers.
  */
 async function loadPreviewPhotos(
   kind: "unit" | "merge",
@@ -335,20 +397,49 @@ async function loadPreviewPhotos(
   }
   if (unitTypeIds.length === 0) return [];
 
-  const rows = await prisma.unitTypePhoto.findMany({
-    where: { unitTypeId: { in: unitTypeIds } },
-    orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { id: "asc" }],
-    select: { url: true, captionAr: true },
-    take: cap * 2, // over-fetch then de-dupe
-  });
+  // We need both the photo row id (for the public proxy URL) and the bot's
+  // public base URL (to produce an absolute https:// link Meta will accept).
+  const [rows, cfg] = await Promise.all([
+    prisma.unitTypePhoto.findMany({
+      where: { unitTypeId: { in: unitTypeIds } },
+      orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { id: "asc" }],
+      select: { id: true, url: true, captionAr: true },
+      take: cap * 2,
+    }),
+    prisma.whatsAppConfig.findUnique({
+      where: { id: 1 },
+      select: { botPublicBaseUrl: true },
+    }),
+  ]);
+  const baseUrl = (cfg?.botPublicBaseUrl ?? "").replace(/\/$/, "");
 
   const seen = new Set<string>();
   const out: Array<{ url: string; captionAr: string | null }> = [];
   for (const r of rows) {
-    if (!r.url || !/^https:\/\//i.test(r.url)) continue;
-    if (seen.has(r.url)) continue;
-    seen.add(r.url);
-    out.push({ url: r.url, captionAr: r.captionAr ?? null });
+    // Resolve to the public guest-facing URL (handles both stored: refs and
+    // already-absolute https URLs). Returns null when neither id nor url
+    // are valid — skip those.
+    const resolved = publicPhotoUrl("unit-type-photo", r.id, r.url);
+    if (!resolved) continue;
+
+    let absolute: string;
+    if (/^https?:\/\//i.test(resolved)) {
+      absolute = resolved;
+    } else if (baseUrl) {
+      // resolved is "/api/files/...". Prepend the configured public host.
+      absolute = `${baseUrl}${resolved.startsWith("/") ? "" : "/"}${resolved}`;
+    } else {
+      // No base URL configured — Meta won't accept a relative path. Skip
+      // gracefully so the preview falls back to the no-photo branch.
+      continue;
+    }
+
+    // Final HTTPS gate: Meta rejects plain http even when reachable.
+    if (!/^https:\/\//i.test(absolute)) continue;
+
+    if (seen.has(absolute)) continue;
+    seen.add(absolute);
+    out.push({ url: absolute, captionAr: r.captionAr ?? null });
     if (out.length >= cap) break;
   }
   return out;
@@ -385,7 +476,8 @@ async function presentRoomPreview(
     });
   }
 
-  // 2) Build the interactive bubble.
+  // 2) Build the interactive bubble. The first photo becomes the header
+  // bubble; extras were already sent above as standalone image messages.
   const headerImageUrl = photos[0]?.url;
   const bodyLines = [
     `🏨 *${optionName}*`,
@@ -393,7 +485,7 @@ async function presentRoomPreview(
     `• ${nights} ليلة • ${guests} ${guests === 1 ? "ضيف" : "ضيوف"}`,
     `• المجموع: *${total} د.أ*`,
     "",
-    "الصور أعلاه للوحدة. هل تريد المتابعة؟",
+    "اختر الإجراء التالي 👇",
   ];
 
   await sendBotButtons({
@@ -401,9 +493,9 @@ async function presentRoomPreview(
     headerImageUrl,
     headerText: headerImageUrl ? undefined : optionName.slice(0, 60),
     bodyText: bodyLines.join("\n"),
-    footerText: photos.length === 0 ? undefined : "الأسعار شاملة الضرائب",
+    footerText: `الحجز محجوز لمدة ${HOLD_TTL_MINUTES} دقيقة بعد الدفع`,
     buttons: [
-      { id: ID_PREVIEW_CONFIRM, title: "نعم، أكِّد" },
+      { id: ID_PREVIEW_CONFIRM, title: "💳 أكِّد ودفع" },
       { id: ID_BACK_TO_LIST, title: "غرفة أخرى" },
       { id: ID_MENU_HUMAN, title: "تحدث مع موظف" },
     ],
@@ -691,10 +783,36 @@ export async function runFallbackTurn(input: FallbackInput): Promise<void> {
         }
       }
 
-      // Pull up to 3 photos and render the preview step. Even when there
-      // are zero photos we still go through `previewing` so the guest gets
-      // the new "غرفة أخرى" exit ramp uniformly across the catalogue.
+      // Pull up to 3 photos. When NONE are available we skip the preview
+      // step entirely and go straight to the legacy quote+confirm bubble —
+      // sending an empty "الصور أعلاه" bubble followed by a second confirm
+      // bubble was confusing guests in production (they thought the bot
+      // was asking for confirmation twice without ever showing photos).
       const photos = await loadPreviewPhotos(kind as "unit" | "merge", id, 3);
+
+      if (photos.length === 0) {
+        await presentQuote(
+          phone,
+          `${kind}:${id}`,
+          optionName,
+          quote.data.total,
+          quote.data.nights,
+        );
+        await advanceBotConversation({
+          botConvId: conv.id,
+          state: "holding",
+          slotsPatch: {
+            previewKind: kind as "unit" | "merge",
+            previewId: id,
+            previewName: optionName,
+            previewTotal: quote.data.total,
+            previewNights: quote.data.nights,
+          },
+          outboundAt: now,
+        });
+        return;
+      }
+
       await presentRoomPreview(
         phone,
         optionName,
@@ -778,14 +896,23 @@ export async function runFallbackTurn(input: FallbackInput): Promise<void> {
       return;
     }
 
-    // (b) "نعم، أكِّد" → render the final confirm/cancel bubble (re-uses
-    // the existing `presentQuote` so the holding flow stays unchanged).
+    // (b) "أكِّد ودفع" → jump STRAIGHT to hold + payment link. We deliberately
+    // skip the second presentQuote bubble here because the preview bubble the
+    // guest just saw already contains the same total — asking them to confirm
+    // twice was the most-reported friction in the first round of testing.
     if (interactiveId === ID_PREVIEW_CONFIRM) {
       const previewKind = slots.previewKind;
       const previewId = slots.previewId;
-      const total = slots.previewTotal;
-      const nights = slots.previewNights;
-      if (!previewKind || !previewId || total == null || nights == null) {
+      const checkIn = slots.checkIn;
+      const checkOut = slots.checkOut;
+      const guests = slots.guests;
+      if (
+        !previewKind ||
+        !previewId ||
+        !checkIn ||
+        !checkOut ||
+        !guests
+      ) {
         await sendBotText(
           phone,
           "انقطع التتبّع — لنبدأ من جديد 🙏",
@@ -798,16 +925,18 @@ export async function runFallbackTurn(input: FallbackInput): Promise<void> {
         });
         return;
       }
-      await presentQuote(
+      await executeBookingConfirmation(
         phone,
-        `${previewKind}:${previewId}`,
-        slots.previewName ?? "الوحدة المختارة",
-        total,
-        nights,
+        previewKind,
+        previewId,
+        checkIn,
+        checkOut,
+        guests,
+        ctx,
       );
       await advanceBotConversation({
         botConvId: conv.id,
-        state: "holding",
+        state: "awaiting_payment",
         outboundAt: now,
       });
       return;
@@ -816,13 +945,16 @@ export async function runFallbackTurn(input: FallbackInput): Promise<void> {
     // (c) Free-text inside previewing — gentle nudge.
     await sendBotText(
       phone,
-      "اضغط *نعم، أكِّد* للمتابعة أو *غرفة أخرى* لمشاهدة باقي الخيارات 👌",
+      "اضغط *أكِّد ودفع* للمتابعة أو *غرفة أخرى* لاختيار وحدة ثانية 👌",
       { origin: "bot:fallback" },
     );
     return;
   }
 
-  // ─── confirmation buttons ──────────────────────────────────────────
+  // ─── confirmation buttons (no-photo path) ──────────────────────────
+  // Reached only when the option had zero photos and we routed straight to
+  // `presentQuote` from the option list. Photo-gated guests confirm via
+  // ID_PREVIEW_CONFIRM in the previewing block above.
   if (interactiveId?.startsWith(ID_CONFIRM_HOLD)) {
     const [, , , kind, idStr] = interactiveId.split(":"); // bot:confirm:hold:unit:42
     const id = Number(idStr);
@@ -839,45 +971,20 @@ export async function runFallbackTurn(input: FallbackInput): Promise<void> {
       await advanceBotConversation({ botConvId: conv.id, state: "idle" });
       return;
     }
-    const hold = await runTool(
-      "createHold",
-      { kind: kind as "unit" | "merge", id, checkIn, checkOut, guests },
-      ctx,
-    );
-    if (!hold.ok) {
-      await sendBotText(phone, hold.error.message, { origin: "bot:fallback" });
-      return;
-    }
-    const link = await runTool(
-      "createPaymentLink",
-      { holdId: hold.data.holdId },
-      ctx,
-    );
-    if (!link.ok) {
-      // No payment provider — escalate so a human can finish the booking.
-      await runTool(
-        "escalateToHuman",
-        {
-          reason: "payment_issue",
-          summaryAr:
-            `الضيف ثبّت حجزاً (#${hold.data.holdId}) لكن بوابة الدفع غير مهيأة. الرجاء التواصل لإكمال الدفع يدوياً.`,
-        },
-        ctx,
-      );
-      await sendBotText(
-        phone,
-        "ثبّتت الحجز بنجاح ✅ سأحوّلك لزميل بشري لإكمال الدفع. لحظات من فضلك 🙏",
-        { origin: "bot:fallback" },
-      );
-      return;
-    }
-    await sendBotText(
+    await executeBookingConfirmation(
       phone,
-      `🎉 ممتاز! المجموع: ${link.data.amount} ${link.data.currency}\n` +
-        `ادفع خلال ${HOLD_TTL_MINUTES} دقيقة عبر هذا الرابط الآمن:\n${link.data.url}\n\n` +
-        `بمجرد إتمام الدفع، ستصلك رسالة التأكيد + العقد فوراً.`,
-      { origin: "bot:fallback", previewUrl: true },
+      kind as "unit" | "merge",
+      id,
+      checkIn,
+      checkOut,
+      guests,
+      ctx,
     );
+    await advanceBotConversation({
+      botConvId: conv.id,
+      state: "awaiting_payment",
+      outboundAt: now,
+    });
     return;
   }
 
