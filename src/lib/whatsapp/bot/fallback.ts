@@ -6,6 +6,7 @@ import {
   sendBotText,
   sendBotButtons,
   sendBotList,
+  sendBotImageByUrl,
 } from "./sender";
 import { HOLD_TTL_MINUTES } from "@/lib/booking/hold";
 
@@ -42,6 +43,12 @@ const ID_OPT_PREFIX = "bot:opt:"; // bot:opt:unit:42  |  bot:opt:merge:7
 const ID_QUICKPICK_PREFIX = "bot:qp:"; // bot:qp:tonight, bot:qp:tomorrow, etc.
 const ID_CONFIRM_HOLD = "bot:confirm:hold";
 const ID_CANCEL_HOLD = "bot:cancel:hold";
+/** Pressed from the photo-preview bubble — re-shows the option list. */
+const ID_BACK_TO_LIST = "bot:back-to-list";
+/** Pressed from the photo-preview bubble — proceeds to hold + payment link. */
+const ID_PREVIEW_CONFIRM = "bot:preview:confirm";
+/** Maximum extra photo bubbles we send before the interactive (Meta limits + UX). */
+const PREVIEW_MAX_EXTRA_PHOTOS = 2;
 
 // ───────────────────────────── parsing ────────────────────────────────
 
@@ -240,6 +247,120 @@ async function presentQuote(
     buttons: [
       { id: ID_CONFIRM_HOLD + ":" + optionId, title: "نعم، أكِّد" },
       { id: ID_CANCEL_HOLD, title: "لا، ألغِ" },
+    ],
+    origin: "bot:fallback",
+  });
+}
+
+// ──────────────────── room photo preview helpers ────────────────────────
+
+/**
+ * Look up up to N photos for a chosen option:
+ *   • kind="unit"  → photos of the underlying UnitType.
+ *   • kind="merge" → photos of *both* unit types in the merge (left first),
+ *     deduped, capped to 3 to keep the preview lightweight.
+ *
+ * Returns ordered photos with the primary one first. URLs are validated to
+ * be HTTPS (Meta refuses http and same-origin uploads need to be CDN-hosted).
+ */
+async function loadPreviewPhotos(
+  kind: "unit" | "merge",
+  id: number,
+  cap = 3,
+): Promise<Array<{ url: string; captionAr: string | null }>> {
+  let unitTypeIds: number[] = [];
+  if (kind === "unit") {
+    unitTypeIds = [id];
+  } else {
+    // `id` here is a UnitMerge.id — resolve through unitA/unitB → unit_type_id.
+    const merge = await prisma.unitMerge
+      .findUnique({
+        where: { id },
+        select: {
+          unitA: { select: { unitTypeId: true } },
+          unitB: { select: { unitTypeId: true } },
+        },
+      })
+      .catch(() => null);
+    const left = merge?.unitA?.unitTypeId ?? null;
+    const right = merge?.unitB?.unitTypeId ?? null;
+    unitTypeIds = [left, right].filter(
+      (n): n is number => typeof n === "number",
+    );
+  }
+  if (unitTypeIds.length === 0) return [];
+
+  const rows = await prisma.unitTypePhoto.findMany({
+    where: { unitTypeId: { in: unitTypeIds } },
+    orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { id: "asc" }],
+    select: { url: true, captionAr: true },
+    take: cap * 2, // over-fetch then de-dupe
+  });
+
+  const seen = new Set<string>();
+  const out: Array<{ url: string; captionAr: string | null }> = [];
+  for (const r of rows) {
+    if (!r.url || !/^https:\/\//i.test(r.url)) continue;
+    if (seen.has(r.url)) continue;
+    seen.add(r.url);
+    out.push({ url: r.url, captionAr: r.captionAr ?? null });
+    if (out.length >= cap) break;
+  }
+  return out;
+}
+
+/**
+ * Render the photo-preview step: 0–N standalone image bubbles followed by
+ * an interactive bubble with image header (when at least one photo exists)
+ * and three reply buttons:
+ *   1. "نعم، أكِّد"          → moves to holding + payment link.
+ *   2. "اختر غرفة أخرى"     → re-shows the option list, returns to quoting.
+ *   3. "تحدث مع موظف"        → escalates to a human agent.
+ *
+ * If no photos are available we still send the interactive bubble (without
+ * the image header) so the guest is never stuck — they get the same three
+ * options with a text-only summary.
+ */
+async function presentRoomPreview(
+  phone: string,
+  optionName: string,
+  total: number,
+  nights: number,
+  guests: number,
+  photos: Array<{ url: string; captionAr: string | null }>,
+): Promise<void> {
+  // 1) Send extra photos (after the first one, which becomes the header).
+  const extraPhotos = photos.slice(1, 1 + PREVIEW_MAX_EXTRA_PHOTOS);
+  for (const p of extraPhotos) {
+    await sendBotImageByUrl({
+      to: phone,
+      url: p.url,
+      caption: p.captionAr ?? undefined,
+      origin: "bot:fallback",
+    });
+  }
+
+  // 2) Build the interactive bubble.
+  const headerImageUrl = photos[0]?.url;
+  const bodyLines = [
+    `🏨 *${optionName}*`,
+    "",
+    `• ${nights} ليلة • ${guests} ${guests === 1 ? "ضيف" : "ضيوف"}`,
+    `• المجموع: *${total} د.أ*`,
+    "",
+    "الصور أعلاه للوحدة. هل تريد المتابعة؟",
+  ];
+
+  await sendBotButtons({
+    to: phone,
+    headerImageUrl,
+    headerText: headerImageUrl ? undefined : optionName.slice(0, 60),
+    bodyText: bodyLines.join("\n"),
+    footerText: photos.length === 0 ? undefined : "الأسعار شاملة الضرائب",
+    buttons: [
+      { id: ID_PREVIEW_CONFIRM, title: "نعم، أكِّد" },
+      { id: ID_BACK_TO_LIST, title: "غرفة أخرى" },
+      { id: ID_MENU_HUMAN, title: "تحدث مع موظف" },
     ],
     origin: "bot:fallback",
   });
@@ -488,21 +609,163 @@ export async function runFallbackTurn(input: FallbackInput): Promise<void> {
         );
         return;
       }
-      await presentQuote(
+      // Resolve a friendly name. For "unit" we hit UnitType; for "merge"
+      // we read the cached merge label so the bubble matches the menu row.
+      let optionName = "الوحدة المختارة";
+      if (kind === "unit") {
+        const ut = await prisma.unitType
+          .findUnique({ where: { id }, select: { nameAr: true } })
+          .catch(() => null);
+        if (ut?.nameAr) optionName = ut.nameAr;
+      } else {
+        const merge = await prisma.unitMerge
+          .findUnique({
+            where: { id },
+            select: {
+              unitA: {
+                select: { unitTypeRef: { select: { nameAr: true } } },
+              },
+              unitB: {
+                select: { unitTypeRef: { select: { nameAr: true } } },
+              },
+            },
+          })
+          .catch(() => null);
+        const leftName = merge?.unitA?.unitTypeRef?.nameAr ?? null;
+        const rightName = merge?.unitB?.unitTypeRef?.nameAr ?? null;
+        if (leftName && rightName) {
+          optionName = `${leftName} + ${rightName}`;
+        } else {
+          optionName = "شقة عائلية مدمجة";
+        }
+      }
+
+      // Pull up to 3 photos and render the preview step. Even when there
+      // are zero photos we still go through `previewing` so the guest gets
+      // the new "غرفة أخرى" exit ramp uniformly across the catalogue.
+      const photos = await loadPreviewPhotos(kind as "unit" | "merge", id, 3);
+      await presentRoomPreview(
         phone,
-        `${kind}:${id}`,
-        // Try to look up the friendly name from BotConversation.lastShownOptions
-        // is brittle — re-derive from the option payload.
-        kind === "merge" ? "شقة عائلية مدمجة" : "الوحدة المختارة",
+        optionName,
         quote.data.total,
         quote.data.nights,
+        guests,
+        photos,
       );
+      await advanceBotConversation({
+        botConvId: conv.id,
+        state: "previewing",
+        slotsPatch: {
+          previewKind: kind as "unit" | "merge",
+          previewId: id,
+          previewName: optionName,
+          previewTotal: quote.data.total,
+          previewNights: quote.data.nights,
+        },
+        outboundAt: now,
+      });
       return;
     }
     // Re-prompt softly when free-text arrives at this step.
     await sendBotText(
       phone,
       "اخترْ من القائمة أعلاه أو اضغط *تحدث مع موظف* للمساعدة.",
+      { origin: "bot:fallback" },
+    );
+    return;
+  }
+
+  // ─── previewing → guest is looking at room photos before confirming ─
+  if (conv.state === "previewing") {
+    // (a) "اختر غرفة أخرى" → re-fetch availability and re-show the list.
+    if (interactiveId === ID_BACK_TO_LIST) {
+      const checkIn = slots.checkIn;
+      const checkOut = slots.checkOut;
+      const guests = slots.guests;
+      if (!checkIn || !checkOut || !guests) {
+        // Lost the slots somehow — restart cleanly.
+        await sendMainMenu(phone);
+        await advanceBotConversation({
+          botConvId: conv.id,
+          state: "idle",
+          slotsPatch: {
+            previewKind: undefined,
+            previewId: undefined,
+            previewName: undefined,
+            previewTotal: undefined,
+            previewNights: undefined,
+          },
+          outboundAt: now,
+        });
+        return;
+      }
+      const result = await runTool(
+        "searchAvailability",
+        { checkIn, checkOut, guests },
+        ctx,
+      );
+      if (!result.ok) {
+        await sendBotText(phone, result.error.message, {
+          origin: "bot:fallback",
+        });
+        return;
+      }
+      await presentOptions(phone, result.data.options);
+      await advanceBotConversation({
+        botConvId: conv.id,
+        state: "quoting",
+        slotsPatch: {
+          lastShownOptions: result.data.options.map((o) => o.id),
+          previewKind: undefined,
+          previewId: undefined,
+          previewName: undefined,
+          previewTotal: undefined,
+          previewNights: undefined,
+        },
+        outboundAt: now,
+      });
+      return;
+    }
+
+    // (b) "نعم، أكِّد" → render the final confirm/cancel bubble (re-uses
+    // the existing `presentQuote` so the holding flow stays unchanged).
+    if (interactiveId === ID_PREVIEW_CONFIRM) {
+      const previewKind = slots.previewKind;
+      const previewId = slots.previewId;
+      const total = slots.previewTotal;
+      const nights = slots.previewNights;
+      if (!previewKind || !previewId || total == null || nights == null) {
+        await sendBotText(
+          phone,
+          "انقطع التتبّع — لنبدأ من جديد 🙏",
+          { origin: "bot:fallback" },
+        );
+        await advanceBotConversation({
+          botConvId: conv.id,
+          state: "idle",
+          slotsPatch: { lastShownOptions: [] },
+        });
+        return;
+      }
+      await presentQuote(
+        phone,
+        `${previewKind}:${previewId}`,
+        slots.previewName ?? "الوحدة المختارة",
+        total,
+        nights,
+      );
+      await advanceBotConversation({
+        botConvId: conv.id,
+        state: "holding",
+        outboundAt: now,
+      });
+      return;
+    }
+
+    // (c) Free-text inside previewing — gentle nudge.
+    await sendBotText(
+      phone,
+      "اضغط *نعم، أكِّد* للمتابعة أو *غرفة أخرى* لمشاهدة باقي الخيارات 👌",
       { origin: "bot:fallback" },
     );
     return;

@@ -3,6 +3,7 @@ import {
   sendText,
   sendInteractiveButtons,
   sendInteractiveList,
+  sendImageByUrl,
   type InteractiveButton,
   type InteractiveListSection,
   type GraphSendResponse,
@@ -83,6 +84,8 @@ export async function sendBotButtons(args: {
   bodyText: string;
   buttons: InteractiveButton[];
   headerText?: string;
+  /** When set, replaces text header with an image bubble (HTTPS URL only). */
+  headerImageUrl?: string;
   footerText?: string;
   origin?: string;
 }): Promise<BotSendResult> {
@@ -92,8 +95,29 @@ export async function sendBotButtons(args: {
       bodyText: args.bodyText,
       buttons: args.buttons,
       headerText: args.headerText,
+      headerImageUrl: args.headerImageUrl,
       footerText: args.footerText,
     }),
+  );
+}
+
+/**
+ * Send a single image bubble (URL-based, no upload) and log it to the inbox.
+ * Used by the room-preview step to show 1–N additional photos before the
+ * confirm/back interactive bubble.
+ */
+export async function sendBotImageByUrl(args: {
+  to: string;
+  url: string;
+  caption?: string;
+  origin?: string;
+}): Promise<BotSendResult> {
+  return fanout(
+    args.origin ?? "bot",
+    args.to,
+    "text", // Inbox column has no "image" type yet; log as text + caption.
+    args.caption ?? `[image] ${args.url}`,
+    () => sendImageByUrl({ to: args.to, url: args.url, caption: args.caption }),
   );
 }
 

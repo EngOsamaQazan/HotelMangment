@@ -130,6 +130,7 @@ export type BotState =
   | "greeting"
   | "collecting"
   | "quoting"
+  | "previewing"
   | "holding"
   | "awaiting_payment"
   | "confirmed"
@@ -142,6 +143,7 @@ const VALID_STATES = new Set<BotState>([
   "greeting",
   "collecting",
   "quoting",
+  "previewing",
   "holding",
   "awaiting_payment",
   "confirmed",
@@ -166,6 +168,18 @@ export interface BotSlots {
   lastShownOptions?: number[];
   /** Free-form notes the LLM wants to remember (allergies, requests). */
   freeNotes?: string;
+  /**
+   * Currently previewed unit (set by the quoting → previewing transition).
+   * `previewKind` is "unit" | "merge" matching the option payload encoding.
+   * `previewName` is cached so we can re-render labels without re-querying.
+   * `previewTotal` / `previewNights` cache the latest quote so the confirm
+   * button doesn't have to re-call `getQuote` on the same data.
+   */
+  previewKind?: "unit" | "merge";
+  previewId?: number;
+  previewName?: string;
+  previewTotal?: number;
+  previewNights?: number;
 }
 
 export interface EnsureBotConversationInput {

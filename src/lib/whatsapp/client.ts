@@ -235,6 +235,12 @@ export interface SendInteractiveButtonsArgs {
   bodyText: string;
   buttons: InteractiveButton[]; // 1–3 buttons
   headerText?: string;          // optional plain-text header
+  /**
+   * Optional image header — overrides headerText when both are passed.
+   * Must be a publicly-reachable HTTPS URL (Meta downloads it server-side
+   * to render in the bubble). Use for room previews, contract previews, etc.
+   */
+  headerImageUrl?: string;
   footerText?: string;
 }
 
@@ -255,7 +261,12 @@ export async function sendInteractiveButtons(
       })),
     },
   };
-  if (args.headerText) {
+  if (args.headerImageUrl) {
+    interactive.header = {
+      type: "image",
+      image: { link: args.headerImageUrl },
+    };
+  } else if (args.headerText) {
     interactive.header = { type: "text", text: args.headerText.slice(0, 60) };
   }
   if (args.footerText) {
@@ -1143,6 +1154,32 @@ export async function sendMedia(args: SendMediaArgs): Promise<GraphSendResponse>
       to: args.to,
       type: args.kind,
       [args.kind]: mediaObj,
+    }),
+  });
+  return graphJson<GraphSendResponse>(res);
+}
+
+/**
+ * Send a standalone image referenced by a publicly-reachable HTTPS URL.
+ * Useful when you don't want to pre-upload to Meta (e.g. unit photos
+ * already hosted on our CDN). Caption renders below the image bubble.
+ */
+export async function sendImageByUrl(args: {
+  to: string;
+  url: string;
+  caption?: string;
+}): Promise<GraphSendResponse> {
+  const cfg = await loadRuntimeConfig();
+  const image: Record<string, unknown> = { link: args.url };
+  if (args.caption) image.caption = args.caption;
+  const res = await graphFetch(cfg, `/${cfg.phoneNumberId}/messages`, {
+    method: "POST",
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: args.to,
+      type: "image",
+      image,
     }),
   });
   return graphJson<GraphSendResponse>(res);
