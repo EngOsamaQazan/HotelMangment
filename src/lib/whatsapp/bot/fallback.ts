@@ -288,6 +288,46 @@ export async function runFallbackTurn(input: FallbackInput): Promise<void> {
     return;
   }
 
+  // ─── Universal RESTART hatch ─────────────────────────────────────────
+  // Without this, once the FSM enters quoting/holding it can never come
+  // back out via free text — the guest gets a "choose from above" loop
+  // even when they obviously want to start over (greeting, "حجز جديد",
+  // or a fresh date range typed in). Recognise three escape signals,
+  // wipe slots, and route to the appropriate restart point.
+  const greetingRe = /^(?:\s*[!.،؟?]?\s*)?(?:السلام\s*عليكم|سلام|مرحبا|مرحبًا|اهلا|أهلاً?|hi|hello|hey|start|بدء|ابدأ)\b/i;
+  const newBookingRe = /^(?:\s*)?(?:حجز\s*جديد|حجز|book|new\s*booking|new)\s*$/i;
+  const looksLikeDateRequest =
+    !!textBody &&
+    /\d{1,2}[-/]\d{1,2}/.test(textBody) &&
+    !!extractGuestCount(textBody);
+
+  const wantsMenu =
+    interactiveId === ID_MENU_BOOK ||
+    (textBody !== null && (greetingRe.test(textBody) || newBookingRe.test(textBody)));
+
+  if (
+    (conv.state !== "idle" && conv.state !== "done" && conv.state !== "greeting") &&
+    (wantsMenu || looksLikeDateRequest)
+  ) {
+    // Clear stale slots so the new turn doesn't inherit dates from the
+    // failed search. lastShownOptions in particular MUST be wiped so
+    // the option-picker doesn't try to match against gone IDs.
+    await advanceBotConversation({
+      botConvId: conv.id,
+      state: looksLikeDateRequest ? "collecting" : "idle",
+      slotsPatch: looksLikeDateRequest
+        ? {} // keep nothing; collecting branch will re-parse from textBody
+        : {},
+      outboundAt: now,
+    });
+    // Re-fetch the conversation so downstream sees the clean state. The
+    // mutation above doesn't update our local `conv` reference.
+    const fresh = await prisma.botConversation.findUniqueOrThrow({
+      where: { id: conv.id },
+    });
+    Object.assign(conv, fresh);
+  }
+
   // ─── greeting / idle ────────────────────────────────────────────────
   if (conv.state === "idle" || conv.state === "done") {
     await sendMainMenu(phone);
