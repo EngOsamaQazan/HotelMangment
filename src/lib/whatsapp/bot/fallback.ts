@@ -52,7 +52,15 @@ const PREVIEW_MAX_EXTRA_PHOTOS = 2;
 
 // ───────────────────────────── parsing ────────────────────────────────
 
-/** Accepts "12-05-2026", "12/5/26", "2026-05-12", or "12 5 2026". */
+/**
+ * Accepts "12-05-2026", "12/5/26", "2026-05-12", "12 5 2026" — or the
+ * year-less variants "12-05" / "12/5" that guests type the most in chat.
+ *
+ * For the year-less form we pick the *next* occurrence of (day, month):
+ *   • If (day, month) of the current year is still in the future, use it.
+ *   • Otherwise roll forward to the same date next year so a guest typing
+ *     "20/2" in November doesn't accidentally book in the past.
+ */
 function parseLooseDate(input: string, now: Date): Date | null {
   const trimmed = input.replace(/[^\d/\-\s]/g, " ").trim();
   // ISO YYYY-MM-DD shortcut
@@ -62,7 +70,7 @@ function parseLooseDate(input: string, now: Date): Date | null {
     const date = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d)));
     return Number.isNaN(date.getTime()) ? null : date;
   }
-  // DMY
+  // DMY (with year)
   const dmy = /^(\d{1,2})[-/\s](\d{1,2})[-/\s](\d{2,4})$/.exec(trimmed);
   if (dmy) {
     const [, d, m, yRaw] = dmy;
@@ -71,6 +79,24 @@ function parseLooseDate(input: string, now: Date): Date | null {
     if (Number.isNaN(date.getTime())) return null;
     // Reject obviously past dates by more than 30 days (typo guard).
     if (date.getTime() < now.getTime() - 30 * 86_400_000) return null;
+    return date;
+  }
+  // DM (no year) — assume current year, roll to next year if already past.
+  const dm = /^(\d{1,2})[-/\s](\d{1,2})$/.exec(trimmed);
+  if (dm) {
+    const [, dStr, mStr] = dm;
+    const day = Number(dStr);
+    const month = Number(mStr);
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    let year = now.getUTCFullYear();
+    let date = new Date(Date.UTC(year, month - 1, day));
+    if (Number.isNaN(date.getTime())) return null;
+    // If this calendar slot already slid more than 1 day into the past,
+    // bump to next year (covers December guests booking February).
+    if (date.getTime() < now.getTime() - 86_400_000) {
+      year += 1;
+      date = new Date(Date.UTC(year, month - 1, day));
+    }
     return date;
   }
   return null;
@@ -143,10 +169,16 @@ function parseSlotsFromText(
   if (guests !== undefined) result.guests = guests;
 
   // Find dates: support "from X to Y" or simply two date tokens separated by
-  // dash / "إلى" / "to".
-  const rangeMatch = /(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}-\d{2}-\d{2})\s*(?:إلى|to|-|–|—)\s*(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}-\d{2}-\d{2})/.exec(
-    text,
+  // dash / "إلى" / "to". Each side may be a full DMY/ISO OR a year-less DM
+  // ("15-05") since that's how most guests actually type in WhatsApp.
+  // Order of alternatives matters: full forms first so we never truncate a
+  // "15-05-2026" down to "15-05".
+  const DATE_TOKEN =
+    "(\\d{4}-\\d{2}-\\d{2}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}|\\d{1,2}[-/]\\d{1,2})";
+  const rangeRe = new RegExp(
+    `${DATE_TOKEN}\\s*(?:إلى|الى|to|-|–|—)\\s*${DATE_TOKEN}`,
   );
+  const rangeMatch = rangeRe.exec(text);
   if (rangeMatch) {
     const a = parseLooseDate(rangeMatch[1], now);
     const b = parseLooseDate(rangeMatch[2], now);
@@ -154,7 +186,8 @@ function parseSlotsFromText(
     if (b) result.checkOut = b;
   } else {
     // Single date → assume 1 night.
-    const single = /(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}-\d{2}-\d{2})/.exec(text);
+    const singleRe = new RegExp(DATE_TOKEN);
+    const single = singleRe.exec(text);
     if (single) {
       const d = parseLooseDate(single[1], now);
       if (d) {
@@ -442,15 +475,21 @@ export async function runFallbackTurn(input: FallbackInput): Promise<void> {
     (conv.state !== "idle" && conv.state !== "done" && conv.state !== "greeting") &&
     (wantsMenu || looksLikeDateRequest)
   ) {
-    // Clear stale slots so the new turn doesn't inherit dates from the
-    // failed search. lastShownOptions in particular MUST be wiped so
-    // the option-picker doesn't try to match against gone IDs.
+    // Wipe transient picker state so the next round starts clean. We keep
+    // checkIn / checkOut / guests around because the guest often retries
+    // the same dates after a no-availability bounce — the collecting
+    // branch will overwrite them if the new message contains fresh ones.
     await advanceBotConversation({
       botConvId: conv.id,
       state: looksLikeDateRequest ? "collecting" : "idle",
-      slotsPatch: looksLikeDateRequest
-        ? {} // keep nothing; collecting branch will re-parse from textBody
-        : {},
+      slotsPatch: {
+        lastShownOptions: undefined,
+        previewKind: undefined,
+        previewId: undefined,
+        previewName: undefined,
+        previewTotal: undefined,
+        previewNights: undefined,
+      },
       outboundAt: now,
     });
     // Re-fetch the conversation so downstream sees the clean state. The
