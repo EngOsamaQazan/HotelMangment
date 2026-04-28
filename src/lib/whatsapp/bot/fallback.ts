@@ -70,20 +70,58 @@ function parseLooseDate(input: string, now: Date): Date | null {
 }
 
 /** Pulls "[checkIn] [checkOut] [guests]" from one inbound text blob. */
+/**
+ * Arabic counting helpers. Guests are commonly written in three forms:
+ *   1. Digit + noun:        "2 ضيف"  /  "2 أشخاص"  /  "5 نفر"
+ *   2. Dual form (no digit): "شخصين" / "ضيفين" / "اثنين"  → always 2
+ *   3. Spelled-out singular: "ثلاثة ضيوف" / "خمس أشخاص"
+ * The original regex only handled (1), so guests written naturally were
+ * silently dropped and the FSM endlessly re-asked for them. We support
+ * all three forms below, in priority order (digit > dual > word).
+ */
+const ARABIC_NUMBER_WORDS: Array<[RegExp, number]> = [
+  [/(?:^|\s|ل|لـ)?(?:شخصين|ضيفين|نفرين|اثنين|اثنان|ثنين)/i, 2],
+  [/(?:^|\s|ل|لـ)?(?:ثلاث(?:ة|ه)?)/i, 3],
+  [/(?:^|\s|ل|لـ)?(?:أربع(?:ة|ه)?|اربع(?:ة|ه)?)/i, 4],
+  [/(?:^|\s|ل|لـ)?(?:خمس(?:ة|ه)?)/i, 5],
+  [/(?:^|\s|ل|لـ)?(?:ست(?:ة|ه)?)/i, 6],
+  [/(?:^|\s|ل|لـ)?(?:سبع(?:ة|ه)?)/i, 7],
+  [/(?:^|\s|ل|لـ)?(?:ثماني(?:ة|ه)?|ثمان)/i, 8],
+  [/(?:^|\s|ل|لـ)?(?:تسع(?:ة|ه)?)/i, 9],
+  [/(?:^|\s|ل|لـ)?(?:عشر(?:ة|ه)?)/i, 10],
+  [/(?:^|\s|ل|لـ)?(?:واحد|شخص واحد|ضيف واحد)/i, 1],
+];
+
+function extractGuestCount(text: string): number | undefined {
+  // Form 1 — digit + noun (most reliable).
+  const digit = /(\d{1,2})\s*(?:ضيف|ضيوف|أشخاص|اشخاص|شخص|نفر|persons?|guests?|pax)/i.exec(text);
+  if (digit) {
+    const g = Number(digit[1]);
+    if (g >= 1 && g <= 20) return g;
+  }
+  // Forms 2 + 3 — dual / spelled-out.
+  for (const [re, n] of ARABIC_NUMBER_WORDS) {
+    if (re.test(text)) return n;
+  }
+  // Last resort — a lone "ل" + small number ("لـ 2"). Must NOT match
+  // the day/year inside a date token, so we require word boundaries
+  // around the digits.
+  const loose = /(?:^|\s)(?:ل|لـ)\s*(\d{1,2})(?!\d|[-/])/.exec(text);
+  if (loose) {
+    const g = Number(loose[1]);
+    if (g >= 1 && g <= 20) return g;
+  }
+  return undefined;
+}
+
 function parseSlotsFromText(
   text: string,
   now: Date,
 ): { checkIn?: Date; checkOut?: Date; guests?: number } {
   const result: { checkIn?: Date; checkOut?: Date; guests?: number } = {};
 
-  // Extract integers — last 1-2 digit number is taken as guest count when ≤ 20.
-  const guestMatch = /(\d{1,2})\s*(?:ضيف|أشخاص|اشخاص|نفر|persons?|guests?)/i.exec(
-    text,
-  );
-  if (guestMatch) {
-    const g = Number(guestMatch[1]);
-    if (g >= 1 && g <= 20) result.guests = g;
-  }
+  const guests = extractGuestCount(text);
+  if (guests !== undefined) result.guests = guests;
 
   // Find dates: support "from X to Y" or simply two date tokens separated by
   // dash / "إلى" / "to".
@@ -135,10 +173,11 @@ async function sendMainMenu(phone: string): Promise<void> {
 async function askForDates(phone: string): Promise<void> {
   await sendBotText(
     phone,
-    "ممتاز! متى تريد الإقامة؟ \n\n" +
-      "أرسل التواريخ بهذا الشكل:\n" +
-      "*15-05-2026 إلى 17-05-2026 لشخصين*\n\n" +
-      "أو اختصاراً: *15-05-2026 لـ 2 ليلة 2 ضيف*",
+    "ممتاز! متى تريد الإقامة؟ ✨\n\n" +
+      "اكتبها بأي صيغة من هذه:\n" +
+      "• *15-05-2026 إلى 17-05-2026 لشخصين*\n" +
+      "• *15-05-2026 إلى 17-05-2026 لـ 2 ضيف*\n" +
+      "• *من 15/5 إلى 17/5 لثلاثة أشخاص*",
     { origin: "bot:fallback" },
   );
 }
@@ -324,10 +363,19 @@ export async function runFallbackTurn(input: FallbackInput): Promise<void> {
     });
 
     if (!checkIn || !checkOut || !guests) {
+      // Tell the guest *exactly* what's still missing so they don't
+      // re-send the same message verbatim — the most common cause of
+      // a stuck "ما لقطت كل التفاصيل" loop in the wild.
+      const missing: string[] = [];
+      if (!checkIn) missing.push("تاريخ الوصول");
+      if (!checkOut) missing.push("تاريخ المغادرة");
+      if (!guests) missing.push("عدد الأشخاص");
       await sendBotText(
         phone,
-        "ما لقطت كل التفاصيل 🙏\nأرسل رجاءً: تاريخ الوصول + المغادرة + عدد الأشخاص.\n" +
-          "مثال: *15-05-2026 إلى 17-05-2026 لشخصين*",
+        `ناقصني: *${missing.join("، ")}* 🙏\n\n` +
+          "اكتبها مرة وحدة بأي شكل، مثل:\n" +
+          "• *15-05-2026 إلى 17-05-2026 لشخصين*\n" +
+          "• *من 15/5 لـ 17/5 لـ 2 ضيف*",
         { origin: "bot:fallback" },
       );
       return;
