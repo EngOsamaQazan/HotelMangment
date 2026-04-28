@@ -222,6 +222,18 @@ jobs:
               echo "==> [4c] VAPID keys already present — skipping"
             fi
 
+            # ───── 4c2. Bot defaults seeder (idempotent) ───────────────
+            # Backfills new bot_* columns on the WhatsAppConfig singleton
+            # and seeds a starter season + price grid the very first time
+            # the bot ships to a fresh DB. Never overrides operator
+            # changes. Safe to run on every deploy.
+            echo "==> [4c2] Seeding bot defaults"
+            set -a; source "$SHARED_ENV"; set +a
+            if [ -f scripts/seed-bot-defaults.ts ]; then
+              npx ts-node --project tsconfig.scripts.json scripts/seed-bot-defaults.ts \
+                || echo "    ⚠️ bot defaults seed failed (non-fatal)"
+            fi
+
             # ───── 4d. Permissions registry sync (every deploy) ────────
             # Idempotent upsert: adds new resources/permissions introduced
             # in this commit, reassigns system roles, deactivates obsolete

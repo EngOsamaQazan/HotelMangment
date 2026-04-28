@@ -107,3 +107,7 @@ scripts/rollback-reservations-after-adjustment.cjs
 cookies.txt
 tunnel.log
 cloudflared*.log
+
+# Local scratch / scripts (_*.ts, _*.js) created during interactive sessions
+_*.ts
+_*.js

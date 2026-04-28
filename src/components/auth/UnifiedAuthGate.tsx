@@ -74,6 +74,14 @@ export function UnifiedAuthGate({
   const [info, setInfo] = useState("");
   const [magicSent, setMagicSent] = useState(false);
   const [pollingTapped, setPollingTapped] = useState(false);
+  /**
+   * Dev-only escape hatch surfaced by the server when WhatsApp delivery
+   * fails (template missing, re-engagement blocked, etc.). Never populated
+   * in production; lets a developer continue testing without working
+   * WhatsApp credentials.
+   */
+  const [devCode, setDevCode] = useState<string | null>(null);
+  const [devError, setDevError] = useState<string | null>(null);
 
   const normalizedPhone = useMemo(
     () => composePhone(phoneDialCode, phone),
@@ -161,11 +169,24 @@ export function UnifiedAuthGate({
       setError(j.error ?? "تعذّر إرسال الرمز.");
       return;
     }
-    const data = (await res.json()) as { magicLinkSent?: boolean };
+    const data = (await res.json()) as {
+      magicLinkSent?: boolean;
+      _dev?: { code?: string; deliveryError?: string; hint?: string | null };
+    };
     setMagicSent(Boolean(data.magicLinkSent));
-    setInfo(
-      `أرسلنا رسالة إلى واتساب ${formatPhoneDisplay(normalizedPhone)}. اضغط الرابط داخلها للتحقّق التلقائي، أو اكتب الرمز يدوياً هنا.`,
-    );
+    if (data._dev?.code) {
+      setDevCode(data._dev.code);
+      setDevError(data._dev.hint || data._dev.deliveryError || null);
+      setInfo(
+        `(وضع التطوير) فشل إرسال واتساب — استخدم الرمز المعروض أدناه أو من سجلّ السيرفر.`,
+      );
+    } else {
+      setDevCode(null);
+      setDevError(null);
+      setInfo(
+        `أرسلنا رسالة إلى واتساب ${formatPhoneDisplay(normalizedPhone)}. اضغط الرابط داخلها للتحقّق التلقائي، أو اكتب الرمز يدوياً هنا.`,
+      );
+    }
     setStep("verify");
   }
 
@@ -320,7 +341,8 @@ export function UnifiedAuthGate({
                   autoComplete="name"
                 />
                 <p className="text-[11px] text-gray-500 mt-1">
-                  يُستخدم فقط إذا كنت تحجز معنا للمرة الأولى.
+                  كما في الهوية أو جواز السفر — لمطابقة وثيقتك عند الوصول.
+                  يُتجاهل تلقائياً إذا كان لديك حساب سابق.
                 </p>
               </div>
             )}
@@ -428,6 +450,28 @@ export function UnifiedAuthGate({
               </div>
             )}
 
+            {devCode && (
+              <div className="bg-amber-50 border-2 border-dashed border-amber-300 rounded-xl p-3 text-xs space-y-1">
+                <div className="font-bold text-amber-900">
+                  ⚠️ وضع التطوير فقط — لن يظهر هذا في الإنتاج
+                </div>
+                <div className="text-amber-800">
+                  لم تُسلَّم رسالة واتساب. الرمز المؤقّت:
+                </div>
+                <div
+                  className="font-mono font-bold text-2xl tracking-[0.4em] text-center bg-white rounded-lg py-2 my-1 select-all"
+                  dir="ltr"
+                >
+                  {devCode}
+                </div>
+                {devError && (
+                  <div className="text-[10px] text-amber-700 leading-relaxed">
+                    السبب: {devError}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 الرمز المكوّن من 6 أرقام
@@ -462,6 +506,8 @@ export function UnifiedAuthGate({
                 setInfo("");
                 setMagicSent(false);
                 setPollingTapped(false);
+                setDevCode(null);
+                setDevError(null);
               }}
               className="w-full text-xs text-gray-500 hover:text-primary inline-flex items-center justify-center gap-1"
             >

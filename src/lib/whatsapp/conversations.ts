@@ -12,6 +12,13 @@ import { prisma } from "@/lib/prisma";
 export interface UpsertContactInput {
   phone: string;
   displayName?: string | null;
+  /**
+   * Profile name as it appears on the customer's WhatsApp account
+   * (`contacts[].profile.name` in the inbound webhook payload).
+   * Always refreshed when the webhook fires; never overwrites the manually
+   * edited `displayName`.
+   */
+  waProfileName?: string | null;
   nickname?: string | null;
   email?: string | null;
   company?: string | null;
@@ -32,6 +39,7 @@ export async function upsertContact(input: UpsertContactInput) {
     create: {
       phone: input.phone,
       displayName: input.displayName ?? null,
+      waProfileName: input.waProfileName ?? null,
       nickname: input.nickname ?? null,
       email: input.email ?? null,
       company: input.company ?? null,
@@ -47,6 +55,7 @@ export async function upsertContact(input: UpsertContactInput) {
     },
     update: {
       displayName: input.displayName ?? undefined,
+      waProfileName: input.waProfileName ?? undefined,
       nickname: input.nickname ?? undefined,
       email: input.email ?? undefined,
       company: input.company ?? undefined,

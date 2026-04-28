@@ -29,6 +29,7 @@ import { CombinedPhoneInput } from "@/components/ui/CombinedPhoneInput";
 import { CountrySelect } from "@/components/ui/CountrySelect";
 import { Can } from "@/components/Can";
 import { WhatsAppQuickSendButton } from "@/components/whatsapp/QuickSendButton";
+import { ResendBookingConfirmationButton } from "@/components/whatsapp/ResendBookingConfirmationButton";
 import { UserAvatar } from "@/components/tasks/shared";
 import {
   cn,
@@ -788,13 +789,15 @@ export default function ReservationDetailClient({ id }: { id: string }) {
                 </button>
               </Can>
               <Can permission="reservations:print">
-                <Link
-                  href={`/reservations/${reservation.id}/contract`}
+                <a
+                  href={`/api/reservations/${reservation.id}/contract.pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
                 >
                   <FileText size={16} />
                   طباعة العقد
-                </Link>
+                </a>
               </Can>
               <Can permission="reservations:delete">
                 <button
@@ -1605,6 +1608,10 @@ export default function ReservationDetailClient({ id }: { id: string }) {
                       defaultText={`مرحبًا ${reservation.guestName}،`}
                     />
                   )}
+                  <ResendBookingConfirmationButton
+                    reservationId={reservation.id}
+                    hasPhone={!!reservation.phone}
+                  />
                 </dd>
               </div>
               <DetailRow

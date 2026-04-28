@@ -21,12 +21,23 @@ import {
   ImageIcon,
   Rocket,
   ExternalLink,
+  Plus,
+  Trash2,
+  Send,
+  FileText,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Can } from "@/components/Can";
 import { usePermissions } from "@/lib/permissions/client";
 import { AutoReplyRules } from "./_components/AutoReplyRules";
+import { TemplateEditor } from "./_components/TemplateEditor";
+import TemplateSendModal from "./_components/TemplateSendModal";
+import { PhoneNumberHealth } from "./_components/PhoneNumberHealth";
+import { ConversationalAutomation } from "./_components/ConversationalAutomation";
+import { WebhookSubscriptions } from "./_components/WebhookSubscriptions";
+import { UsageCostCard } from "./_components/UsageCostCard";
 import { PageShell } from "@/components/ui/PageShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 
@@ -41,6 +52,12 @@ interface PublicConfig {
   hasAppSecret: boolean;
   hasWebhookVerifyToken: boolean;
   webhookUrl: string;
+  autoSendBookingConfirmation: boolean;
+  bookingConfirmationTemplate: string;
+  bookingConfirmationLanguage: string;
+  bookingConfirmationCaption: string | null;
+  bookingFollowUpEnabled: boolean;
+  bookingFollowUpText: string | null;
   lastVerifiedAt: string | null;
   lastVerifyOk: boolean | null;
   lastError: string | null;
@@ -102,6 +119,9 @@ export default function WhatsAppSettingsPage() {
   const [showAccessToken, setShowAccessToken] = useState(false);
   const [showAppSecret, setShowAppSecret] = useState(false);
   const [templates, setTemplates] = useState<TemplateRow[]>([]);
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+  const [sendTarget, setSendTarget] = useState<{ name: string; language: string } | null>(null);
+  const [deletingTemplateId, setDeletingTemplateId] = useState<number | null>(null);
 
   // Business profile state (profile picture + about + address + ...).
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
@@ -129,6 +149,25 @@ export default function WhatsAppSettingsPage() {
     isActive: true,
   });
 
+  // Booking-confirmation auto-send (Phase 3). Decoupled from the auth
+  // form because operators may want to flip it without re-entering
+  // tokens.
+  const [autoForm, setAutoForm] = useState({
+    autoSendBookingConfirmation: false,
+    bookingConfirmationTemplate: "booking_confirmation_ar",
+    bookingConfirmationLanguage: "ar",
+    bookingConfirmationCaption: "",
+    bookingFollowUpEnabled: true,
+    bookingFollowUpText: "",
+  });
+  const [autoSaving, setAutoSaving] = useState(false);
+
+  // Per-template usage (sends + cost), populated by /api/whatsapp/usage so we
+  // can decorate the templates table with traffic and spend per template.
+  const [templateUsage, setTemplateUsage] = useState<
+    Record<string, { sent: number; cost: number; currency: string }>
+  >({});
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -145,6 +184,14 @@ export default function WhatsAppSettingsPage() {
         apiVersion: data.apiVersion,
         isActive: data.isActive,
       }));
+      setAutoForm({
+        autoSendBookingConfirmation: data.autoSendBookingConfirmation,
+        bookingConfirmationTemplate: data.bookingConfirmationTemplate,
+        bookingConfirmationLanguage: data.bookingConfirmationLanguage,
+        bookingConfirmationCaption: data.bookingConfirmationCaption ?? "",
+        bookingFollowUpEnabled: data.bookingFollowUpEnabled,
+        bookingFollowUpText: data.bookingFollowUpText ?? "",
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "فشل التحميل");
     } finally {
@@ -159,6 +206,25 @@ export default function WhatsAppSettingsPage() {
       setTemplates(await res.json());
     } catch {
       // ignore
+    }
+  }, []);
+
+  const loadTemplateUsage = useCallback(async () => {
+    try {
+      const res = await fetch("/api/whatsapp/usage?days=30", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      const map: Record<string, { sent: number; cost: number; currency: string }> = {};
+      for (const t of data.byTemplate ?? []) {
+        map[t.name] = {
+          sent: t.sent ?? 0,
+          cost: t.estimatedCost ?? 0,
+          currency: data.meta?.currency ?? "USD",
+        };
+      }
+      setTemplateUsage(map);
+    } catch {
+      // ignore — usage panel still works on its own
     }
   }, []);
 
@@ -188,7 +254,8 @@ export default function WhatsAppSettingsPage() {
     load();
     loadTemplates();
     loadProfile();
-  }, [load, loadTemplates, loadProfile]);
+    loadTemplateUsage();
+  }, [load, loadTemplates, loadProfile, loadTemplateUsage]);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -223,6 +290,40 @@ export default function WhatsAppSettingsPage() {
       toast.error(err instanceof Error ? err.message : "فشل الحفظ");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveAutoSend(e: React.FormEvent) {
+    e.preventDefault();
+    setAutoSaving(true);
+    try {
+      const res = await fetch("/api/whatsapp/config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          autoSendBookingConfirmation: autoForm.autoSendBookingConfirmation,
+          bookingConfirmationTemplate:
+            autoForm.bookingConfirmationTemplate.trim() ||
+            "booking_confirmation_ar",
+          bookingConfirmationLanguage:
+            autoForm.bookingConfirmationLanguage.trim() || "ar",
+          bookingConfirmationCaption:
+            autoForm.bookingConfirmationCaption.trim() || null,
+          bookingFollowUpEnabled: autoForm.bookingFollowUpEnabled,
+          bookingFollowUpText:
+            autoForm.bookingFollowUpText.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || "فشل الحفظ");
+      }
+      toast.success("تم حفظ إعدادات تأكيد الحجز التلقائي");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "فشل الحفظ");
+    } finally {
+      setAutoSaving(false);
     }
   }
 
@@ -374,6 +475,30 @@ export default function WhatsAppSettingsPage() {
       toast.error(err instanceof Error ? err.message : "فشل المزامنة");
     } finally {
       setSyncing(false);
+    }
+  }
+
+  async function deleteTemplate(t: TemplateRow) {
+    if (
+      !confirm(
+        `سيُحذف القالب «${t.name}» (${t.language}) من Meta نهائياً ولا يمكن التراجع.\n\nهل أنت متأكد؟`,
+      )
+    ) {
+      return;
+    }
+    setDeletingTemplateId(t.id);
+    try {
+      const res = await fetch(`/api/whatsapp/templates/${t.id}`, {
+        method: "DELETE",
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error || "فشل الحذف");
+      toast.success("تم حذف القالب");
+      await loadTemplates();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "فشل الحذف");
+    } finally {
+      setDeletingTemplateId(null);
     }
   }
 
@@ -897,24 +1022,257 @@ export default function WhatsAppSettingsPage() {
         </div>
       </section>
 
+      {/* Booking-confirmation auto-send (Phase 3) */}
+      <section className="bg-card-bg rounded-xl shadow-sm p-4 sm:p-6 space-y-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Sparkles size={20} className="text-primary" />
+          <h2 className="text-lg font-bold text-gray-800">
+            تأكيد الحجز التلقائي + ملف العقد PDF
+          </h2>
+        </div>
+        <p className="text-sm text-gray-600 leading-relaxed">
+          عند تفعيل هذه الخاصية، يقوم النظام عند إنشاء أي حجز جديد (من الكاونتر
+          أو من الموقع المباشر) بإرسال رسالتين عبر WhatsApp تلقائياً:
+        </p>
+        <ol className="text-sm text-gray-700 leading-relaxed list-decimal mr-5 space-y-1">
+          <li>
+            <strong>رسالة الترحيب الدافئة</strong> مرفقة بـ
+            <strong> ملف العقد PDF</strong> الذي يُولَّد فوراً من بيانات الحجز.
+          </li>
+          <li>
+            <strong>رسالة ذكر</strong> فيها آية قرآنية وحديث شريف (كما في صفحة العقد) — اختيارية ويمكن إيقافها أو تخصيص نصها.
+          </li>
+        </ol>
+
+        <form onSubmit={saveAutoSend} className="space-y-4">
+          <label className="flex items-start gap-3 p-3 border border-gold/30 rounded-lg bg-gold-soft/40 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autoForm.autoSendBookingConfirmation}
+              onChange={(e) =>
+                setAutoForm({
+                  ...autoForm,
+                  autoSendBookingConfirmation: e.target.checked,
+                })
+              }
+              className="mt-1 w-4 h-4 accent-primary"
+            />
+            <div className="flex-1">
+              <div className="font-semibold text-gray-800">
+                تفعيل الإرسال التلقائي عند إنشاء حجز جديد
+              </div>
+              <div className="text-xs text-gray-600 mt-1">
+                يتطلّب: WhatsApp مفعّل + رقم هاتف للضيف + قالب معتمد من Meta.
+              </div>
+            </div>
+          </label>
+
+          <IntroTemplateSetupBanner
+            templates={templates}
+            currentTemplateName={autoForm.bookingConfirmationTemplate}
+            onUseIntroTemplate={() =>
+              setAutoForm((f) => ({
+                ...f,
+                bookingConfirmationTemplate: "booking_intro_ar",
+              }))
+            }
+            onTemplateSubmitted={async () => {
+              await loadTemplates();
+            }}
+          />
+
+          <WarmTemplateSetupBanner
+            templates={templates}
+            currentTemplateName={autoForm.bookingConfirmationTemplate}
+            onUseWarmTemplate={() =>
+              setAutoForm((f) => ({
+                ...f,
+                bookingConfirmationTemplate: "booking_welcome_ar",
+              }))
+            }
+            onTemplateSubmitted={async () => {
+              await loadTemplates();
+            }}
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                <FileText size={14} /> اسم القالب
+              </span>
+              <input
+                type="text"
+                value={autoForm.bookingConfirmationTemplate}
+                onChange={(e) =>
+                  setAutoForm({
+                    ...autoForm,
+                    bookingConfirmationTemplate: e.target.value,
+                  })
+                }
+                placeholder="booking_confirmation_ar"
+                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-primary focus:border-primary"
+              />
+              <span className="text-[11px] text-gray-500 mt-1 block">
+                يجب أن يكون قالباً معتمداً (APPROVED) من Meta.
+              </span>
+            </label>
+
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">
+                لغة القالب
+              </span>
+              <input
+                type="text"
+                value={autoForm.bookingConfirmationLanguage}
+                onChange={(e) =>
+                  setAutoForm({
+                    ...autoForm,
+                    bookingConfirmationLanguage: e.target.value,
+                  })
+                }
+                placeholder="ar"
+                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-primary focus:border-primary"
+              />
+              <span className="text-[11px] text-gray-500 mt-1 block">
+                مثال: ar, en_US, ar_AR.
+              </span>
+            </label>
+          </div>
+
+          <label className="block">
+            <span className="text-sm font-medium text-gray-700">
+              الرسالة الأولى — ترحيب دافئ مرفق مع ملف العقد PDF
+            </span>
+            <textarea
+              value={autoForm.bookingConfirmationCaption}
+              onChange={(e) =>
+                setAutoForm({
+                  ...autoForm,
+                  bookingConfirmationCaption: e.target.value,
+                })
+              }
+              rows={9}
+              placeholder={
+                "اتركه فارغاً لاستخدام الرسالة الترحيبية الافتراضية الدافئة:\n\nهلا وغلا 🌙\nنورت فندق المفرق يا *{{1}}*، حياك الله بين أهلك ❤️\n\nتم تأكيد حجزك:\n📅 الوصول: {{2}}\n📅 المغادرة: {{3}}\n🏷️ رقم الحجز: {{4}}\n\nأرفقنا لك *عقد الإقامة* للاطلاع 📎\n\nكل الليالي مباركة… والليلة أبرك بوجودك 🙏\nبانتظارك، وأي شي تحتاجه احنا بالخدمة 24 ساعة 🤝"
+              }
+              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono leading-relaxed focus:ring-1 focus:ring-primary focus:border-primary"
+            />
+            <span className="text-[11px] text-gray-500 mt-1 block">
+              المتغيّرات المتاحة: {"{{1}}"} اسم الضيف · {"{{2}}"} الوصول (مع الوقت) · {"{{3}}"} المغادرة (مع الوقت) · {"{{4}}"} رقم الحجز · {"{{5}}"} عدد الليالي · {"{{6}}"} الإجمالي · {"{{7}}"} المتبقي · {"{{8}}"} نوع الوحدة. <br/>
+              لتنسيق <code>*غامق*</code> يستخدم الواتساب نجمة واحدة فقط (وليس مزدوجة).
+            </span>
+          </label>
+
+          <label className="flex items-start gap-3 p-3 border border-emerald-200 rounded-lg bg-emerald-50/40 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autoForm.bookingFollowUpEnabled}
+              onChange={(e) =>
+                setAutoForm({
+                  ...autoForm,
+                  bookingFollowUpEnabled: e.target.checked,
+                })
+              }
+              className="mt-1 w-4 h-4 accent-emerald-600"
+            />
+            <div className="flex-1">
+              <div className="font-semibold text-gray-800">
+                إرسال رسالة ثانية — ذكر من القرآن والسنة 🌙
+              </div>
+              <div className="text-xs text-gray-600 mt-1">
+                تُرسل بعد رسالة التأكيد مباشرة كرسالة نصّية حرة (داخل نافذة 24 ساعة المفتوحة تلقائياً) — تماماً كالنص الموجود في صفحة العقد.
+              </div>
+            </div>
+          </label>
+
+          <label className="block">
+            <span className="text-sm font-medium text-gray-700">
+              نص رسالة الذكر (الرسالة الثانية)
+            </span>
+            <textarea
+              value={autoForm.bookingFollowUpText}
+              onChange={(e) =>
+                setAutoForm({
+                  ...autoForm,
+                  bookingFollowUpText: e.target.value,
+                })
+              }
+              rows={10}
+              placeholder={
+                "اتركه فارغاً لاستخدام النص الافتراضي:\n\n🌙 ذكرى مباركة بين يدي إقامتك:\n\n﴿ وَقُل رَّبِّ أَنزِلْنِي مُنزَلًا مُّبَارَكًا وَأَنتَ خَيْرُ الْمُنزِلِينَ ﴾\n— سورة المؤمنون، الآية 29\n\nقال رسول الله ﷺ:\n«اللَّهُمَّ بَارِكْ لَنَا فِي شَامِنَا، وَبَارِكْ لَنَا فِي يَمَنِنَا»\n— رواه البخاري\n\nنسأل الله أن يجعلها إقامة طيبة مباركة عليك وعلى أهلك،\nوأن يحفظكم في حلكم وترحالكم 🤲\n\n— من قلب فندق المفرق ❤️"
+              }
+              disabled={!autoForm.bookingFollowUpEnabled}
+              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono leading-relaxed focus:ring-1 focus:ring-primary focus:border-primary disabled:bg-gray-50 disabled:opacity-60"
+            />
+            <span className="text-[11px] text-gray-500 mt-1 block">
+              يدعم نفس متغيّرات الترحيب ({"{{1}}"} – {"{{8}}"}). الرموز القرآنية ﴿ ﴾ تُعرض تلقائياً برسم قرآني جميل في تطبيقات WhatsApp.
+            </span>
+          </label>
+
+          <div className="flex items-center justify-end gap-2">
+            <Can permission="whatsapp:edit">
+              <button
+                type="submit"
+                disabled={autoSaving}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm disabled:opacity-50"
+              >
+                {autoSaving ? (
+                  <Loader2 className="animate-spin" size={14} />
+                ) : (
+                  <Send size={14} />
+                )}
+                حفظ إعدادات الإرسال التلقائي
+              </button>
+            </Can>
+          </div>
+        </form>
+      </section>
+
+      {/* Usage + cost — live counts and Meta-billed cost per category/template */}
+      <UsageCostCard />
+
       {/* Templates */}
       <section className="bg-card-bg rounded-xl shadow-sm p-4 sm:p-6 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h2 className="text-lg font-bold text-gray-800">قوالب الرسائل</h2>
-          <Can permission="whatsapp:sync_templates">
-            <button
-              onClick={syncTemplates}
-              disabled={syncing}
-              className="flex items-center gap-2 px-3 py-2 border border-primary text-primary rounded-lg hover:bg-gold-soft text-sm disabled:opacity-50"
-            >
-              {syncing ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <RefreshCw size={14} />
-              )}
-              مزامنة من Meta
-            </button>
-          </Can>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Can permission="whatsapp:create_template">
+              <button
+                onClick={() => setShowTemplateEditor(true)}
+                disabled={!cfg.hasAccessToken}
+                className="flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm disabled:opacity-50"
+              >
+                <Plus size={14} />
+                إنشاء قالب جديد
+              </button>
+            </Can>
+            <Can permission="whatsapp:sync_templates">
+              <button
+                onClick={syncTemplates}
+                disabled={syncing}
+                className="flex items-center gap-2 px-3 py-2 border border-primary text-primary rounded-lg hover:bg-gold-soft text-sm disabled:opacity-50"
+              >
+                {syncing ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={14} />
+                )}
+                مزامنة من Meta
+              </button>
+            </Can>
+            {cfg.wabaId && (
+              <a
+                href={`https://business.facebook.com/wa/manage/message-templates/?waba_id=${encodeURIComponent(cfg.wabaId)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-2 px-3 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
+                title="فتح مدير القوالب في Meta Business Manager"
+              >
+                <ExternalLink size={14} />
+                Meta Templates
+              </a>
+            )}
+          </div>
         </div>
 
         {templates.length === 0 ? (
@@ -931,11 +1289,20 @@ export default function WhatsAppSettingsPage() {
                   <th className="text-right px-3 py-2 font-medium">اللغة</th>
                   <th className="text-right px-3 py-2 font-medium">الفئة</th>
                   <th className="text-right px-3 py-2 font-medium">الحالة</th>
+                  <th className="text-right px-3 py-2 font-medium" title="عدد مرات الإرسال خلال آخر 30 يوماً">
+                    الإرسال (30 يوم)
+                  </th>
+                  <th className="text-right px-3 py-2 font-medium" title="التكلفة الفعلية (Meta) أو التقديرية حسب جدول التسعير">
+                    التكلفة
+                  </th>
                   <th className="text-right px-3 py-2 font-medium">آخر مزامنة</th>
+                  <th className="text-right px-3 py-2 font-medium">إجراءات</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {templates.map((t) => (
+                {templates.map((t) => {
+                  const usage = templateUsage[t.name];
+                  return (
                   <tr key={t.id}>
                     <td className="px-3 py-2 font-medium text-gray-800 direction-ltr text-right">
                       {t.name}
@@ -944,25 +1311,110 @@ export default function WhatsAppSettingsPage() {
                     <td className="px-3 py-2 text-gray-600">{t.category}</td>
                     <td className="px-3 py-2">
                       <TemplateStatusBadge status={t.status} />
-                      {t.rejectionReason && (
-                        <p className="text-[11px] text-red-500 mt-0.5">
-                          {t.rejectionReason}
-                        </p>
+                      {t.rejectionReason &&
+                        t.rejectionReason.toUpperCase() !== "NONE" && (
+                          <p className="text-[11px] text-red-500 mt-0.5">
+                            {t.rejectionReason}
+                          </p>
+                        )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {usage && usage.sent > 0 ? (
+                        <span className="font-semibold text-indigo-700">
+                          {new Intl.NumberFormat("ar-EG").format(usage.sent)}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {usage && usage.sent > 0 ? (
+                        <span className="font-semibold text-emerald-700">
+                          {new Intl.NumberFormat("en-US", {
+                            style: "currency",
+                            currency: usage.currency || "USD",
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          }).format(usage.cost)}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
                       )}
                     </td>
                     <td className="px-3 py-2 text-gray-500 whitespace-nowrap text-xs">
                       {new Date(t.lastSyncedAt).toLocaleString("ar")}
                     </td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-1">
+                        <Can permission="whatsapp:send_template">
+                          <button
+                            onClick={() =>
+                              setSendTarget({ name: t.name, language: t.language })
+                            }
+                            disabled={t.status !== "APPROVED"}
+                            className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                            title={
+                              t.status === "APPROVED"
+                                ? "إرسال هذا القالب إلى رقم"
+                                : "لا يمكن إرسال قالب غير معتمد"
+                            }
+                          >
+                            <Send size={14} />
+                          </button>
+                        </Can>
+                        <Can permission="whatsapp:delete_template">
+                          <button
+                            onClick={() => deleteTemplate(t)}
+                            disabled={deletingTemplateId === t.id}
+                            className="p-1.5 text-red-500 hover:bg-red-50 rounded disabled:opacity-50"
+                            title="حذف من Meta"
+                          >
+                            {deletingTemplateId === t.id ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                              <Trash2 size={14} />
+                            )}
+                          </button>
+                        </Can>
+                      </div>
+                    </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </section>
 
+      {/* Phone number health (quality, tier, display name, 2FA PIN) */}
+      <PhoneNumberHealth />
+
+      {/* Conversational automation (greeting, ice-breakers, slash-commands) */}
+      <ConversationalAutomation />
+
+      {/* Webhook app subscriptions (subscribed_apps under WABA) */}
+      <WebhookSubscriptions />
+
       {/* Auto-reply rules */}
       <AutoReplyRules />
+
+      {/* Template create/edit modal */}
+      <TemplateEditor
+        open={showTemplateEditor}
+        onClose={() => setShowTemplateEditor(false)}
+        onCreated={loadTemplates}
+      />
+
+      {/* Generic "send any approved template" modal */}
+      {sendTarget && (
+        <TemplateSendModal
+          open
+          templateName={sendTarget.name}
+          templateLanguage={sendTarget.language}
+          onClose={() => setSendTarget(null)}
+        />
+      )}
 
       {showRegisterDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -1101,6 +1553,309 @@ function StatusCard({
           <li key={i}>{line}</li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function IntroTemplateSetupBanner({
+  templates,
+  currentTemplateName,
+  onUseIntroTemplate,
+  onTemplateSubmitted,
+}: {
+  templates: TemplateRow[];
+  currentTemplateName: string;
+  onUseIntroTemplate: () => void;
+  onTemplateSubmitted: () => Promise<void>;
+}) {
+  // Minimal one-liner template whose only purpose is to OPEN the 24h
+  // window so the standalone PDF + warm caption can follow with full
+  // preview & full text. Eliminates the redundant "Hello {name}, your
+  // booking…" message that the formal `booking_confirmation_ar` template
+  // forces us to send.
+  const INTRO_NAME = "booking_intro_ar";
+  const intro = templates.find((t) => t.name === INTRO_NAME);
+  const isUsingIntro = currentTemplateName.trim().toLowerCase() === INTRO_NAME;
+  const isUsingWarm =
+    currentTemplateName.trim().toLowerCase() === "booking_welcome_ar";
+  const [submitting, setSubmitting] = useState(false);
+
+  // Don't bother the operator if they're already on the rich-document
+  // template (booking_welcome_ar) — they made a different UX choice.
+  if (isUsingWarm) return null;
+
+  async function submit() {
+    if (submitting) return;
+    if (
+      !confirm(
+        "سيتم تقديم قالب «الافتتاح المختصر» إلى Meta لاستبدال الرسالة الرسمية المكرّرة. عادةً يستغرق الأمر أقل من ساعة. متابعة؟",
+      )
+    )
+      return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/whatsapp/intro-template/setup", {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "فشل تقديم القالب");
+      toast.success(
+        `تم تقديم القالب "${data.templateName}" للمراجعة (الحالة: ${data.status}).`,
+      );
+      await onTemplateSubmitted();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "فشل تقديم القالب");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // Case 1 — intro template not yet submitted: invite the operator.
+  if (!intro) {
+    return (
+      <div className="rounded-xl border border-rose-300 bg-rose-50/60 p-4 space-y-2">
+        <div className="flex items-start gap-2">
+          <Sparkles size={18} className="text-rose-600 mt-0.5" />
+          <div className="flex-1">
+            <div className="font-semibold text-gray-800">
+              للتخلّص من رسالة «الترحيب الرسمية» المكرّرة 🎯
+            </div>
+            <div className="text-xs text-gray-700 mt-1 leading-relaxed">
+              قالبك الحالي{" "}
+              <code className="bg-white px-1 rounded">
+                {currentTemplateName || "booking_confirmation_ar"}
+              </code>{" "}
+              يحتوي نصاً رسمياً يكرّر بيانات الحجز التي تظهر في النصّ
+              الدافئ المرفق بـPDF. اضغط الزر أدناه لإنشاء قالب{" "}
+              <code className="bg-white px-1 rounded">
+                booking_intro_ar
+              </code>{" "}
+              مختصر <strong>(سطران فقط بلا متغيّرات)</strong> وظيفته فقط فتح
+              نافذة الـ24 ساعة ثم تأتي رسالة العقد PDF بالنصّ الدافئ كاملاً
+              مع المعاينة، ثم رسالة الذكر. النتيجة:{" "}
+              <strong>3 رسائل خفيفة بلا تكرار</strong>، مع معاينة الـPDF
+              والنصّ كاملاً.
+            </div>
+          </div>
+        </div>
+        <Can permission="whatsapp:create_template">
+          <button
+            type="button"
+            onClick={submit}
+            disabled={submitting}
+            className="flex items-center gap-2 px-3 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 text-sm disabled:opacity-50"
+          >
+            {submitting ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Sparkles size={14} />
+            )}
+            تقديم قالب الافتتاح المختصر إلى Meta
+          </button>
+        </Can>
+      </div>
+    );
+  }
+
+  // Case 2 — intro template exists but is pending review.
+  if (intro.status !== "APPROVED") {
+    return (
+      <div className="rounded-xl border border-blue-300 bg-blue-50/60 p-4 space-y-1">
+        <div className="flex items-center gap-2 font-semibold text-gray-800">
+          <Loader2 size={16} className="animate-spin text-blue-600" />
+          قالب <code className="bg-white px-1 rounded">{intro.name}</code> قيد
+          المراجعة من Meta — الحالة: <TemplateStatusBadge status={intro.status} />
+        </div>
+        <div className="text-xs text-gray-700">
+          سيتمّ تفعيله تلقائياً بمجرّد الاعتماد. حتى ذلك الحين يستخدم النظام
+          القالب الحالي (
+          <code className="bg-white px-1 rounded">{currentTemplateName}</code>
+          ) كافتتاح.
+        </div>
+      </div>
+    );
+  }
+
+  // Case 3 — approved but not yet bound: offer one-click switch.
+  if (!isUsingIntro) {
+    return (
+      <div className="rounded-xl border border-emerald-300 bg-emerald-50/60 p-4 space-y-2">
+        <div className="flex items-start gap-2">
+          <CheckCircle2 size={18} className="text-emerald-600 mt-0.5" />
+          <div className="flex-1">
+            <div className="font-semibold text-gray-800">
+              قالب الافتتاح المختصر معتمد ✅ — اربطه ليصبح المستخدم
+            </div>
+            <div className="text-xs text-gray-700 mt-1">
+              عند التفعيل: رسالة افتتاح من سطرين فقط، ثم رسالة العقد PDF
+              بالنصّ الدافئ كاملاً مع المعاينة، ثم رسالة الذكر. لا تكرار.
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onUseIntroTemplate}
+          className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm"
+        >
+          <CheckCircle2 size={14} />
+          استخدم قالب booking_intro_ar الآن
+        </button>
+      </div>
+    );
+  }
+
+  // Case 4 — already bound and approved.
+  return (
+    <div className="rounded-xl border border-emerald-300 bg-emerald-50/60 p-3 flex items-center gap-2 text-sm text-emerald-900">
+      <CheckCircle2 size={16} className="text-emerald-600" />
+      مفعّل: قالب الافتتاح المختصر <strong>{intro.name}</strong> — افتتاح
+      خفيف ثم PDF بالنصّ الدافئ كاملاً مع المعاينة 🎉
+    </div>
+  );
+}
+
+function WarmTemplateSetupBanner({
+  templates,
+  currentTemplateName,
+  onUseWarmTemplate,
+  onTemplateSubmitted,
+}: {
+  templates: TemplateRow[];
+  currentTemplateName: string;
+  onUseWarmTemplate: () => void;
+  onTemplateSubmitted: () => Promise<void>;
+}) {
+  const WARM_NAME = "booking_welcome_ar";
+  const warm = templates.find((t) => t.name === WARM_NAME);
+  const isUsingWarm = currentTemplateName.trim().toLowerCase() === WARM_NAME;
+  const [submitting, setSubmitting] = useState(false);
+
+  // The intro-template path (separate banner) is the recommended flow:
+  // it preserves PDF preview + full caption text. The DOCUMENT-header
+  // warm template is kept as an alternative for operators who explicitly
+  // want fewer messages and accept WhatsApp's "Read More" truncation.
+  // → Hide the "submit warm template" prompt unless the operator already
+  //   submitted it earlier or is currently bound to it.
+  if (!warm && !isUsingWarm) return null;
+
+  async function submit() {
+    if (submitting) return;
+    if (
+      !confirm(
+        "سيتم رفع نسخة عيّنة من عقد الإقامة إلى Meta وتقديم القالب الجديد للمراجعة. عادةً يستغرق الأمر أقل من ساعة. متابعة؟",
+      )
+    )
+      return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/whatsapp/welcome-template/setup", {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "فشل تقديم القالب");
+      toast.success(
+        `تم تقديم القالب "${data.templateName}" للمراجعة (الحالة: ${data.status}).`,
+      );
+      await onTemplateSubmitted();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "فشل تقديم القالب");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // Case 1 — warm template not yet submitted: invite the operator.
+  if (!warm) {
+    return (
+      <div className="rounded-xl border border-amber-300 bg-amber-50/60 p-4 space-y-2">
+        <div className="flex items-start gap-2">
+          <Sparkles size={18} className="text-amber-600 mt-0.5" />
+          <div className="flex-1">
+            <div className="font-semibold text-gray-800">
+              لتلقّي رسالة <strong>واحدة</strong> فقط (الرسالة الدافئة + PDF
+              مدمجة) بدلاً من رسالتين 🎯
+            </div>
+            <div className="text-xs text-gray-700 mt-1 leading-relaxed">
+              قالبك الحالي عنوانه نصّي فقط، لذا نحتاج رسالة منفصلة لإرفاق
+              العقد. اضغط الزر أدناه لإنشاء قالب{" "}
+              <code className="bg-white px-1 rounded">booking_welcome_ar</code>{" "}
+              برأس <strong>DOCUMENT</strong> (الرسالة الترحيبية + ملف العقد
+              في رسالة واحدة غنيّة)، ثم انتظر اعتماد Meta (أقل من ساعة عادةً).
+            </div>
+          </div>
+        </div>
+        <Can permission="whatsapp:create_template">
+          <button
+            type="button"
+            onClick={submit}
+            disabled={submitting}
+            className="flex items-center gap-2 px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm disabled:opacity-50"
+          >
+            {submitting ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Sparkles size={14} />
+            )}
+            تقديم قالب الترحيب الدافئ إلى Meta
+          </button>
+        </Can>
+      </div>
+    );
+  }
+
+  // Case 2 — warm template exists but is pending review.
+  if (warm.status !== "APPROVED") {
+    return (
+      <div className="rounded-xl border border-blue-300 bg-blue-50/60 p-4 space-y-1">
+        <div className="flex items-center gap-2 font-semibold text-gray-800">
+          <Loader2 size={16} className="animate-spin text-blue-600" />
+          قالب <code className="bg-white px-1 rounded">{warm.name}</code> قيد
+          المراجعة من Meta — الحالة: <TemplateStatusBadge status={warm.status} />
+        </div>
+        <div className="text-xs text-gray-700">
+          سيتمّ تفعيله تلقائياً بمجرّد الاعتماد. حتى ذلك الحين يستخدم النظام
+          القالب الحالي (
+          <code className="bg-white px-1 rounded">{currentTemplateName}</code>
+          ) في رسالتين كما هو.
+        </div>
+      </div>
+    );
+  }
+
+  // Case 3 — approved but not yet bound: offer one-click switch.
+  if (!isUsingWarm) {
+    return (
+      <div className="rounded-xl border border-emerald-300 bg-emerald-50/60 p-4 space-y-2">
+        <div className="flex items-start gap-2">
+          <CheckCircle2 size={18} className="text-emerald-600 mt-0.5" />
+          <div className="flex-1">
+            <div className="font-semibold text-gray-800">
+              قالب الترحيب الدافئ معتمد ✅ — اربطه ليصبح المستخدم الافتراضي
+            </div>
+            <div className="text-xs text-gray-700 mt-1">
+              عند التفعيل سيتم إرسال <strong>رسالة واحدة</strong> فقط (نصّ
+              ترحيبي + ملف العقد PDF مدمجَين)، يتبعها رسالة الذكر الاختيارية.
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onUseWarmTemplate}
+          className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm"
+        >
+          <CheckCircle2 size={14} />
+          استخدم قالب booking_welcome_ar الآن
+        </button>
+      </div>
+    );
+  }
+
+  // Case 4 — already bound and approved.
+  return (
+    <div className="rounded-xl border border-emerald-300 bg-emerald-50/60 p-3 flex items-center gap-2 text-sm text-emerald-900">
+      <CheckCircle2 size={16} className="text-emerald-600" />
+      مفعّل: قالب الترحيب الدافئ <strong>{warm.name}</strong> — يتم إرسال
+      الرسالة + PDF في رسالة واحدة 🎉
     </div>
   );
 }

@@ -125,6 +125,7 @@ export function useInboxData(params: {
           ? {
               id: raw.contact.id,
               displayName: raw.contact.displayName,
+              waProfileName: (raw.contact as { waProfileName?: string | null }).waProfileName ?? null,
               nickname: raw.contact.nickname,
               company: raw.contact.company,
               tags: raw.contact.tags,

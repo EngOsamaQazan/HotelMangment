@@ -49,6 +49,7 @@ export async function GET(req: Request) {
       where.OR = [
         { phone: { contains: search } },
         { displayName: { contains: search, mode: "insensitive" } },
+        { waProfileName: { contains: search, mode: "insensitive" } },
         { nickname: { contains: search, mode: "insensitive" } },
         { email: { contains: search, mode: "insensitive" } },
         { company: { contains: search, mode: "insensitive" } },

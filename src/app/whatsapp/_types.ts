@@ -6,6 +6,8 @@ export interface ConversationSummary {
   contact: {
     id: number;
     displayName: string | null;
+    /** Name as advertised by the contact on their WhatsApp profile. */
+    waProfileName: string | null;
     nickname: string | null;
     company: string | null;
     tags: string[];

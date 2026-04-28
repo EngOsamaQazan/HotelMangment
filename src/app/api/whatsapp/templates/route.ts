@@ -41,9 +41,16 @@ export async function POST() {
   try {
     const remote = await listTemplates();
 
-    // Upsert everything we see.
+    // Upsert everything we see. Meta returns the literal string "NONE"
+    // (not an empty value) for templates that have NOT been rejected — so
+    // normalise it to null to avoid showing "NONE" as a fake rejection
+    // reason in the admin UI.
     for (const t of remote) {
       const components = (t.components ?? Prisma.JsonNull) as Prisma.InputJsonValue;
+      const rejectionReason =
+        t.rejected_reason && t.rejected_reason.toUpperCase() !== "NONE"
+          ? t.rejected_reason
+          : null;
       await prisma.whatsAppTemplate.upsert({
         where: { metaId: t.id },
         create: {
@@ -53,7 +60,7 @@ export async function POST() {
           category: t.category,
           status: t.status,
           components,
-          rejectionReason: t.rejected_reason ?? null,
+          rejectionReason,
         },
         update: {
           name: t.name,
@@ -61,7 +68,7 @@ export async function POST() {
           category: t.category,
           status: t.status,
           components,
-          rejectionReason: t.rejected_reason ?? null,
+          rejectionReason,
           lastSyncedAt: new Date(),
         },
       });

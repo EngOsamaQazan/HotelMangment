@@ -18,6 +18,7 @@ import {
   notifyMessageStatus,
 } from "@/lib/whatsapp/fanout";
 import { runAutoReply } from "@/lib/whatsapp/autoReply";
+import { dispatchInboundToBot } from "@/lib/whatsapp/bot/gateway";
 
 /**
  * WhatsApp Business Cloud webhook.
@@ -105,9 +106,11 @@ async function handleInbound(msg: WebhookInboundMessage, contactName: string | n
   const { type, body, template, media } = extractInboundContent(msg);
 
   // 1. Phonebook: ensure a contact row exists and is up to date.
+  // We store the WhatsApp profile name in `waProfileName` (not `displayName`)
+  // so that user-edited names in our system are never clobbered by a webhook.
   const contact = await upsertContact({
     phone: msg.from,
-    displayName: contactName,
+    waProfileName: contactName,
     source: "whatsapp",
     optedIn: true, // messaging us IS the opt-in per Meta policy
   });
@@ -199,19 +202,38 @@ async function handleInbound(msg: WebhookInboundMessage, contactName: string | n
     mediaFilename: media?.filename ?? null,
   });
 
-  // 6. Auto-reply engine — keyword/welcome/away rules. Never throws.
-  const isFirstInbound =
-    !!conversation.firstInboundAt &&
-    Math.abs(conversation.firstInboundAt.getTime() - messageAt.getTime()) < 2000;
-  await runAutoReply({
-    contactPhone: msg.from,
-    body,
-    messageId: stored.id,
-    conversationId: conversation.id,
+  // 6. AI Concierge bot gateway. The gateway itself decides whether to
+  //    engage based on `WhatsAppConfig.botMode`, allowlist, percentage
+  //    rollout, human-takeover, escalation state, and budget caps — when
+  //    botMode = "off" (the default) this returns a no-op immediately and
+  //    the legacy auto-reply path below remains the only handler.
+  const botResult = await dispatchInboundToBot({
+    phone: msg.from,
     contactName,
-    isFirstInbound,
-    isMuted: conversation.isMuted,
+    inboundBody: body,
+    inboundType: type,
+    inboundAt: messageAt,
+    conversationId: conversation.id,
   });
+
+  // 7. Auto-reply engine (legacy keyword/welcome/away rules) — runs only
+  //    when the bot decided not to reply. Avoids double-messaging the guest
+  //    while still preserving operator-configured reflexes for when the
+  //    bot is off or in shadow mode.
+  if (botResult.outcome !== "replied") {
+    const isFirstInbound =
+      !!conversation.firstInboundAt &&
+      Math.abs(conversation.firstInboundAt.getTime() - messageAt.getTime()) < 2000;
+    await runAutoReply({
+      contactPhone: msg.from,
+      body,
+      messageId: stored.id,
+      conversationId: conversation.id,
+      contactName,
+      isFirstInbound,
+      isMuted: conversation.isMuted,
+    });
+  }
 }
 
 async function handleStatus(st: WebhookStatus) {
@@ -220,10 +242,67 @@ async function handleStatus(st: WebhookStatus) {
   const first = errors[0];
 
   // Find the row so we can emit a realtime status update with its id/phone.
-  const row = await prisma.whatsAppMessage.findUnique({
+  let row = await prisma.whatsAppMessage.findUnique({
     where: { wamid: st.id },
     select: { id: true, contactPhone: true, conversationId: true },
   });
+
+  // ── Ghost-row backfill ────────────────────────────────────────────────
+  // Status arrived for a wamid we never logged. This means another app or
+  // service sent a message using the SAME WhatsApp Business phone number.
+  // Create a stub row so /whatsapp shows the activity and our analytics
+  // pick it up. The body stays null because Meta doesn't echo it back.
+  if (!row && st.recipient_id) {
+    try {
+      const recipientPhone = st.recipient_id.replace(/[^0-9]/g, "");
+      // Ensure contact + conversation exist so the inbox UI joins cleanly.
+      const contact = await prisma.whatsAppContact.upsert({
+        where: { phone: recipientPhone },
+        create: {
+          phone: recipientPhone,
+          source: "whatsapp",
+          optedIn: true,
+          lastSeenAt: ts,
+          lastMessageAt: ts,
+        },
+        update: { lastMessageAt: ts },
+      });
+      const conv = await prisma.whatsAppConversation.upsert({
+        where: { contactPhone: recipientPhone },
+        create: {
+          contactPhone: recipientPhone,
+          contactId: contact.id,
+          lastMessageAt: ts,
+          unreadCount: 0,
+        },
+        update: { lastMessageAt: ts },
+      });
+      const created = await prisma.whatsAppMessage.create({
+        data: {
+          direction: "outbound",
+          wamid: st.id,
+          contactPhone: recipientPhone,
+          type: "unknown",
+          body: null,
+          status: st.status,
+          pricingCategory: st.pricing?.category ?? null,
+          sentAt: st.status === "sent" ? ts : null,
+          deliveredAt: st.status === "delivered" ? ts : null,
+          readAt: st.status === "read" ? ts : null,
+          errorCode: first ? String(first.code) : null,
+          errorMessage: first ? (first.message ?? first.title) : null,
+          conversationId: conv.id,
+          rawJson: { ghost: true, externalApp: true } as object,
+        },
+        select: { id: true, contactPhone: true, conversationId: true },
+      });
+      row = created;
+    } catch (err) {
+      // Race or transient — duplicate inserts are common when statuses
+      // arrive in the order sent → delivered → read milliseconds apart.
+      console.warn("[webhook] ghost-row create failed:", err);
+    }
+  }
 
   await prisma.whatsAppMessage.updateMany({
     where: { wamid: st.id },
@@ -365,8 +444,23 @@ function extractInboundContent(msg: WebhookInboundMessage): {
         template: null,
         media: null,
       };
-    case "interactive":
-      return { type: "interactive", body: null, template: null, media: null };
+    case "interactive": {
+      // The user tapped a Reply Button, picked a List row, or finished a Flow
+      // we previously sent. The bot engine (Phase 1+) needs the structured
+      // `id` to route the action; the inbox UI just needs the human-readable
+      // title. We squash both into `body` as `id|title` so a single column
+      // works for both consumers — the raw payload is always in `rawJson`.
+      const inter = msg.interactive;
+      let body: string | null = null;
+      if (inter?.type === "button_reply" && inter.button_reply) {
+        body = `${inter.button_reply.id}|${inter.button_reply.title}`;
+      } else if (inter?.type === "list_reply" && inter.list_reply) {
+        body = `${inter.list_reply.id}|${inter.list_reply.title}`;
+      } else if (inter?.type === "nfm_reply" && inter.nfm_reply) {
+        body = inter.nfm_reply.body ?? inter.nfm_reply.name ?? "flow_reply";
+      }
+      return { type: "interactive", body, template: null, media: null };
+    }
     default:
       return { type: msg.type || "unknown", body: null, template: null, media: null };
   }

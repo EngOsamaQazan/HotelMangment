@@ -294,13 +294,15 @@ export default function ReservationsPage() {
             </Link>
           </Can>
           <Can permission="reservations:print">
-            <Link
-              href={`/reservations/${r.id}/contract`}
+            <a
+              href={`/api/reservations/${r.id}/contract.pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
               title="طباعة العقد"
             >
               <FileText size={16} />
-            </Link>
+            </a>
           </Can>
         </div>
       ),
@@ -465,13 +467,15 @@ function ReservationCard({ reservation: r }: { reservation: Reservation }) {
           عرض
         </Link>
         <Can permission="reservations:print">
-          <Link
-            href={`/reservations/${r.id}/contract`}
+          <a
+            href={`/api/reservations/${r.id}/contract.pdf`}
+            target="_blank"
+            rel="noopener noreferrer"
             className="flex-1 flex items-center justify-center gap-1 py-2 text-amber-600 bg-amber-50 rounded-lg text-xs font-medium tap-44"
           >
             <FileText size={14} />
             العقد
-          </Link>
+          </a>
         </Can>
       </div>
     </div>

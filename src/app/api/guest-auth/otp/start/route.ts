@@ -97,24 +97,70 @@ export async function POST(request: Request) {
     }
 
     const { code, intentId, magicToken } = await createOtp({ phone, purpose, ip });
+    const isDev = process.env.NODE_ENV !== "production";
 
     // In dev, surface the code to server logs so you don't need WhatsApp
     // configured to test the flow locally. Never reach this in prod.
-    if (process.env.NODE_ENV !== "production") {
-      console.log(`[guest-auth] OTP for ${phone} (${purpose}): ${code}`);
+    if (isDev) {
+      console.log(
+        `\n┌─────────────────── GUEST OTP (DEV) ───────────────────\n` +
+          `│  phone   : ${phone}\n` +
+          `│  purpose : ${purpose}\n` +
+          `│  code    : ${code}\n` +
+          `└────────────────────────────────────────────────────────\n`,
+      );
     }
 
     const delivery = await deliverOtp({ phone, code, purpose, magicToken });
     if (!delivery.sent) {
-      // If WhatsApp is unreachable in production we still mark the request as
-      // successful — the user can retry. But log the failure reason for ops.
-      console.warn("[guest-auth] OTP delivery failed:", delivery.reason);
-      if (process.env.NODE_ENV === "production") {
+      // Differentiate between "WhatsApp not configured / template missing"
+      // (operator error — fix the env) and a transient network blip.
+      const reason = delivery.reason;
+      const isReengagement =
+        reason.includes("131047") || reason.toLowerCase().includes("re-engage");
+      const isUnconfigured =
+        reason.includes("غير مُهيّأ") || reason.includes("not configured");
+      const hint = isReengagement
+        ? "Meta رفض الرسالة لأن المستخدم خارج نافذة 24 ساعة. اضبط `WHATSAPP_OTP_TEMPLATE` في .env.local باسم قالب AUTHENTICATION معتمد."
+        : isUnconfigured
+          ? "WhatsApp Business API غير مُهيّأ — افتح /settings/whatsapp وأضف Access Token + Phone Number ID."
+          : null;
+
+      console.warn(
+        `[guest-auth] OTP delivery failed: ${reason}` +
+          (hint ? `\n  → ${hint}` : ""),
+      );
+
+      if (!isDev) {
         return NextResponse.json(
           { error: "تعذّر إرسال رمز التحقّق عبر واتساب. حاول بعد قليل." },
           { status: 502 },
         );
       }
+      // Dev only: surface the code in the response itself so the developer
+      // can complete the flow without WhatsApp working. NEVER do this in prod.
+      const res = NextResponse.json({
+        ok: true,
+        expiresIn: 600,
+        magicLinkSent: false,
+        _dev: {
+          code,
+          deliveryError: reason,
+          hint,
+          message:
+            "WhatsApp delivery failed in dev — using code from server logs. This block does not exist in production.",
+        },
+      });
+      res.cookies.set({
+        name: WA_INTENT_COOKIE,
+        value: intentId,
+        httpOnly: true,
+        sameSite: "lax",
+        secure: false,
+        path: "/",
+        maxAge: WA_INTENT_TTL_SECONDS,
+      });
+      return res;
     }
 
     const res = NextResponse.json({

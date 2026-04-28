@@ -36,6 +36,13 @@ export interface WhatsAppPublicConfig {
   hasAppSecret: boolean;
   hasWebhookVerifyToken: boolean;
   webhookUrl: string;
+  // Booking-confirmation auto-send (Phase 3)
+  autoSendBookingConfirmation: boolean;
+  bookingConfirmationTemplate: string;
+  bookingConfirmationLanguage: string;
+  bookingConfirmationCaption: string | null;
+  bookingFollowUpEnabled: boolean;
+  bookingFollowUpText: string | null;
   lastVerifiedAt: Date | null;
   lastVerifyOk: boolean | null;
   lastError: string | null;
@@ -113,6 +120,12 @@ export async function loadPublicConfig(): Promise<WhatsAppPublicConfig> {
     hasAppSecret: !!row.appSecretEnc,
     hasWebhookVerifyToken: !!row.webhookVerifyToken,
     webhookUrl: `${siteUrl}/api/whatsapp/webhook`,
+    autoSendBookingConfirmation: row.autoSendBookingConfirmation,
+    bookingConfirmationTemplate: row.bookingConfirmationTemplate,
+    bookingConfirmationLanguage: row.bookingConfirmationLanguage,
+    bookingConfirmationCaption: row.bookingConfirmationCaption,
+    bookingFollowUpEnabled: row.bookingFollowUpEnabled,
+    bookingFollowUpText: row.bookingFollowUpText,
     lastVerifiedAt: row.lastVerifiedAt,
     lastVerifyOk: row.lastVerifyOk,
     lastError: row.lastError,
@@ -131,6 +144,12 @@ export interface UpdateConfigInput {
   webhookVerifyToken?: string | null;
   apiVersion?: string | null;
   isActive?: boolean;
+  autoSendBookingConfirmation?: boolean;
+  bookingConfirmationTemplate?: string;
+  bookingConfirmationLanguage?: string;
+  bookingConfirmationCaption?: string | null;
+  bookingFollowUpEnabled?: boolean;
+  bookingFollowUpText?: string | null;
 }
 
 export async function updateConfig(patch: UpdateConfigInput) {
@@ -147,6 +166,29 @@ export async function updateConfig(patch: UpdateConfigInput) {
   if (patch.apiVersion !== undefined)
     data.apiVersion = (patch.apiVersion || "").trim() || "v21.0";
   if (patch.isActive !== undefined) data.isActive = !!patch.isActive;
+  if (patch.autoSendBookingConfirmation !== undefined)
+    data.autoSendBookingConfirmation = !!patch.autoSendBookingConfirmation;
+  if (patch.bookingConfirmationTemplate !== undefined)
+    data.bookingConfirmationTemplate =
+      (patch.bookingConfirmationTemplate || "").trim() ||
+      "booking_confirmation_ar";
+  if (patch.bookingConfirmationLanguage !== undefined)
+    data.bookingConfirmationLanguage =
+      (patch.bookingConfirmationLanguage || "").trim() || "ar";
+  if (patch.bookingConfirmationCaption !== undefined)
+    data.bookingConfirmationCaption =
+      typeof patch.bookingConfirmationCaption === "string" &&
+      patch.bookingConfirmationCaption.trim()
+        ? patch.bookingConfirmationCaption.trim()
+        : null;
+  if (patch.bookingFollowUpEnabled !== undefined)
+    data.bookingFollowUpEnabled = !!patch.bookingFollowUpEnabled;
+  if (patch.bookingFollowUpText !== undefined)
+    data.bookingFollowUpText =
+      typeof patch.bookingFollowUpText === "string" &&
+      patch.bookingFollowUpText.trim()
+        ? patch.bookingFollowUpText.trim()
+        : null;
 
   // Only overwrite secrets when a new value is explicitly provided.
   if (typeof patch.accessToken === "string" && patch.accessToken.trim()) {

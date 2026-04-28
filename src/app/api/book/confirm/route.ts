@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { confirmHold, HoldError } from "@/lib/booking/hold";
 import { sendText, isWhatsAppApiError } from "@/lib/whatsapp/client";
+import { logOutboundOneShot } from "@/lib/whatsapp/log-outbound";
+import { normalizeWhatsAppPhone } from "@/lib/whatsapp/phone";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { sendBrandedPushToUsers } from "@/lib/push/server";
 
@@ -209,15 +211,29 @@ async function notifyGuestOfConfirmation(
     `المجموع: ${reservation.totalAmount} د.أ\n\n` +
     `يمكنك عرض قسيمة الحجز من حسابك على الموقع.`;
 
+  const e164 = normalizeWhatsAppPhone(to) ?? to.replace(/[^0-9]/g, "");
   try {
-    if (template) {
-      // If a template is configured we keep the text fallback to avoid
-      // coupling the integration to a specific component layout.
-      await sendText({ to, text: message });
-    } else {
-      await sendText({ to, text: message });
-    }
+    const resp = await sendText({ to: e164, text: message });
+    await logOutboundOneShot({
+      to: e164,
+      type: "text",
+      body: message,
+      reservationId: reservation.id ?? null,
+      wamid: resp.messages?.[0]?.id ?? null,
+      raw: resp,
+      origin: "book/confirm",
+    });
+    void template; // template branch reserved — currently identical to text path.
   } catch (err) {
+    await logOutboundOneShot({
+      to: e164,
+      type: "text",
+      body: message,
+      reservationId: reservation.id ?? null,
+      wamid: null,
+      failed: { errorMessage: (err as Error).message },
+      origin: "book/confirm:failed",
+    });
     if (isWhatsAppApiError(err)) {
       console.warn("[book/confirm] WhatsApp API error", err.code, err.message);
     } else {

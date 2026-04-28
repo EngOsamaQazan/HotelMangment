@@ -7,15 +7,19 @@
     "jsx": "preserve",
     "isolatedModules": false,
     "noEmit": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] }
   },
   "ts-node": {
     "transpileOnly": true,
     "compilerOptions": {
       "module": "commonjs",
       "moduleResolution": "node",
-      "jsx": "preserve"
+      "jsx": "preserve",
+      "baseUrl": ".",
+      "paths": { "@/*": ["./src/*"] }
     }
   },
-  "include": ["scripts/**/*.ts", "prisma/**/*.ts", "src/**/*.ts"]
+  "include": ["scripts/**/*.ts", "prisma/**/*.ts", "src/**/*.ts", "_*.ts"]
 }

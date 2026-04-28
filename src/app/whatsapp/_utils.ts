@@ -99,9 +99,31 @@ export function relativeTime(iso: string | null | undefined): string {
   return d.toLocaleDateString("ar", { month: "short", day: "numeric" });
 }
 
+/**
+ * Resolve the best name to show for a conversation.
+ *
+ * Priority:
+ *   1. `displayName`     – name set manually by us in the CRM phonebook.
+ *   2. `nickname`        – short alias entered by staff.
+ *   3. `waProfileName`   – name the customer uses on their own WhatsApp profile
+ *                          (captured from `contacts[].profile.name` on every
+ *                          inbound webhook). Lets us greet a brand-new contact
+ *                          by their real name even before anyone saves them.
+ *   4. `+<phone>`        – ultimate fallback.
+ */
 export function conversationDisplayName(c: ConversationSummary): string {
   return (
-    c.contact?.displayName ?? c.contact?.nickname ?? `+${c.contactPhone}`
+    c.contact?.displayName ??
+    c.contact?.nickname ??
+    c.contact?.waProfileName ??
+    `+${c.contactPhone}`
+  );
+}
+
+/** True when we have any human-readable name (saved or from WhatsApp itself). */
+export function conversationHasName(c: ConversationSummary): boolean {
+  return Boolean(
+    c.contact?.displayName || c.contact?.nickname || c.contact?.waProfileName,
   );
 }
 

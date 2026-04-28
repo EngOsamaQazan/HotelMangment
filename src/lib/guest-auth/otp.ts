@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import jwt from "./jwt";
 import { prisma } from "@/lib/prisma";
 import { sendTemplate, sendText, isWhatsAppApiError } from "@/lib/whatsapp/client";
+import { logOutboundOneShot } from "@/lib/whatsapp/log-outbound";
 
 export type OtpPurpose = "signup" | "login" | "reset" | "change_phone";
 
@@ -154,14 +155,15 @@ export async function deliverOtp(args: {
   | { sent: false; reason: string; magicLink: string }
 > {
   const templateName = process.env.WHATSAPP_OTP_TEMPLATE;
+  const templateLang = process.env.WHATSAPP_OTP_TEMPLATE_LANG || "ar";
   const magicLink = buildMagicLink(args.magicToken);
 
   try {
     if (templateName) {
-      await sendTemplate({
+      const tplResp = await sendTemplate({
         to: args.phone,
         templateName,
-        language: "ar",
+        language: templateLang,
         components: [
           {
             type: "body",
@@ -177,15 +179,33 @@ export async function deliverOtp(args: {
           },
         ],
       });
+      // Mirror the OTP template into the inbox so /whatsapp shows it. The
+      // body is intentionally kept short — the actual code stays out of the
+      // log (in case the table is ever leaked) and we just record a marker.
+      await logOutboundOneShot({
+        to: args.phone,
+        type: "template",
+        body: `OTP (${args.purpose})`,
+        templateName,
+        wamid: tplResp.messages?.[0]?.id ?? null,
+        raw: tplResp,
+        isInternalNote: false,
+        origin: "guest-auth:otp-template",
+      });
 
       // Best-effort follow-up with the magic link inside the now-open
       // 24-hour window. Failure here doesn't fail the whole delivery —
       // the user can still type the 6-digit code from the template.
       try {
-        await sendText({
+        const followText = `أو اضغط هنا للتحقق التلقائي بدون نسخ الرمز:\n${magicLink}\n\n(الرابط صالح لمدة 10 دقائق ولاستخدام مرة واحدة فقط — لا تشاركه مع أيّ شخص.)`;
+        const followResp = await sendText({ to: args.phone, text: followText });
+        await logOutboundOneShot({
           to: args.phone,
-          text:
-            `أو اضغط هنا للتحقق التلقائي بدون نسخ الرمز:\n${magicLink}\n\n(الرابط صالح لمدة 10 دقائق ولاستخدام مرة واحدة فقط — لا تشاركه مع أيّ شخص.)`,
+          type: "text",
+          body: followText,
+          wamid: followResp.messages?.[0]?.id ?? null,
+          raw: followResp,
+          origin: "guest-auth:otp-magic-link",
         });
       } catch (followUpErr) {
         console.warn("[guest-auth] magic-link follow-up failed:", followUpErr);
@@ -194,18 +214,34 @@ export async function deliverOtp(args: {
       return { sent: true, channel: "template", magicLink };
     }
 
-    await sendText({
+    const text =
+      `رمز التحقّق الخاص بك في فندق المفرق هو: ${args.code}\n` +
+      `أو اضغط هنا للتحقق التلقائي:\n${magicLink}\n\n` +
+      `صالح لمدة 10 دقائق. لا تشارك هذا الرمز أو الرابط مع أيّ شخص.`;
+    const resp = await sendText({ to: args.phone, text });
+    await logOutboundOneShot({
       to: args.phone,
-      text:
-        `رمز التحقّق الخاص بك في فندق المفرق هو: ${args.code}\n` +
-        `أو اضغط هنا للتحقق التلقائي:\n${magicLink}\n\n` +
-        `صالح لمدة 10 دقائق. لا تشارك هذا الرمز أو الرابط مع أيّ شخص.`,
+      type: "text",
+      body: text,
+      wamid: resp.messages?.[0]?.id ?? null,
+      raw: resp,
+      origin: "guest-auth:otp-text",
     });
     return { sent: true, channel: "text", magicLink };
   } catch (error) {
     const reason = isWhatsAppApiError(error)
       ? `whatsapp:${error.code ?? error.status}`
       : String((error as Error).message ?? error);
+    // Log the failure too — the operator should see *why* nothing was sent.
+    await logOutboundOneShot({
+      to: args.phone,
+      type: templateName ? "template" : "text",
+      body: templateName ? `OTP (${args.purpose})` : "(فشل إرسال OTP نصي)",
+      templateName: templateName ?? undefined,
+      wamid: null,
+      failed: { errorMessage: reason },
+      origin: "guest-auth:otp-failed",
+    });
     return { sent: false, reason, magicLink };
   }
 }

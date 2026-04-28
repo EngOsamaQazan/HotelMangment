@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
+import { triggerBookingConfirmationAsync } from "@/lib/whatsapp/auto-trigger";
 
 /** PATCH — update status or assign mappedUnitId. */
 export async function PATCH(
@@ -95,6 +96,7 @@ export async function POST(
       return r;
     });
 
+    triggerBookingConfirmationAsync(reservation.id);
     return NextResponse.json({ ok: true, reservationId: reservation.id });
   } catch (error) {
     const authErr = handleAuthError(error);

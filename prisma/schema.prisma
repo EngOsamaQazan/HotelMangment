@@ -54,6 +54,10 @@ model User {
   whatsappPushSubscriptions       WhatsAppPushSubscription[]
   whatsappNotificationPref        WhatsAppNotificationPref?
 
+  // ---- AI Concierge bot (Phase 0+) ----
+  botAllowlistEntries  BotAllowlist[]    @relation("BotAllowlistAdder")
+  botShadowDecisions   BotShadowDraft[]  @relation("BotShadowDraftDecider")
+
   @@map("users")
 }
 
@@ -434,8 +438,9 @@ model GuestAccount {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  reservations Reservation[]
-  identities   GuestAccountIdentity[]
+  reservations     Reservation[]
+  identities       GuestAccountIdentity[]
+  botConversations BotConversation[]
 
   @@index([createdAt])
   @@map("guest_accounts")
@@ -1261,6 +1266,88 @@ model WhatsAppConfig {
   webhookVerifyToken String?   @map("webhook_verify_token")
   apiVersion         String    @default("v21.0") @map("api_version")
   isActive           Boolean   @default(true) @map("is_active")
+
+  // ---- Booking-confirmation auto-send (Phase 3) ----
+  /// When true, every successful POST /api/reservations triggers a fire-
+  /// and-forget WhatsApp dispatch: approved template + auto-generated
+  /// contract PDF + the optional welcome caption below.
+  autoSendBookingConfirmation Boolean @default(false) @map("auto_send_booking_confirmation")
+  /// Approved template name used for the auto dispatch. Defaults to
+  /// "booking_confirmation_ar" but operators can rebind to any UTILITY
+  /// template they have approved.
+  bookingConfirmationTemplate String  @default("booking_confirmation_ar") @map("booking_confirmation_template")
+  bookingConfirmationLanguage String  @default("ar") @map("booking_confirmation_language")
+  /// Free-text caption attached to the contract PDF when delivered as a
+  /// follow-up document (header is TEXT and not DOCUMENT). May contain
+  /// the same {{1}}..{{N}} placeholders as the template body — they are
+  /// substituted with the same reservation facts.
+  bookingConfirmationCaption  String? @map("booking_confirmation_caption")
+
+  /// When true, after the structured confirmation + PDF are delivered we
+  /// send an additional free-text message (within the now-open 24-hour
+  /// customer-service window) that contains a tasteful Quranic / Sunnah
+  /// blessing — matches the religious section already printed on the
+  /// physical contract. Operator can disable or rewrite the text below.
+  bookingFollowUpEnabled      Boolean @default(true)  @map("booking_follow_up_enabled")
+  /// Free-text follow-up message (Quranic art / Sunnah). Supports the
+  /// same {{1}}..{{N}} substitutions for personalisation.
+  bookingFollowUpText         String? @map("booking_follow_up_text")
+
+  // ---- AI Concierge bot ("WhatsApp Booking Bot") — Phase 0+ ----
+  /// Master switch + rollout strategy.
+  ///   "off"        = bot is fully disabled (current behaviour).
+  ///   "shadow"     = bot processes every inbound and writes a draft to
+  ///                  `bot_shadow_drafts`, but never sends to the guest.
+  ///                  Staff approve/edit/ignore from the inbox UI.
+  ///   "allowlist"  = bot replies only when the contact phone is present in
+  ///                  `bot_allowlist`. All other contacts go through the
+  ///                  unchanged inbox + auto-reply path.
+  ///   "percentage" = bot replies for `botRolloutPercentage`% of contacts,
+  ///                  partitioned deterministically by hash(phone). The same
+  ///                  guest always gets the same experience.
+  ///   "full"       = bot replies for every eligible inbound.
+  /// In every mode except "off" the kill-switch is a single UPDATE.
+  botMode                       String   @default("off") @map("bot_mode")
+  /// 0..100 — only consulted when `botMode = "percentage"`.
+  botRolloutPercentage          Int      @default(0)     @map("bot_rollout_percentage")
+  /// Persona name surfaced inside the system prompt ("أنت محمد...").
+  botPersonaName                String   @default("محمد") @map("bot_persona_name")
+  /// "warm" | "formal" | "playful" — feeds the system prompt tone.
+  botPersonaTone                String   @default("warm") @map("bot_persona_tone")
+  /// LLM provider id: "openai" | "gemini" | "anthropic".
+  botLlmProvider                String   @default("openai") @map("bot_llm_provider")
+  /// Concrete model slug for the chosen provider (e.g. "gpt-4o-mini").
+  botLlmModel                   String   @default("gpt-4o-mini") @map("bot_llm_model")
+  /// Encrypted LLM API key (never returned to the client unmasked).
+  botLlmApiKeyEnc               String?  @map("bot_llm_api_key_enc")
+  /// Hard cap on tool-call hops per inbound message (anti-runaway).
+  botMaxToolHops                Int      @default(5)     @map("bot_max_tool_hops")
+  /// Hard cap on user/assistant turn pairs kept in the LLM context.
+  botMaxTurns                   Int      @default(12)    @map("bot_max_turns")
+  /// USD spending budget per UTC day. Circuit-breaker kicks in when crossed.
+  botDailyBudgetUsd             Decimal  @default(5)     @map("bot_daily_budget_usd")  @db.Decimal(8, 2)
+  /// Running total for the current day; reset by `botCostResetAt`.
+  botCostTodayUsd               Decimal  @default(0)     @map("bot_cost_today_usd")    @db.Decimal(8, 4)
+  botCostResetAt                DateTime? @map("bot_cost_reset_at")
+  /// When true, automatic circuit breakers (escalation rate, budget, etc.)
+  /// can downgrade `botMode` to "shadow" without human intervention.
+  botCircuitBreakerEnabled      Boolean  @default(true)  @map("bot_circuit_breaker_enabled")
+  /// Optional opening-hours window in Asia/Amman, "HH:mm" strings. Outside
+  /// this window the bot escalates to human immediately. Null = 24/7.
+  botActiveHoursStart           String?  @map("bot_active_hours_start")
+  botActiveHoursEnd             String?  @map("bot_active_hours_end")
+  /// When true, sender splits long messages and adds typing-style pacing.
+  botHumanlikePacing            Boolean  @default(true)  @map("bot_humanlike_pacing")
+  /// Default Stripe payment currency code (uppercase). The booking engine
+  /// computes amounts in JOD; this controls the actual Checkout charge.
+  botPaymentCurrency            String   @default("JOD") @map("bot_payment_currency")
+  /// Encrypted Stripe secret key. Never returned to the client unmasked.
+  botStripeSecretKeyEnc         String?  @map("bot_stripe_secret_key_enc")
+  /// Encrypted Stripe webhook signing secret (whsec_...).
+  botStripeWebhookSecretEnc     String?  @map("bot_stripe_webhook_secret_enc")
+  /// Public origin used when constructing Stripe success/cancel URLs.
+  botPublicBaseUrl              String?  @map("bot_public_base_url")
+
   lastVerifiedAt     DateTime? @map("last_verified_at")
   lastVerifyOk       Boolean?  @map("last_verify_ok")
   lastError          String?   @map("last_error")
@@ -1326,6 +1413,7 @@ model WhatsAppMessage {
   createdAt       DateTime  @default(now()) @map("created_at")
 
   conversation WhatsAppConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  shadowDraft  BotShadowDraft?
 
   @@index([contactPhone, createdAt])
   @@index([direction, status])
@@ -1409,6 +1497,11 @@ model WhatsAppContact {
   phone           String    @unique
   /// Preferred display name (falls back to nickname / phone).
   displayName     String?   @map("display_name")
+  /// Profile name as advertised by the contact on WhatsApp itself
+  /// (`contacts[].profile.name` on every inbound webhook). Refreshed on each
+  /// message so it stays in sync with what the customer changes on their side.
+  /// Never overwrites the user-edited `displayName`.
+  waProfileName   String?   @map("wa_profile_name")
   nickname        String?
   email           String?
   company         String?
@@ -1477,12 +1570,14 @@ model WhatsAppConversation {
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
 
-  contact    WhatsAppContact?            @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  assignedTo User?                       @relation("WhatsAppConversationAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
-  assignedBy User?                       @relation("WhatsAppConversationAssigner", fields: [assignedByUserId], references: [id], onDelete: SetNull)
-  messages   WhatsAppMessage[]
-  notes      WhatsAppConversationNote[]
-  events     WhatsAppConversationEvent[]
+  contact      WhatsAppContact?            @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  assignedTo   User?                       @relation("WhatsAppConversationAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  assignedBy   User?                       @relation("WhatsAppConversationAssigner", fields: [assignedByUserId], references: [id], onDelete: SetNull)
+  messages     WhatsAppMessage[]
+  notes        WhatsAppConversationNote[]
+  events       WhatsAppConversationEvent[]
+  botConv      BotConversation?
+  shadowDrafts BotShadowDraft[]
 
   @@index([assignedToUserId, status, lastMessageAt])
   @@index([status, lastMessageAt])
@@ -1569,4 +1664,137 @@ model WhatsAppNotificationPref {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("whatsapp_notification_prefs")
+}
+
+// ============================================================================
+// AI Concierge Bot ("WhatsApp Booking Bot") — Phase 0+
+//
+// Sits beside the existing WhatsAppConversation/Message/Auto-Reply tables and
+// powers the hybrid tool-calling agent that books a stay end-to-end. All
+// runtime state needed to resume a conversation across hours/days lives here;
+// the WhatsApp-protocol-level rows stay in `whatsapp_*` and remain the source
+// of truth for the inbox UI even when the bot is off.
+// ============================================================================
+
+/// One persistent bot session per contact phone. Holds the dialog state,
+/// collected slots (dates/guests/category), the current pending hold, the
+/// active Stripe payment link, and rolling LLM cost accounting. There is at
+/// most one row per phone (`@unique`); transitions are mutated in-place.
+model BotConversation {
+  id              Int      @id @default(autoincrement())
+  /// E.164 digits — same shape used everywhere else in the WhatsApp module.
+  contactPhone    String   @unique @map("contact_phone")
+  /// Soft-link to the staff-facing conversation row (assignment/notes/events).
+  conversationId  Int?     @unique @map("conversation_id")
+  /// The GuestAccount we auto-provisioned on first contact. Null until the
+  /// bot has confirmed the guest's display name and created the account.
+  guestAccountId  Int?     @map("guest_account_id")
+  /// Finite-state machine label. Free text on purpose so we can extend it
+  /// without migrations: idle | greeting | collecting | quoting | holding |
+  /// awaiting_payment | confirmed | escalated | done | opted_out.
+  state           String   @default("idle")
+  /// Bag of slot values the dialog has collected so far. Free-shape JSON:
+  /// `{ checkIn?, checkOut?, guests?, preferredCategory?, guestName?,
+  ///    language?, lastShownOptions? }`.
+  slots           Json     @default("{}")
+  /// Pointer to the current `Reservation` with status = "pending_hold".
+  lastHoldId      Int?     @map("last_hold_id")
+  /// Snapshot of the last quote shown to the guest, used by the runtime
+  /// price validator (the LLM is not allowed to invent prices).
+  lastQuoteJson   Json?    @map("last_quote_json")
+  /// Stripe Checkout Session id for the active payment link (if any).
+  paymentSessionId String? @map("payment_session_id")
+  paymentLinkUrl   String? @map("payment_link_url")
+  paymentExpiresAt DateTime? @map("payment_expires_at")
+  /// Rolling counters — fed every time `engine.runBotTurn` calls the LLM.
+  llmTurns        Int      @default(0) @map("llm_turns")
+  llmTokensIn     Int      @default(0) @map("llm_tokens_in")
+  llmTokensOut    Int      @default(0) @map("llm_tokens_out")
+  /// USD cost across all turns of this conversation.
+  costUsd         Decimal  @default(0) @map("cost_usd") @db.Decimal(10, 4)
+  /// Set when the bot voluntarily handed off to a human; never cleared.
+  escalatedAt      DateTime? @map("escalated_at")
+  escalationReason String?   @map("escalation_reason")
+  lastInboundAt    DateTime? @map("last_inbound_at")
+  lastOutboundAt   DateTime? @map("last_outbound_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  conversation WhatsAppConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  guestAccount GuestAccount?         @relation(fields: [guestAccountId], references: [id], onDelete: SetNull)
+  events       BotConversationEvent[]
+
+  @@index([state, lastInboundAt])
+  @@index([guestAccountId])
+  @@map("bot_conversations")
+}
+
+/// Append-only event log for one bot conversation. Powers debugging,
+/// analytics, and (in shadow mode) the per-message decision UI.
+model BotConversationEvent {
+  id        Int      @id @default(autoincrement())
+  botConvId Int      @map("bot_conv_id")
+  /// "user_msg" | "bot_msg" | "tool_call" | "tool_result" | "state_change"
+  /// | "escalation" | "error" | "shadow_draft" | "circuit_breaker"
+  kind      String
+  payload   Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  botConv BotConversation @relation(fields: [botConvId], references: [id], onDelete: Cascade)
+
+  @@index([botConvId, createdAt])
+  @@index([kind, createdAt])
+  @@map("bot_conversation_events")
+}
+
+/// Phone numbers the bot is allowed to engage when `WhatsAppConfig.botMode
+/// = "allowlist"`. Anything not in here falls through to the existing inbox
+/// + auto-reply path. Used during Layer 4 of the staged rollout.
+model BotAllowlist {
+  id            Int      @id @default(autoincrement())
+  /// E.164 digits. Unique to make seeding idempotent.
+  phone         String   @unique
+  /// Free-text staff note (e.g. "موظف الاستقبال للاختبار").
+  note          String?
+  addedByUserId Int      @map("added_by_user_id")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  addedBy User @relation("BotAllowlistAdder", fields: [addedByUserId], references: [id], onDelete: Cascade)
+
+  @@map("bot_allowlist")
+}
+
+/// Per-inbound-message draft produced by the bot while in "shadow" mode.
+/// Staff see one row per inbound under each thread in the inbox and choose
+/// to send-as-is, edit, or ignore. Every decision is training feedback.
+model BotShadowDraft {
+  id               Int      @id @default(autoincrement())
+  conversationId   Int      @map("conversation_id")
+  /// Soft-link to the inbound `WhatsAppMessage` this draft is responding to.
+  /// Unique → at most one draft per inbound message.
+  inboundMessageId Int      @unique @map("inbound_message_id")
+  /// What the bot would have sent (post-pacing, pre-split). Null when the
+  /// bot decided silence was the right answer (rare but possible).
+  draftText        String?  @db.Text @map("draft_text")
+  /// Tool calls the bot would have executed. They are NOT executed in shadow
+  /// mode — booking holds, payment links, and refunds remain dry.
+  draftToolCalls   Json?    @map("draft_tool_calls")
+  /// USD cost of the LLM turn that produced this draft.
+  draftCostUsd     Decimal  @default(0) @map("draft_cost_usd") @db.Decimal(8, 4)
+  /// "pending" | "sent" | "edited" | "ignored" | "expired"
+  status           String   @default("pending")
+  /// What the staff member actually sent (after their edits, if any).
+  finalSentText    String?  @db.Text @map("final_sent_text")
+  decidedByUserId  Int?     @map("decided_by_user_id")
+  decidedAt        DateTime? @map("decided_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  conversation   WhatsAppConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  inboundMessage WhatsAppMessage      @relation(fields: [inboundMessageId], references: [id], onDelete: Cascade)
+  decidedBy      User?                @relation("BotShadowDraftDecider", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
+  @@index([status, createdAt])
+  @@map("bot_shadow_drafts")
 }

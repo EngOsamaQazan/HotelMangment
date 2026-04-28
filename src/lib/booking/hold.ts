@@ -7,6 +7,7 @@ import {
   isMergedPairFree,
   isUnitFree,
 } from "./availability";
+import { triggerBookingConfirmationAsync } from "@/lib/whatsapp/auto-trigger";
 
 /**
  * 15-minute "holds" let a guest fill in their checkout details without
@@ -263,7 +264,7 @@ export async function confirmHold(args: {
 }): Promise<{ reservationId: number; confirmationCode: string }> {
   const { holdId, guestAccountId } = args;
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const hold = await tx.reservation.findUnique({
       where: { id: holdId },
       select: {
@@ -288,6 +289,7 @@ export async function confirmHold(args: {
         return {
           reservationId: hold.id,
           confirmationCode: hold.confirmationCode,
+          siblingIds: [] as number[],
         };
       }
       throw new HoldError("هذا الحجز لم يعد مؤقّتاً", "bad_state");
@@ -396,8 +398,26 @@ export async function confirmHold(args: {
       });
     }
 
-    return { reservationId: hold.id, confirmationCode: primaryCode };
+    return {
+      reservationId: hold.id,
+      confirmationCode: primaryCode,
+      siblingIds: siblings.map((s) => s.id),
+    };
   });
+
+  // Fire WhatsApp booking-confirmation outside the transaction so a slow
+  // Meta call (or Chromium startup for the contract PDF) doesn't hold a
+  // database lock. Triggered for every confirmed unit in the group so
+  // merged-pair guests receive both contracts.
+  triggerBookingConfirmationAsync(result.reservationId);
+  for (const sId of result.siblingIds) {
+    triggerBookingConfirmationAsync(sId);
+  }
+
+  return {
+    reservationId: result.reservationId,
+    confirmationCode: result.confirmationCode,
+  };
 }
 
 export class HoldError extends Error {

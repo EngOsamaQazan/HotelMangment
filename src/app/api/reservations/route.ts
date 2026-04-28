@@ -4,6 +4,7 @@ import { cashAccountCodeFromMethod, ACCOUNT_CODES, AccountingError } from "@/lib
 import { postReservationEntries } from "@/lib/reservations/accounting";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 import { maybeSweepLazy } from "@/lib/reservations/sweeper";
+import { triggerBookingConfirmationAsync } from "@/lib/whatsapp/auto-trigger";
 
 export async function GET(request: Request) {
   try {
@@ -292,6 +293,13 @@ export async function POST(request: Request) {
         include: { unit: true, guests: true },
       });
     });
+
+    // Fire-and-forget: send WhatsApp booking-confirmation + contract PDF
+    // when the operator has enabled it in /settings/whatsapp. Never blocks
+    // the response — failures are logged and surfaced through the WA inbox.
+    if (reservation?.id) {
+      triggerBookingConfirmationAsync(reservation.id);
+    }
 
     return NextResponse.json(reservation, { status: 201 });
   } catch (error) {

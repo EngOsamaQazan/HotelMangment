@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import type { ConversationSummary } from "../_types";
 import {
   conversationDisplayName,
+  conversationHasName,
   initials,
   messagePreview,
   relativeTime,
@@ -67,6 +68,8 @@ export function ThreadList({
             const selected = selectedPhone === c.contactPhone;
             const name = conversationDisplayName(c);
             const prioDot = PRIORITY_COLOURS[c.priority];
+            const phoneDisplay = c.contactPhone ? `+${c.contactPhone}` : "";
+            const hasNamedContact = conversationHasName(c);
             return (
               <button
                 key={c.id}
@@ -101,8 +104,16 @@ export function ThreadList({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-sm text-gray-800 truncate flex items-center gap-1.5">
-                      {name}
+                    <span className="font-medium text-sm text-gray-800 truncate flex items-center gap-1.5 min-w-0">
+                      <span className="truncate">{name}</span>
+                      {hasNamedContact && phoneDisplay && (
+                        <span
+                          className="text-[10px] font-normal text-gray-400 shrink-0"
+                          dir="ltr"
+                        >
+                          {phoneDisplay}
+                        </span>
+                      )}
                       {c.isMuted && (
                         <VolumeX size={12} className="text-gray-400 shrink-0" />
                       )}
