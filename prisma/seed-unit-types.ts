@@ -80,24 +80,69 @@ type UnitTypeDef = {
   hasBalcony?: boolean;
   view?: string;
   sortOrder: number;
+  /**
+   * Default nightly base price in JOD. Persisted into
+   * `unit_types.base_price_daily` by `seedUnitTypes`. Source of truth for
+   * every catalogue refresh — change here, run `db:seed-unit-types`, and
+   * the canonical pricing flows through to the booking engine and the bot.
+   */
+  basePriceJod: number;
   rooms: RoomDef[];
   amenities: string[];
 };
 
 export const UNIT_TYPES: UnitTypeDef[] = [
   {
+    code: "STUDIO",
+    nameAr: "ستوديو — غرفة وصالة ومطبخ",
+    nameEn: "Studio — Open-Plan Room with Kitchenette",
+    category: "studio",
+    descriptionAr:
+      "ستوديو مفتوح يجمع غرفة النوم والصالة والمطبخ في فضاء واحد. مناسب لشخصين بميزانية اقتصادية.",
+    descriptionEn:
+      "Open-plan studio combining sleeping area, lounge, and kitchenette in one space. Ideal for two guests on a budget.",
+    maxAdults: 2,
+    maxChildren: 1,
+    maxOccupancy: 2,
+    hasKitchen: true,
+    hasBalcony: false,
+    sortOrder: 5,
+    basePriceJod: 20,
+    rooms: [
+      {
+        nameAr: "الستوديو",
+        nameEn: "Studio Space",
+        kind: "studio",
+        position: 1,
+        beds: [{ bedType: "queen", count: 1 }],
+      },
+    ],
+    amenities: [
+      "wifi",
+      "ac",
+      "heater",
+      "tv",
+      "fridge",
+      "kitchen",
+      "kettle",
+      "wardrobe",
+      "iron",
+    ],
+  },
+  {
     code: "APT-1BR-DBL",
     nameAr: "شقة غرفة نوم — سرير مزدوج",
     nameEn: "One-Bedroom Apartment — Double Bed",
     category: "apartment",
-    descriptionAr: "شقة مفروشة بغرفة نوم واحدة وسرير مزدوج، مناسبة لشخصين.",
-    descriptionEn: "Furnished one-bedroom apartment with a queen bed, ideal for two guests.",
+    descriptionAr: "شقة مفروشة بغرفة نوم واحدة وسرير مزدوج ومطبخ، مناسبة لشخصين.",
+    descriptionEn: "Furnished one-bedroom apartment with a queen bed and kitchen, ideal for two guests.",
     maxAdults: 2,
     maxChildren: 1,
-    maxOccupancy: 3,
+    maxOccupancy: 2,
     hasKitchen: true,
     hasBalcony: true,
     sortOrder: 10,
+    basePriceJod: 25,
     rooms: [
       {
         nameAr: "غرفة النوم",
@@ -118,10 +163,11 @@ export const UNIT_TYPES: UnitTypeDef[] = [
     descriptionEn: "Furnished apartment with twin beds (combinable) and an Arabic floor-seating lounge suitable for sleeping.",
     maxAdults: 2,
     maxChildren: 1,
-    maxOccupancy: 3,
+    maxOccupancy: 2,
     hasKitchen: true,
     hasBalcony: true,
     sortOrder: 20,
+    basePriceJod: 25,
     rooms: [
       {
         nameAr: "غرفة النوم",
@@ -158,10 +204,11 @@ export const UNIT_TYPES: UnitTypeDef[] = [
     descriptionEn: "Spacious two-bedroom apartment with Arabic floor-seating lounge. Master with queen bed, second room with three single beds.",
     maxAdults: 5,
     maxChildren: 1,
-    maxOccupancy: 6,
+    maxOccupancy: 5,
     hasKitchen: true,
     hasBalcony: true,
     sortOrder: 30,
+    basePriceJod: 35,
     rooms: [
       {
         nameAr: "غرفة النوم الرئيسية",
@@ -203,10 +250,11 @@ export const UNIT_TYPES: UnitTypeDef[] = [
     descriptionEn: "Two-bedroom apartment with Arabic floor-seating lounge. Master with queen bed, second room with combinable twin beds.",
     maxAdults: 4,
     maxChildren: 1,
-    maxOccupancy: 5,
+    maxOccupancy: 4,
     hasKitchen: true,
     hasBalcony: true,
     sortOrder: 40,
+    basePriceJod: 35,
     rooms: [
       {
         nameAr: "غرفة النوم الرئيسية",
@@ -239,37 +287,12 @@ export const UNIT_TYPES: UnitTypeDef[] = [
     ],
     amenities: ["wifi", "ac", "heater", "tv", "fridge", "kitchen", "kettle", "washer", "balcony", "wardrobe", "iron"],
   },
-  {
-    code: "HTL-SUITE",
-    nameAr: "جناح فندقي",
-    nameEn: "Hotel Suite",
-    category: "suite",
-    descriptionAr: "جناح فندقي بغرفة نوم مستقلة بسرير Queen وصالة جلوس منفصلة.",
-    descriptionEn: "Hotel suite with separate bedroom (queen bed) and a private sitting area.",
-    maxAdults: 2,
-    maxChildren: 1,
-    maxOccupancy: 3,
-    hasKitchen: false,
-    hasBalcony: true,
-    sortOrder: 50,
-    rooms: [
-      {
-        nameAr: "غرفة النوم",
-        nameEn: "Bedroom",
-        kind: "bedroom",
-        position: 1,
-        beds: [{ bedType: "queen", count: 1 }],
-      },
-      {
-        nameAr: "صالة الجلوس",
-        nameEn: "Sitting Area",
-        kind: "living_room",
-        position: 2,
-        beds: [],
-      },
-    ],
-    amenities: ["wifi", "ac", "heater", "tv", "fridge", "kettle", "coffee", "balcony", "safe", "minibar", "hairdryer", "wardrobe", "iron"],
-  },
+  // ──────────────────────────────────────────────────────────────────────
+  // NOTE: HTL-SUITE was intentionally removed from the catalogue. The
+  // hotel does not own a standalone "Hotel Suite" room — what was being
+  // categorised as a suite was actually two adjoining hotel rooms that
+  // can be merged via the `unit_merges` table when a family books.
+  // ──────────────────────────────────────────────────────────────────────
   {
     code: "HTL-VIP-HONEYMOON-JAC",
     nameAr: "جناح شهر عسل VIP — جاكوزي خاص",
@@ -285,6 +308,7 @@ export const UNIT_TYPES: UnitTypeDef[] = [
     hasKitchen: false,
     hasBalcony: true,
     sortOrder: 52,
+    basePriceJod: 65,
     rooms: [
       {
         nameAr: "غرفة النوم",
@@ -334,8 +358,9 @@ export const UNIT_TYPES: UnitTypeDef[] = [
     descriptionEn: "Hotel room with one king-size bed.",
     maxAdults: 2,
     maxChildren: 1,
-    maxOccupancy: 3,
+    maxOccupancy: 2,
     sortOrder: 60,
+    basePriceJod: 45,
     rooms: [
       {
         nameAr: "الغرفة",
@@ -356,8 +381,9 @@ export const UNIT_TYPES: UnitTypeDef[] = [
     descriptionEn: "Hotel room with two single beds, combinable into a king.",
     maxAdults: 2,
     maxChildren: 1,
-    maxOccupancy: 3,
+    maxOccupancy: 2,
     sortOrder: 70,
+    basePriceJod: 40,
     rooms: [
       {
         nameAr: "الغرفة",
@@ -380,8 +406,9 @@ export const UNIT_TYPES: UnitTypeDef[] = [
     descriptionEn: "Hotel room with three single beds. Two of them can be combined into a king.",
     maxAdults: 3,
     maxChildren: 1,
-    maxOccupancy: 4,
+    maxOccupancy: 3,
     sortOrder: 80,
+    basePriceJod: 45,
     rooms: [
       {
         nameAr: "الغرفة",
@@ -404,8 +431,9 @@ export const UNIT_TYPES: UnitTypeDef[] = [
     descriptionEn: "Hotel room with four single beds; combinable in pairs to form two king beds.",
     maxAdults: 4,
     maxChildren: 1,
-    maxOccupancy: 5,
+    maxOccupancy: 4,
     sortOrder: 90,
+    basePriceJod: 50,
     rooms: [
       {
         nameAr: "الغرفة",
@@ -474,6 +502,7 @@ export async function seedUnitTypes(client: PrismaClient = prisma) {
       hasBalcony: t.hasBalcony ?? false,
       view: t.view ?? null,
       sortOrder: t.sortOrder,
+      basePriceDaily: t.basePriceJod,
     };
 
     const unitType = await client.unitType.upsert({

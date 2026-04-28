@@ -17,15 +17,34 @@ const prisma = new PrismaClient();
 // Canonical mapping: unitNumber → UnitType.code
 // (agreed with business; do not change without a new plan)
 // ────────────────────────────────────────────────────────────────────────
-/** Physical unit number → canonical `UnitType.code` (single source of truth for re-linking). */
+/**
+ * Physical unit number → canonical `UnitType.code` (single source of truth
+ * for re-linking).
+ *
+ * Confirmed with the owner on 2026-04-29:
+ *   • 01-03         : STUDIOs (open-plan room + kitchenette), 20 JOD
+ *   • 04            : 2-bedroom apartment "MIX-A" (queen + 3 singles), 35 JOD
+ *   • 05            : 1-bedroom apartment, double bed, 25 JOD
+ *   • 06            : 2-bedroom apartment "MIX-B" (queen + 2 singles), 35 JOD
+ *   • 101           : VIP honeymoon suite with private jacuzzi, 65 JOD
+ *   • 102, 103      : twin-single hotel rooms, 40 JOD
+ *   • 104, 106, 107 : triple-single hotel rooms, 45 JOD
+ *   • 105, 108      : king double rooms, 45 JOD
+ *   • 109           : quadruple-single room, 50 JOD
+ *
+ * Note: the previous map sent units 01-03 to APT-1BR-DBL by mistake — they
+ * are actually studios. HTL-SUITE was also removed from the catalogue
+ * (the hotel doesn't own a standalone "suite" — what looked like one was
+ * always two adjoining rooms via `unit_merges`).
+ */
 export const UNIT_TO_TYPE: Record<string, string> = {
-  "01":  "APT-1BR-DBL",
-  "02":  "APT-1BR-DBL",
-  "03":  "APT-1BR-DBL",
+  "01":  "STUDIO",
+  "02":  "STUDIO",
+  "03":  "STUDIO",
   "04":  "APT-2BR-MIX-A",
-  "05":  "APT-1BR-TWIN",
+  "05":  "APT-1BR-DBL",
   "06":  "APT-2BR-MIX-B",
-  "101": "HTL-SUITE",
+  "101": "HTL-VIP-HONEYMOON-JAC",
   "102": "HTL-TWIN",
   "103": "HTL-TWIN",
   "104": "HTL-TRIPLE",
@@ -34,8 +53,6 @@ export const UNIT_TO_TYPE: Record<string, string> = {
   "107": "HTL-TRIPLE",
   "108": "HTL-KING",
   "109": "HTL-QUAD",
-  // أضف رقم الغرفة الفعلي لجناح شهر العسل VIP، مثال:
-  // "110": "HTL-VIP-HONEYMOON-JAC",
 };
 
 async function main() {
