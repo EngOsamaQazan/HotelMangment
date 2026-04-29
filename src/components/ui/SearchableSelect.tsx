@@ -139,6 +139,7 @@ interface PopoverRect {
 }
 
 const MIN_POPOVER_HEIGHT = 220;
+const MIN_POPOVER_WIDTH = 240;
 
 /**
  * Drop-in replacement for `<select>` with built-in search, keyboard navigation,
@@ -627,14 +628,30 @@ function computePosition(trigger: HTMLButtonElement | null): PopoverRect | null 
   if (!trigger || typeof window === "undefined") return null;
   const rect = trigger.getBoundingClientRect();
   const viewportH = window.innerHeight;
+  const viewportW = window.innerWidth;
   const spaceBelow = viewportH - rect.bottom - 8;
   const spaceAbove = rect.top - 8;
   const flipUp = spaceBelow < MIN_POPOVER_HEIGHT && spaceAbove > spaceBelow;
   const maxHeight = Math.max(160, Math.min(360, flipUp ? spaceAbove : spaceBelow));
+
+  // Guarantee a usable popover width even if the trigger lives in a narrow
+  // column / grid cell. Clamp to the viewport so it never overflows.
+  const desiredWidth = Math.max(rect.width, MIN_POPOVER_WIDTH);
+  const width = Math.min(desiredWidth, Math.max(160, viewportW - 16));
+
+  // Default to aligning the popover's left edge with the trigger's left edge.
+  // If that would overflow the viewport on the right, anchor the popover's
+  // right edge to the trigger's right edge instead (works well for RTL).
+  let left = rect.left;
+  if (left + width > viewportW - 8) {
+    left = Math.max(8, rect.right - width);
+  }
+  if (left < 8) left = 8;
+
   return {
     top: flipUp ? rect.top - 4 : rect.bottom + 4,
-    left: rect.left,
-    width: rect.width,
+    left,
+    width,
     maxHeight,
     flipUp,
   };

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 import { maybeSweepLazy } from "@/lib/reservations/sweeper";
+import { legacyTypeFromUnitTypeRef } from "@/lib/units/legacy-type";
 
 export async function GET() {
   try {
@@ -57,7 +58,7 @@ export async function GET() {
         id: unit.id,
         unitNumber: unit.unitNumber,
         mergedPartner,
-        type: unit.unitType,
+        type: legacyTypeFromUnitTypeRef(unit.unitTypeRef),
         unitTypeId: unit.unitTypeId,
         unitType: unit.unitTypeRef
           ? {
@@ -145,22 +146,18 @@ export async function PUT(request: Request) {
     if (notes !== undefined) updateData.notes = notes;
     if (bookingRoomCode !== undefined) updateData.bookingRoomCode = bookingRoomCode || null;
 
-    if (unitTypeId !== undefined) {
-      if (unitTypeId !== null) {
-        const typeExists = await prisma.unitType.findUnique({
-          where: { id: Number(unitTypeId) },
-          select: { id: true, category: true },
-        });
-        if (!typeExists) {
-          return NextResponse.json(
-            { error: "نوع الوحدة المحدد غير موجود" },
-            { status: 400 },
-          );
-        }
-        updateData.unitTypeId = typeExists.id;
-        // Keep legacy unitType string in sync (room | apartment)
-        updateData.unitType = typeExists.category === "apartment" ? "apartment" : "room";
+    if (unitTypeId !== undefined && unitTypeId !== null) {
+      const typeExists = await prisma.unitType.findUnique({
+        where: { id: Number(unitTypeId) },
+        select: { id: true },
+      });
+      if (!typeExists) {
+        return NextResponse.json(
+          { error: "نوع الوحدة المحدد غير موجود" },
+          { status: 400 },
+        );
       }
+      updateData.unitTypeId = typeExists.id;
     }
 
     const updated = await prisma.unit.update({

@@ -9,6 +9,7 @@ import {
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 import { maybeSweepLazy } from "@/lib/reservations/sweeper";
 import { logStatusTransition } from "@/lib/reservations/statusLog";
+import { withLegacyUnitTypeOnReservation } from "@/lib/units/legacy-type";
 
 export async function GET(
   request: Request,
@@ -27,7 +28,7 @@ export async function GET(
     const reservation = await prisma.reservation.findUnique({
       where: { id: reservationId },
       include: {
-        unit: true,
+        unit: { include: { unitTypeRef: { select: { category: true } } } },
         guests: { orderBy: { guestOrder: "asc" } },
         transactions: { orderBy: { date: "desc" } },
         statusLogs: {
@@ -43,7 +44,7 @@ export async function GET(
       return NextResponse.json({ error: "Reservation not found" }, { status: 404 });
     }
 
-    return NextResponse.json(reservation);
+    return NextResponse.json(withLegacyUnitTypeOnReservation(reservation));
   } catch (error) {
     const authErr = handleAuthError(error);
     if (authErr) return authErr;
@@ -208,10 +209,14 @@ export async function PUT(
         }
       }
 
-      return tx.reservation.findUnique({
+      const result = await tx.reservation.findUnique({
         where: { id: reservationId },
-        include: { unit: true, guests: true },
+        include: {
+          unit: { include: { unitTypeRef: { select: { category: true } } } },
+          guests: true,
+        },
       });
+      return result ? withLegacyUnitTypeOnReservation(result) : null;
     });
 
     return NextResponse.json(reservation);

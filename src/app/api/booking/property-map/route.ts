@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
+import { legacyTypeFromUnitTypeRef } from "@/lib/units/legacy-type";
 
 interface MapRow {
   id?: number;
@@ -27,10 +28,22 @@ export async function GET() {
 
     const [units, types] = await Promise.all([
       unitIds.length
-        ? prisma.unit.findMany({
-            where: { id: { in: unitIds } },
-            select: { id: true, unitNumber: true, unitType: true },
-          })
+        ? prisma.unit
+            .findMany({
+              where: { id: { in: unitIds } },
+              select: {
+                id: true,
+                unitNumber: true,
+                unitTypeRef: { select: { category: true } },
+              },
+            })
+            .then((rows) =>
+              rows.map((u) => ({
+                id: u.id,
+                unitNumber: u.unitNumber,
+                unitType: legacyTypeFromUnitTypeRef(u.unitTypeRef),
+              })),
+            )
         : [],
       typeIds.length
         ? prisma.unitType.findMany({

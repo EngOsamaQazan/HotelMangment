@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 import { maybeSweepLazy } from "@/lib/reservations/sweeper";
+import { legacyTypeFromUnitTypeRef } from "@/lib/units/legacy-type";
 
 /**
  * Returns, for every unit, whether it is bookable for the requested window.
@@ -51,6 +52,7 @@ export async function GET(request: Request) {
     const units = await prisma.unit.findMany({
       orderBy: [{ floor: "asc" }, { unitNumber: "asc" }],
       include: {
+        unitTypeRef: { select: { category: true } },
         reservations: {
           where: {
             status: { in: ["active", "upcoming"] },
@@ -74,7 +76,7 @@ export async function GET(request: Request) {
       return {
         id: u.id,
         unitNumber: u.unitNumber,
-        unitType: u.unitType,
+        unitType: legacyTypeFromUnitTypeRef(u.unitTypeRef),
         unitTypeId: u.unitTypeId,
         floor: u.floor,
         status: u.status,

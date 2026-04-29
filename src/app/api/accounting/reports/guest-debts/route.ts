@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 import { ACCOUNT_CODES } from "@/lib/accounting";
+import { legacyTypeFromUnitTypeRef } from "@/lib/units/legacy-type";
 
 /**
  * تقرير ذمم الضيوف (تفصيل بالحجز)
@@ -30,7 +31,11 @@ export async function GET(request: Request) {
         ? {}
         : { remaining: { gt: 0 } },
       include: {
-        unit: true,
+        unit: {
+          include: {
+            unitTypeRef: { select: { category: true } },
+          },
+        },
       },
       orderBy: { remaining: "desc" },
     });
@@ -81,7 +86,7 @@ export async function GET(request: Request) {
             ? {
                 id: r.unit.id,
                 unitNumber: r.unit.unitNumber,
-                unitType: r.unit.unitType,
+                unitType: legacyTypeFromUnitTypeRef(r.unit.unitTypeRef),
               }
             : null,
           accountingBalance: Math.round(accountingBalance * 100) / 100,

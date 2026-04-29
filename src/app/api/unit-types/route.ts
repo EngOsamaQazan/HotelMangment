@@ -89,7 +89,10 @@ function validate(data: UnitTypeInput): string | null {
 
 export async function GET(request: Request) {
   try {
-    await requirePermission("settings.unit_types:view");
+    // OR semantics: settings page needs `settings.unit_types:view`, but the
+    // `/rooms` modal also needs to list types so admins with `rooms:edit`
+    // can reassign a unit's type without granting them full settings access.
+    await requirePermission("settings.unit_types:view", "rooms:edit");
     const { searchParams } = new URL(request.url);
     const category = searchParams.get("category");
     const activeOnly = searchParams.get("active") === "true";

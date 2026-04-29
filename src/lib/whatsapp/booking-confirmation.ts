@@ -13,6 +13,7 @@ import {
 } from "./template-helpers";
 import { renderContractHtml } from "@/lib/contract/render-html";
 import { htmlToPdf } from "@/lib/pdf/browser";
+import { legacyTypeFromUnitTypeRef } from "@/lib/units/legacy-type";
 import { beginOutboundLog, finishOutboundLog } from "./log-outbound";
 
 /**
@@ -387,8 +388,11 @@ type ReservationWithRelations = NonNullable<
 > & {
   unit?: {
     unitNumber: string;
-    unitType: string;
-    unitTypeRef?: { nameAr?: string | null; nameEn?: string | null } | null;
+    unitTypeRef?: {
+      nameAr?: string | null;
+      nameEn?: string | null;
+      category?: string | null;
+    } | null;
   } | null;
   guests?: Array<{
     fullName: string;
@@ -427,7 +431,9 @@ async function resolveMediaId(
         numGuests: reservation.numGuests,
         unit: {
           unitNumber: reservation.unit?.unitNumber ?? "—",
-          unitType: reservation.unit?.unitType ?? "",
+          unitType: reservation.unit
+            ? legacyTypeFromUnitTypeRef(reservation.unit.unitTypeRef)
+            : "",
         },
         guests: (reservation.guests ?? []).map((g) => ({
           fullName: g.fullName,
@@ -469,8 +475,11 @@ function buildReservationFacts(
     Awaited<ReturnType<typeof prisma.reservation.findUnique>>
   > & {
     unit?: {
-      unitTypeRef?: { nameAr?: string | null; nameEn?: string | null } | null;
-      unitType?: string | null;
+      unitTypeRef?: {
+        nameAr?: string | null;
+        nameEn?: string | null;
+        category?: string | null;
+      } | null;
     } | null;
   },
 ): ReservationFacts {
@@ -510,8 +519,9 @@ function buildReservationFacts(
       8:
         reservation.unit?.unitTypeRef?.nameAr ??
         reservation.unit?.unitTypeRef?.nameEn ??
-        reservation.unit?.unitType ??
-        "",
+        (reservation.unit
+          ? legacyTypeFromUnitTypeRef(reservation.unit.unitTypeRef)
+          : ""),
     },
   };
 }

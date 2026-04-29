@@ -4,9 +4,22 @@ const { PrismaClient } = require("@prisma/client");
 (async () => {
   const prisma = new PrismaClient();
   try {
-    const units = await prisma.unit.findMany({ orderBy: [{ unitType: "asc" }, { unitNumber: "asc" }] });
+    const units = await prisma.unit.findMany({
+      include: { unitTypeRef: { select: { category: true, code: true } } },
+      orderBy: [{ unitTypeRef: { category: "asc" } }, { unitNumber: "asc" }],
+    });
     console.log(`الوحدات (${units.length}):`);
-    console.table(units.map((u) => ({ number: u.unitNumber, type: u.unitType, status: u.status, floor: u.floor })));
+    console.table(
+      units.map((u) => ({
+        number: u.unitNumber,
+        type:
+          u.unitTypeRef?.category === "apartment" ? "apartment" : "room",
+        category: u.unitTypeRef?.category ?? "—",
+        code: u.unitTypeRef?.code ?? "—",
+        status: u.status,
+        floor: u.floor,
+      })),
+    );
 
     const income = await prisma.transaction.aggregate({ _sum: { amount: true }, where: { type: "income" } });
     const totalPaidAgg = await prisma.reservation.aggregate({ _sum: { paidAmount: true, totalAmount: true, remaining: true } });

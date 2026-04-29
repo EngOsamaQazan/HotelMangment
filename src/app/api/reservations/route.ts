@@ -5,6 +5,7 @@ import { postReservationEntries } from "@/lib/reservations/accounting";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 import { maybeSweepLazy } from "@/lib/reservations/sweeper";
 import { triggerBookingConfirmationAsync } from "@/lib/whatsapp/auto-trigger";
+import { withLegacyUnitTypeOnReservation } from "@/lib/units/legacy-type";
 
 export async function GET(request: Request) {
   try {
@@ -88,7 +89,7 @@ export async function GET(request: Request) {
       prisma.reservation.findMany({
         where,
         include: {
-          unit: true,
+          unit: { include: { unitTypeRef: { select: { category: true } } } },
           guests: { orderBy: { guestOrder: "asc" } },
         },
         orderBy: { createdAt: "desc" },
@@ -98,7 +99,12 @@ export async function GET(request: Request) {
       prisma.reservation.count({ where }),
     ]);
 
-    return NextResponse.json({ reservations, total, page, limit });
+    return NextResponse.json({
+      reservations: reservations.map(withLegacyUnitTypeOnReservation),
+      total,
+      page,
+      limit,
+    });
   } catch (error) {
     const authErr = handleAuthError(error);
     if (authErr) return authErr;
@@ -288,10 +294,14 @@ export async function POST(request: Request) {
         paymentDate,
       });
 
-      return tx.reservation.findUnique({
+      const result = await tx.reservation.findUnique({
         where: { id: res.id },
-        include: { unit: true, guests: true },
+        include: {
+          unit: { include: { unitTypeRef: { select: { category: true } } } },
+          guests: true,
+        },
       });
+      return result ? withLegacyUnitTypeOnReservation(result) : null;
     });
 
     // Fire-and-forget: send WhatsApp booking-confirmation + contract PDF

@@ -105,7 +105,6 @@ async function main() {
     const code = UNIT_TO_TYPE[num];
     const type = code ? typeByCode.get(code) : undefined;
     const isApartment = apartments.includes(num);
-    const legacyType = isApartment ? "apartment" : "room";
     const floor = isApartment ? (num <= "03" ? 1 : 2) : 1;
     const description = isApartment
       ? `شقة مفروشة رقم ${num}`
@@ -118,7 +117,6 @@ async function main() {
       },
       create: {
         unitNumber: num,
-        unitType: legacyType,
         unitTypeId: type?.id ?? null,
         status: "available",
         floor,

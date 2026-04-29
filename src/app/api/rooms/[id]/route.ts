@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
+import { legacyTypeFromUnitTypeRef } from "@/lib/units/legacy-type";
 
 export async function PATCH(
   request: Request,
@@ -53,7 +54,7 @@ export async function PATCH(
     if (unitTypeId !== undefined && unitTypeId !== null) {
       const typeExists = await prisma.unitType.findUnique({
         where: { id: Number(unitTypeId) },
-        select: { id: true, category: true },
+        select: { id: true },
       });
       if (!typeExists) {
         return NextResponse.json(
@@ -62,7 +63,6 @@ export async function PATCH(
         );
       }
       updateData.unitTypeId = typeExists.id;
-      updateData.unitType = typeExists.category === "apartment" ? "apartment" : "room";
     }
 
     const updated = await prisma.unit.update({
@@ -90,7 +90,7 @@ export async function PATCH(
     return NextResponse.json({
       id: updated.id,
       unitNumber: updated.unitNumber,
-      type: updated.unitType,
+      type: legacyTypeFromUnitTypeRef(updated.unitTypeRef),
       unitTypeId: updated.unitTypeId,
       unitType: updated.unitTypeRef
         ? {

@@ -303,12 +303,28 @@ async function ensureUnits(prisma, records, dryRun) {
   const existing = await prisma.unit.findMany();
   const have = new Map(existing.map((u) => [u.unitNumber, u]));
   const needed = new Set(records.map((r) => r.unitNumber));
+
+  // After Phase 4 of the unit-types redesign, the only source of truth for a
+  // unit's category is the related `UnitType` row. We map the legacy
+  // "room"/"apartment" classification onto the closest UnitType so callers
+  // that still rely on the coarse split keep working.
+  const unitTypes = await prisma.unitType.findMany({
+    select: { id: true, category: true },
+  });
+  const apartmentTypeId =
+    unitTypes.find((t) => t.category === "apartment")?.id ?? null;
+  const roomTypeId =
+    unitTypes.find((t) => t.category !== "apartment")?.id ?? null;
+
   const toCreate = [];
   for (const n of needed) {
     if (!have.has(n)) {
+      const legacyKind = classifyUnitType(n);
       toCreate.push({
         unitNumber: n,
-        unitType: classifyUnitType(n),
+        unitTypeId:
+          legacyKind === "apartment" ? apartmentTypeId : roomTypeId,
+        legacyKind,
         status: "available",
         floor: unitFloor(n),
         description: `وحدة رقم ${n} (فرع المفرق)`,
@@ -318,11 +334,15 @@ async function ensureUnits(prisma, records, dryRun) {
   if (toCreate.length > 0) {
     console.log(
       `سيتم إنشاء ${toCreate.length} وحدة مفقودة: ` +
-        toCreate.map((u) => `${u.unitNumber}(${u.unitType})`).join("، "),
+        toCreate.map((u) => `${u.unitNumber}(${u.legacyKind})`).join("، "),
     );
     if (!dryRun) {
       for (const u of toCreate) {
-        const created = await prisma.unit.create({ data: u });
+        // `legacyKind` is purely a display hint for the log line above; never
+        // sent to Prisma.
+        const { legacyKind: _legacyKind, ...data } = u;
+        void _legacyKind;
+        const created = await prisma.unit.create({ data });
         have.set(created.unitNumber, created);
       }
     }

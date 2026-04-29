@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 import { renderContractHtml } from "@/lib/contract/render-html";
 import { htmlToPdf } from "@/lib/pdf/browser";
+import { legacyTypeFromUnitTypeRef } from "@/lib/units/legacy-type";
 
 /**
  * GET /api/reservations/:id/contract.pdf
@@ -38,7 +39,12 @@ export async function GET(
 
   const reservation = await prisma.reservation.findUnique({
     where: { id: reservationId },
-    include: { unit: true, guests: { orderBy: { guestOrder: "asc" } } },
+    include: {
+      unit: {
+        include: { unitTypeRef: { select: { category: true } } },
+      },
+      guests: { orderBy: { guestOrder: "asc" } },
+    },
   });
   if (!reservation) {
     return NextResponse.json(
@@ -64,7 +70,7 @@ export async function GET(
       numGuests: reservation.numGuests,
       unit: {
         unitNumber: reservation.unit.unitNumber,
-        unitType: reservation.unit.unitType,
+        unitType: legacyTypeFromUnitTypeRef(reservation.unit.unitTypeRef),
       },
       guests: reservation.guests.map((g) => ({
         fullName: g.fullName,

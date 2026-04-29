@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
+import { legacyTypeFromUnitTypeRef } from "@/lib/units/legacy-type";
 
 // ---------------------------------------------------------------------------
 // Guest CRM API
@@ -94,7 +95,11 @@ export async function GET(request: Request) {
       // Exclude short-lived holds — they aren't real guests yet.
       where: { status: { not: "pending_hold" } },
       include: {
-        unit: true,
+        unit: {
+          include: {
+            unitTypeRef: { select: { category: true } },
+          },
+        },
         guests: { orderBy: { guestOrder: "asc" } },
       },
       orderBy: { id: "desc" },
@@ -156,7 +161,7 @@ export async function GET(request: Request) {
         checkOut: r.checkOut.toISOString(),
         status: r.status,
         unitNumber: r.unit.unitNumber,
-        unitType: r.unit.unitType,
+        unitType: legacyTypeFromUnitTypeRef(r.unit.unitTypeRef),
         totalAmount: r.totalAmount,
         paidAmount: r.paidAmount,
         remaining: r.remaining,

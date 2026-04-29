@@ -39,9 +39,19 @@ const ORIGINAL = new Set([
       await tx.unit.deleteMany({ where: { id: { in: ids } } });
     });
 
-    const remain = await prisma.unit.findMany({ orderBy: [{ unitType: "asc" }, { unitNumber: "asc" }] });
+    const remain = await prisma.unit.findMany({
+      include: { unitTypeRef: { select: { category: true } } },
+      orderBy: [{ unitTypeRef: { category: "asc" } }, { unitNumber: "asc" }],
+    });
     console.log(`\nالوحدات بعد الاستعادة (${remain.length}):`);
-    console.table(remain.map((u) => ({ number: u.unitNumber, type: u.unitType, status: u.status })));
+    console.table(
+      remain.map((u) => ({
+        number: u.unitNumber,
+        type:
+          u.unitTypeRef?.category === "apartment" ? "apartment" : "room",
+        status: u.status,
+      })),
+    );
   } finally {
     await prisma.$disconnect();
   }

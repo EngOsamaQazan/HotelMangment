@@ -60,6 +60,15 @@ interface NextReservation {
   checkOut: string;
 }
 
+/** Lightweight shape used to populate the "change unit type" dropdown. */
+interface UnitTypeOption {
+  id: number;
+  code: string;
+  nameAr: string;
+  category: string;
+  maxOccupancy: number;
+}
+
 interface Unit {
   id: number;
   unitNumber: string;
@@ -454,12 +463,60 @@ function UnitModal({
 }) {
   const config = statusConfig[unit.status] || statusConfig.available;
   const [notes, setNotes] = useState(unit.notes ?? "");
+  const [selectedUnitTypeId, setSelectedUnitTypeId] = useState<number | null>(
+    unit.unitTypeId,
+  );
+  const [unitTypeOptions, setUnitTypeOptions] = useState<UnitTypeOption[]>([]);
+  const [unitTypesLoading, setUnitTypesLoading] = useState(false);
+  const [savingUnitType, setSavingUnitType] = useState(false);
   const [saving, setSaving] = useState(false);
   const { can } = usePermissions();
   const canEdit = can("rooms:edit");
   const canUploadPhotos = can("unit-photos:upload");
   const canDeletePhotos = can("unit-photos:delete");
   const canViewPhotos = can("unit-photos:view");
+
+  // Reset draft selection whenever the modal switches to a different unit.
+  useEffect(() => {
+    setSelectedUnitTypeId(unit.unitTypeId);
+  }, [unit.id, unit.unitTypeId]);
+
+  useEffect(() => {
+    if (!canEdit) return;
+    let cancelled = false;
+    setUnitTypesLoading(true);
+    (async () => {
+      try {
+        const res = await fetch("/api/unit-types?active=true");
+        if (!res.ok) throw new Error("failed");
+        const data: Array<{
+          id: number;
+          code: string;
+          nameAr: string;
+          category: string;
+          maxOccupancy: number;
+        }> = await res.json();
+        if (!cancelled) {
+          setUnitTypeOptions(
+            data.map((t) => ({
+              id: t.id,
+              code: t.code,
+              nameAr: t.nameAr,
+              category: t.category,
+              maxOccupancy: t.maxOccupancy,
+            })),
+          );
+        }
+      } catch {
+        // Silent fail — the dropdown will be empty/disabled.
+      } finally {
+        if (!cancelled) setUnitTypesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [canEdit]);
 
   useEffect(() => {
     function handleEsc(e: KeyboardEvent) {
@@ -493,7 +550,40 @@ function UnitModal({
     }
   }
 
+  async function handleSaveUnitType() {
+    if (selectedUnitTypeId == null) return;
+    if (selectedUnitTypeId === unit.unitTypeId) return;
+    const hasActiveStay =
+      unit.status === "occupied" || Boolean(unit.guestName);
+    if (hasActiveStay) {
+      const proceed = window.confirm(
+        "تنبيه: هذه الوحدة لديها إقامة نشطة حاليًا. تغيير نوع الوحدة قد يؤثّر على بيانات الحجز الحالي والسعة المتاحة. هل تريد المتابعة؟",
+      );
+      if (!proceed) return;
+    }
+    setSavingUnitType(true);
+    try {
+      const res = await fetch(`/api/rooms/${unit.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ unitTypeId: selectedUnitTypeId }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json?.error || "فشل تحديث نوع الوحدة");
+      }
+      onUnitUpdate(json);
+      onRefresh?.();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "فشل تحديث نوع الوحدة");
+      setSelectedUnitTypeId(unit.unitTypeId);
+    } finally {
+      setSavingUnitType(false);
+    }
+  }
+
   const isDirty = notes !== (unit.notes ?? "");
+  const isUnitTypeDirty = selectedUnitTypeId !== unit.unitTypeId;
 
   return (
     <div
@@ -545,6 +635,71 @@ function UnitModal({
               {statusLabels[unit.status] || unit.status}
             </span>
           </div>
+
+          {/* Change unit type */}
+          {canEdit && (
+            <div className="border border-gray-200 rounded-lg p-3 space-y-2 bg-white">
+              <label
+                htmlFor="unit-type-select"
+                className="text-sm font-medium text-gray-700 flex items-center gap-1.5"
+              >
+                <BedDouble size={14} className="text-primary-light" />
+                نوع الوحدة
+              </label>
+              <select
+                id="unit-type-select"
+                value={selectedUnitTypeId ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setSelectedUnitTypeId(v === "" ? null : Number(v));
+                }}
+                disabled={savingUnitType || unitTypesLoading}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:bg-gray-50"
+              >
+                {unitTypesLoading && unitTypeOptions.length === 0 && (
+                  <option value="">جارٍ تحميل الأنواع…</option>
+                )}
+                {!unitTypesLoading && unitTypeOptions.length === 0 && (
+                  <option value="">لا توجد أنواع متاحة</option>
+                )}
+                {unitTypeOptions.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nameAr} ({t.code}) — {t.maxOccupancy} أشخاص
+                  </option>
+                ))}
+              </select>
+              {isUnitTypeDirty && (
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <span className="text-[11px] text-amber-700">
+                    لم يُحفظ — اضغط لتأكيد التغيير.
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedUnitTypeId(unit.unitTypeId)}
+                      disabled={savingUnitType}
+                      className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      تراجع
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveUnitType}
+                      disabled={savingUnitType || selectedUnitTypeId == null}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
+                    >
+                      {savingUnitType ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <Save size={12} />
+                      )}
+                      حفظ النوع
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Unit Type details */}
           {unit.unitType && (

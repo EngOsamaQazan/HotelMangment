@@ -70,7 +70,10 @@ model User {
 model Unit {
   id              Int     @id @default(autoincrement())
   unitNumber      String  @unique @map("unit_number")
-  unitType        String  @map("unit_type") // DEPRECATED: kept for backward-compat with /api/units?type=room|apartment; will be removed in Phase 3 after UI migration.
+  /// Foreign key to the canonical `UnitType` row. The legacy denormalised
+  /// `unit_type` String column ("room" | "apartment") was dropped in
+  /// Phase 4 of the unit-types redesign — derive the coarse classification
+  /// from `unitTypeRef.category` via `legacyTypeFromUnitTypeRef()` instead.
   unitTypeId      Int?    @map("unit_type_id")
   status          String  @default("available")
   floor           Int     @default(1)

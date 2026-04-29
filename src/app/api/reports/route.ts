@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
+import { withLegacyUnitTypeOnReservation } from "@/lib/units/legacy-type";
 
 export async function GET(request: Request) {
   try {
@@ -59,16 +60,23 @@ async function getMonthlyReport(searchParams: URLSearchParams) {
           { checkIn: { lte: startDate }, checkOut: { gte: endDate } },
         ],
       },
-      include: { unit: true },
+      include: {
+        unit: { include: { unitTypeRef: { select: { category: true } } } },
+      },
       orderBy: { checkIn: "asc" },
     }),
     prisma.maintenance.findMany({
       where: {
         requestDate: { gte: startDate, lte: endDate },
       },
-      include: { unit: true },
+      include: {
+        unit: { include: { unitTypeRef: { select: { category: true } } } },
+      },
     }),
   ]);
+
+  const reservationsOut = reservations.map(withLegacyUnitTypeOnReservation);
+  const maintenanceOut = maintenance.map(withLegacyUnitTypeOnReservation);
 
   const income = transactions
     .filter((t) => t.type === "income")
@@ -103,8 +111,8 @@ async function getMonthlyReport(searchParams: URLSearchParams) {
       cancelledReservations: reservations.filter((r) => r.status === "cancelled").length,
     },
     transactions,
-    reservations,
-    maintenance,
+    reservations: reservationsOut,
+    maintenance: maintenanceOut,
   });
 }
 
@@ -114,7 +122,7 @@ async function getDebtsReport() {
       remaining: { gt: 0 },
     },
     include: {
-      unit: true,
+      unit: { include: { unitTypeRef: { select: { category: true } } } },
       transactions: {
         where: { type: "income" },
         orderBy: { date: "desc" },
@@ -131,6 +139,6 @@ async function getDebtsReport() {
   return NextResponse.json({
     totalDebts,
     count: reservations.length,
-    reservations,
+    reservations: reservations.map(withLegacyUnitTypeOnReservation),
   });
 }
