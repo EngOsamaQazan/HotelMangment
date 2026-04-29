@@ -13,6 +13,8 @@ import {
   Banknote,
   Calculator,
   AlertTriangle,
+  HandCoins,
+  X,
 } from "lucide-react";
 import { cn, formatAmount, formatDate } from "@/lib/utils";
 import { Can } from "@/components/Can";
@@ -68,6 +70,16 @@ export default function PayrollPage() {
   const [posting, setPosting] = useState(false);
   const [postResult, setPostResult] = useState<string | null>(null);
   const [paymentAccount, setPaymentAccount] = useState<"1010" | "1020" | "1030">("1010");
+
+  const [advanceOpen, setAdvanceOpen] = useState(false);
+  const [advanceAmount, setAdvanceAmount] = useState("");
+  const [advanceAccount, setAdvanceAccount] = useState<"1010" | "1020" | "1030">("1010");
+  const [advanceDate, setAdvanceDate] = useState(() =>
+    new Date().toISOString().slice(0, 10)
+  );
+  const [advanceNote, setAdvanceNote] = useState("");
+  const [advanceSubmitting, setAdvanceSubmitting] = useState(false);
+  const [advanceError, setAdvanceError] = useState<string | null>(null);
 
   const fetchPayroll = useCallback(async () => {
     setLoading(true);
@@ -135,6 +147,49 @@ export default function PayrollPage() {
     }
   }
 
+  function openAdvance() {
+    setAdvanceAmount("");
+    setAdvanceAccount("1010");
+    setAdvanceDate(new Date().toISOString().slice(0, 10));
+    setAdvanceNote("");
+    setAdvanceError(null);
+    setAdvanceOpen(true);
+  }
+
+  async function handleSubmitAdvance(e: React.FormEvent) {
+    e.preventDefault();
+    setAdvanceError(null);
+    const amt = Number(advanceAmount);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      setAdvanceError("الرجاء إدخال مبلغ صحيح أكبر من صفر");
+      return;
+    }
+    setAdvanceSubmitting(true);
+    try {
+      const res = await fetch(`/api/accounting/payroll/${partyId}/advance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: amt,
+          paymentAccount: advanceAccount,
+          date: advanceDate,
+          note: advanceNote.trim() || undefined,
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error || "فشل تسجيل السلفة");
+      setAdvanceOpen(false);
+      setPostResult(
+        `✅ تم صرف سلفة ${formatAmount(amt)} د.أ من ${paymentAccountLabel(advanceAccount)} (قيد ${j.entry?.entryNumber ?? ""}).`
+      );
+      await fetchPayroll();
+    } catch (err) {
+      setAdvanceError(err instanceof Error ? err.message : "خطأ");
+    } finally {
+      setAdvanceSubmitting(false);
+    }
+  }
+
   if (error) {
     return (
       <div className="flex flex-col items-center py-20 gap-3">
@@ -166,12 +221,23 @@ export default function PayrollPage() {
           icon={<Receipt size={22} />}
           backHref={`/accounting/parties/${partyId}`}
           actions={
-            <button
-              onClick={() => window.print()}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark border border-gold/40 shadow-md transition-colors tap-44"
-            >
-              <Printer size={16} /> <span>طباعة السليب</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Can permission="accounting.parties:advance">
+                <button
+                  onClick={openAdvance}
+                  disabled={!data.party.isActive}
+                  className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700 border border-amber-700/40 shadow-md transition-colors tap-44 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <HandCoins size={16} /> <span>صرف سلفة</span>
+                </button>
+              </Can>
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark border border-gold/40 shadow-md transition-colors tap-44"
+              >
+                <Printer size={16} /> <span>طباعة السليب</span>
+              </button>
+            </div>
           }
         />
       </div>
@@ -479,6 +545,160 @@ export default function PayrollPage() {
           </div>
         )}
       </div>
+
+      {advanceOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4 no-print"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !advanceSubmitting) {
+              setAdvanceOpen(false);
+            }
+          }}
+        >
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[92vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 flex items-center justify-between border-b border-gray-100 shrink-0">
+              <h3 className="text-base sm:text-lg font-bold text-gray-800 flex items-center gap-2">
+                <HandCoins size={20} className="text-amber-600" />
+                صرف سلفة — {data.party.name}
+              </h3>
+              <button
+                type="button"
+                onClick={() => !advanceSubmitting && setAdvanceOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors shrink-0"
+                disabled={advanceSubmitting}
+              >
+                <X size={20} className="text-gray-500" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={handleSubmitAdvance}
+              className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1"
+            >
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 leading-relaxed">
+                السلفة تُسجَّل كحقّ على الموظف في حساب{" "}
+                <span className="font-semibold">2110 مستحقات الموظفين</span>{" "}
+                (وليست مصروفاً). تُخصم تلقائياً من راتبه القادم.
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    المبلغ (د.أ)
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="0.01"
+                    step="0.01"
+                    value={advanceAmount}
+                    onChange={(e) => setAdvanceAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-500"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    التاريخ
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={advanceDate}
+                    onChange={(e) => setAdvanceDate(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  حساب الدفع
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      { code: "1010", label: "الصندوق النقدي", icon: Banknote },
+                      { code: "1020", label: "البنك", icon: Banknote },
+                      { code: "1030", label: "المحفظة", icon: Wallet },
+                    ] as const
+                  ).map((a) => (
+                    <button
+                      key={a.code}
+                      type="button"
+                      onClick={() => setAdvanceAccount(a.code)}
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-lg text-sm border transition-colors",
+                        advanceAccount === a.code
+                          ? "bg-amber-600 text-white border-amber-700 shadow-sm"
+                          : "bg-white text-gray-600 border-gray-200 hover:bg-amber-50 hover:border-amber-300"
+                      )}
+                    >
+                      <a.icon size={16} />
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  ملاحظة (اختياري)
+                </label>
+                <input
+                  type="text"
+                  value={advanceNote}
+                  onChange={(e) => setAdvanceNote(e.target.value)}
+                  placeholder="مثال: سلفة طارئة"
+                  maxLength={280}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-500"
+                />
+              </div>
+
+              {data.outstandingAdvance > 0 && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800">
+                  ملاحظة: يوجد سلف قائمة على هذا الموظف بقيمة{" "}
+                  <span className="font-bold">
+                    {formatAmount(data.outstandingAdvance)} د.أ
+                  </span>{" "}
+                  لم تُسترد بعد.
+                </div>
+              )}
+
+              {advanceError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2">
+                  <AlertCircle size={16} />
+                  {advanceError}
+                </div>
+              )}
+
+              <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setAdvanceOpen(false)}
+                  disabled={advanceSubmitting}
+                  className="px-6 py-2.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  disabled={advanceSubmitting}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium text-sm disabled:opacity-50"
+                >
+                  {advanceSubmitting ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <HandCoins size={18} />
+                  )}
+                  تسجيل السلفة
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
         @media print {

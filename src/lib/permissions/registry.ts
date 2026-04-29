@@ -321,7 +321,7 @@ export const RESOURCES: ResourceDef[] = [
   },
   {
     key: "accounting.parties",
-    label: "الأطراف (عملاء/موردين)",
+    label: "الأطراف (عملاء/موردين/موظفين)",
     category: "accounting",
     actions: ACTIONS,
     routes: [
@@ -330,8 +330,19 @@ export const RESOURCES: ResourceDef[] = [
       "/api/accounting/parties",
       "/api/accounting/parties/[id]",
       "/api/accounting/parties/[id]/statement",
+      "/accounting/payroll",
+      "/accounting/payroll/[partyId]",
+      "/api/accounting/payroll/[partyId]",
+      "/api/accounting/payroll/[partyId]/post",
+      "/api/accounting/payroll/[partyId]/advance",
+    ],
+    extraActions: [
+      { key: "payroll", label: "تسجيل الرواتب" },
+      { key: "advance", label: "صرف سلفة للموظف" },
     ],
     sortOrder: 130,
+    description:
+      "إدارة الأطراف المحاسبية: العملاء، الموردين، الشركاء، والموظفين (الرواتب، العمولات، السلف).",
   },
   {
     key: "accounting.ledger",
