@@ -23,6 +23,7 @@
     "db:reset": "prisma db push --force-reset && npm run db:seed",
     "check:permissions": "npx ts-node --project tsconfig.scripts.json scripts/check-permissions.ts",
     "prebuild": "npm run check:permissions",
+    "postbuild": "node scripts/copy-standalone-assets.cjs",
     "import:guests": "node scripts/import-guests-from-images.cjs",
     "gen:brand-icons": "node scripts/_gen-brand-icons.cjs",
     "postinstall": "prisma generate"
