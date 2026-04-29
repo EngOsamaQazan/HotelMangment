@@ -8,19 +8,19 @@ datasource db {
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
-  name         String
-  email        String   @unique
-  username     String?  @unique
-  passwordHash String   @map("password_hash")
-  role         String   @default("receptionist")
-  avatarUrl    String?  @map("avatar_url")
+  id            Int      @id @default(autoincrement())
+  name          String
+  email         String   @unique
+  username      String?  @unique
+  passwordHash  String   @map("password_hash")
+  role          String   @default("receptionist")
+  avatarUrl     String?  @map("avatar_url")
   /// Personal WhatsApp number (E.164 digits, no leading "+") used to deliver
   /// staff notifications when the "whatsapp" channel is enabled in their
   /// notification preferences. Optional — empty value means WhatsApp delivery
   /// is silently skipped for that user.
-  whatsappPhone String? @map("whatsapp_phone")
-  createdAt    DateTime @default(now()) @map("created_at")
+  whatsappPhone String?  @map("whatsapp_phone")
+  createdAt     DateTime @default(now()) @map("created_at")
 
   userRoles           UserRole[]
   permissionOverrides UserPermissionOverride[]
@@ -61,8 +61,8 @@ model User {
   whatsappNotificationPref        WhatsAppNotificationPref?
 
   // ---- AI Concierge bot (Phase 0+) ----
-  botAllowlistEntries  BotAllowlist[]    @relation("BotAllowlistAdder")
-  botShadowDecisions   BotShadowDraft[]  @relation("BotShadowDraftDecider")
+  botAllowlistEntries BotAllowlist[]   @relation("BotAllowlistAdder")
+  botShadowDecisions  BotShadowDraft[] @relation("BotShadowDraftDecider")
 
   @@map("users")
 }
@@ -698,8 +698,8 @@ model JournalEntry {
 
   lines       JournalLine[]
   attachments JournalAttachment[]
-  reversalOf  JournalEntry?  @relation("Reversal", fields: [reversalOfId], references: [id])
-  reversedBy  JournalEntry[] @relation("Reversal")
+  reversalOf  JournalEntry?       @relation("Reversal", fields: [reversalOfId], references: [id])
+  reversedBy  JournalEntry[]      @relation("Reversal")
 
   @@index([date])
   @@index([source, sourceRefId])
@@ -728,23 +728,56 @@ model JournalAttachment {
 }
 
 model JournalLine {
-  id          Int     @id @default(autoincrement())
-  entryId     Int     @map("entry_id")
-  accountId   Int     @map("account_id")
-  partyId     Int?    @map("party_id")
-  debit       Float   @default(0)
-  credit      Float   @default(0)
-  description String?
-  lineOrder   Int     @map("line_order")
+  id           Int     @id @default(autoincrement())
+  entryId      Int     @map("entry_id")
+  accountId    Int     @map("account_id")
+  partyId      Int?    @map("party_id")
+  costCenterId Int?    @map("cost_center_id")
+  debit        Float   @default(0)
+  credit       Float   @default(0)
+  description  String?
+  lineOrder    Int     @map("line_order")
 
-  entry   JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  account Account      @relation(fields: [accountId], references: [id])
-  party   Party?       @relation(fields: [partyId], references: [id])
+  entry      JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account    Account      @relation(fields: [accountId], references: [id])
+  party      Party?       @relation(fields: [partyId], references: [id])
+  costCenter CostCenter?  @relation(fields: [costCenterId], references: [id])
 
   @@index([entryId])
   @@index([accountId])
   @@index([partyId])
+  @@index([costCenterId])
   @@map("journal_lines")
+}
+
+// ============================================================================
+// Cost Centers (مراكز التكلفة)
+// ============================================================================
+//
+// Analytical dimension layered on top of the chart of accounts. Lets the
+// business slice expenses/revenues by department, project, building, branch,
+// or any custom hierarchy without polluting the COA. Each `JournalLine` may
+// optionally reference one cost center so reports can aggregate
+// debit/credit totals per center.
+//
+// Hierarchy is supported via `parentId` (e.g. "العمليات" → "الاستقبال")
+// so reports can roll up nested centers.
+model CostCenter {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  description String?
+  parentId    Int?     @map("parent_id")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  parent   CostCenter?   @relation("CostCenterTree", fields: [parentId], references: [id])
+  children CostCenter[]  @relation("CostCenterTree")
+  lines    JournalLine[]
+
+  @@index([parentId])
+  @@index([isActive])
+  @@map("cost_centers")
 }
 
 model FiscalPeriod {
@@ -788,10 +821,10 @@ model AccountingCounter {
 // posted. If null, the post route falls back to the system "خصومات راتب
 // أخرى" account (2150).
 model PayrollDeduction {
-  id        Int    @id @default(autoincrement())
-  partyId   Int    @map("party_id")
-  name      String
-  category  String @default("other") // insurance | permit | court | loan | other
+  id       Int    @id @default(autoincrement())
+  partyId  Int    @map("party_id")
+  name     String
+  category String @default("other") // insurance | permit | court | loan | other
 
   calcType String @map("calc_type") // fixed | percent_gross | percent_net
   amount   Float? // for fixed
@@ -1232,33 +1265,33 @@ model ChatReaction {
 // ============================================================================
 
 model Notification {
-  id          Int       @id @default(autoincrement())
-  userId      Int       @map("user_id")
+  id           Int       @id @default(autoincrement())
+  userId       Int       @map("user_id")
   /// Event code, e.g. "task.assigned", "reservation.created", "chat.mention".
   /// Used as a reference both into `events.ts` registry (for icon + label
   /// fallbacks) and into `NotificationPreference` rows (per-event toggles).
-  type        String
-  title       String
-  body        String?
-  linkUrl     String?   @map("link_url")
-  payloadJson Json?     @map("payload_json")
+  type         String
+  title        String
+  body         String?
+  linkUrl      String?   @map("link_url")
+  payloadJson  Json?     @map("payload_json")
   /// Bucketing for the notification-center UI tabs and the preferences
   /// accordion. Mirrors `events.ts → category`. Examples:
   ///   reservations | tasks | chat | whatsapp | finance | accounting |
   ///   maintenance | system | security
-  category    String?
+  category     String?
   /// 0 = normal, 1 = high, 2 = urgent. Drives the colored "عاجل" pill in
   /// the center and overrides quiet-hours rules.
-  priority    Int       @default(0)
-  readAt      DateTime? @map("read_at")
+  priority     Int       @default(0)
+  readAt       DateTime? @map("read_at")
   /// Set when the user archives the row from the center. Archived rows
   /// hide from "all" / "unread" tabs but stay queryable for retention.
-  archivedAt  DateTime? @map("archived_at")
+  archivedAt   DateTime? @map("archived_at")
   /// Future timestamp until which this notification should be hidden from
   /// the bell + center. The list query filters out rows with snoozedUntil
   /// in the future (so a snoozed row reappears automatically).
   snoozedUntil DateTime? @map("snoozed_until")
-  createdAt   DateTime  @default(now()) @map("created_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -1421,18 +1454,18 @@ model BookingInboxReservation {
 /// access token encrypted with the shared AES-256-GCM helper so it is never
 /// exposed in logs/backups in plaintext.
 model WhatsAppConfig {
-  id                 Int       @id @default(1)
-  appId              String?   @map("app_id")
+  id                 Int     @id @default(1)
+  appId              String? @map("app_id")
   /// App Secret is needed to verify webhook signatures (X-Hub-Signature-256).
-  appSecretEnc       String?   @map("app_secret_enc")
-  wabaId             String?   @map("waba_id")
-  phoneNumberId      String?   @map("phone_number_id")
-  displayPhoneNumber String?   @map("display_phone_number")
+  appSecretEnc       String? @map("app_secret_enc")
+  wabaId             String? @map("waba_id")
+  phoneNumberId      String? @map("phone_number_id")
+  displayPhoneNumber String? @map("display_phone_number")
   /// System-User permanent token. Never returned to the client unmasked.
-  accessTokenEnc     String?   @map("access_token_enc")
-  webhookVerifyToken String?   @map("webhook_verify_token")
-  apiVersion         String    @default("v21.0") @map("api_version")
-  isActive           Boolean   @default(true) @map("is_active")
+  accessTokenEnc     String? @map("access_token_enc")
+  webhookVerifyToken String? @map("webhook_verify_token")
+  apiVersion         String  @default("v21.0") @map("api_version")
+  isActive           Boolean @default(true) @map("is_active")
 
   // ---- Booking-confirmation auto-send (Phase 3) ----
   /// When true, every successful POST /api/reservations triggers a fire-
@@ -1455,10 +1488,10 @@ model WhatsAppConfig {
   /// customer-service window) that contains a tasteful Quranic / Sunnah
   /// blessing — matches the religious section already printed on the
   /// physical contract. Operator can disable or rewrite the text below.
-  bookingFollowUpEnabled      Boolean @default(true)  @map("booking_follow_up_enabled")
+  bookingFollowUpEnabled Boolean @default(true) @map("booking_follow_up_enabled")
   /// Free-text follow-up message (Quranic art / Sunnah). Supports the
   /// same {{1}}..{{N}} substitutions for personalisation.
-  bookingFollowUpText         String? @map("booking_follow_up_text")
+  bookingFollowUpText    String? @map("booking_follow_up_text")
 
   // ---- AI Concierge bot ("WhatsApp Booking Bot") — Phase 0+ ----
   /// Master switch + rollout strategy.
@@ -1474,52 +1507,52 @@ model WhatsAppConfig {
   ///                  guest always gets the same experience.
   ///   "full"       = bot replies for every eligible inbound.
   /// In every mode except "off" the kill-switch is a single UPDATE.
-  botMode                       String   @default("off") @map("bot_mode")
+  botMode                   String    @default("off") @map("bot_mode")
   /// 0..100 — only consulted when `botMode = "percentage"`.
-  botRolloutPercentage          Int      @default(0)     @map("bot_rollout_percentage")
+  botRolloutPercentage      Int       @default(0) @map("bot_rollout_percentage")
   /// Persona name surfaced inside the system prompt ("أنت محمد...").
-  botPersonaName                String   @default("محمد") @map("bot_persona_name")
+  botPersonaName            String    @default("محمد") @map("bot_persona_name")
   /// "warm" | "formal" | "playful" — feeds the system prompt tone.
-  botPersonaTone                String   @default("warm") @map("bot_persona_tone")
+  botPersonaTone            String    @default("warm") @map("bot_persona_tone")
   /// LLM provider id: "openai" | "gemini" | "anthropic".
-  botLlmProvider                String   @default("openai") @map("bot_llm_provider")
+  botLlmProvider            String    @default("openai") @map("bot_llm_provider")
   /// Concrete model slug for the chosen provider (e.g. "gpt-4o-mini").
-  botLlmModel                   String   @default("gpt-4o-mini") @map("bot_llm_model")
+  botLlmModel               String    @default("gpt-4o-mini") @map("bot_llm_model")
   /// Encrypted LLM API key (never returned to the client unmasked).
-  botLlmApiKeyEnc               String?  @map("bot_llm_api_key_enc")
+  botLlmApiKeyEnc           String?   @map("bot_llm_api_key_enc")
   /// Hard cap on tool-call hops per inbound message (anti-runaway).
-  botMaxToolHops                Int      @default(5)     @map("bot_max_tool_hops")
+  botMaxToolHops            Int       @default(5) @map("bot_max_tool_hops")
   /// Hard cap on user/assistant turn pairs kept in the LLM context.
-  botMaxTurns                   Int      @default(12)    @map("bot_max_turns")
+  botMaxTurns               Int       @default(12) @map("bot_max_turns")
   /// USD spending budget per UTC day. Circuit-breaker kicks in when crossed.
-  botDailyBudgetUsd             Decimal  @default(5)     @map("bot_daily_budget_usd")  @db.Decimal(8, 2)
+  botDailyBudgetUsd         Decimal   @default(5) @map("bot_daily_budget_usd") @db.Decimal(8, 2)
   /// Running total for the current day; reset by `botCostResetAt`.
-  botCostTodayUsd               Decimal  @default(0)     @map("bot_cost_today_usd")    @db.Decimal(8, 4)
-  botCostResetAt                DateTime? @map("bot_cost_reset_at")
+  botCostTodayUsd           Decimal   @default(0) @map("bot_cost_today_usd") @db.Decimal(8, 4)
+  botCostResetAt            DateTime? @map("bot_cost_reset_at")
   /// When true, automatic circuit breakers (escalation rate, budget, etc.)
   /// can downgrade `botMode` to "shadow" without human intervention.
-  botCircuitBreakerEnabled      Boolean  @default(true)  @map("bot_circuit_breaker_enabled")
+  botCircuitBreakerEnabled  Boolean   @default(true) @map("bot_circuit_breaker_enabled")
   /// Optional opening-hours window in Asia/Amman, "HH:mm" strings. Outside
   /// this window the bot escalates to human immediately. Null = 24/7.
-  botActiveHoursStart           String?  @map("bot_active_hours_start")
-  botActiveHoursEnd             String?  @map("bot_active_hours_end")
+  botActiveHoursStart       String?   @map("bot_active_hours_start")
+  botActiveHoursEnd         String?   @map("bot_active_hours_end")
   /// When true, sender splits long messages and adds typing-style pacing.
-  botHumanlikePacing            Boolean  @default(true)  @map("bot_humanlike_pacing")
+  botHumanlikePacing        Boolean   @default(true) @map("bot_humanlike_pacing")
   /// Default Stripe payment currency code (uppercase). The booking engine
   /// computes amounts in JOD; this controls the actual Checkout charge.
-  botPaymentCurrency            String   @default("JOD") @map("bot_payment_currency")
+  botPaymentCurrency        String    @default("JOD") @map("bot_payment_currency")
   /// Encrypted Stripe secret key. Never returned to the client unmasked.
-  botStripeSecretKeyEnc         String?  @map("bot_stripe_secret_key_enc")
+  botStripeSecretKeyEnc     String?   @map("bot_stripe_secret_key_enc")
   /// Encrypted Stripe webhook signing secret (whsec_...).
-  botStripeWebhookSecretEnc     String?  @map("bot_stripe_webhook_secret_enc")
+  botStripeWebhookSecretEnc String?   @map("bot_stripe_webhook_secret_enc")
   /// Public origin used when constructing Stripe success/cancel URLs.
-  botPublicBaseUrl              String?  @map("bot_public_base_url")
+  botPublicBaseUrl          String?   @map("bot_public_base_url")
 
-  lastVerifiedAt     DateTime? @map("last_verified_at")
-  lastVerifyOk       Boolean?  @map("last_verify_ok")
-  lastError          String?   @map("last_error")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  lastVerifiedAt DateTime? @map("last_verified_at")
+  lastVerifyOk   Boolean?  @map("last_verify_ok")
+  lastError      String?   @map("last_error")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   @@map("whatsapp_config")
 }
@@ -1848,37 +1881,37 @@ model WhatsAppNotificationPref {
 /// active Stripe payment link, and rolling LLM cost accounting. There is at
 /// most one row per phone (`@unique`); transitions are mutated in-place.
 model BotConversation {
-  id              Int      @id @default(autoincrement())
+  id               Int       @id @default(autoincrement())
   /// E.164 digits — same shape used everywhere else in the WhatsApp module.
-  contactPhone    String   @unique @map("contact_phone")
+  contactPhone     String    @unique @map("contact_phone")
   /// Soft-link to the staff-facing conversation row (assignment/notes/events).
-  conversationId  Int?     @unique @map("conversation_id")
+  conversationId   Int?      @unique @map("conversation_id")
   /// The GuestAccount we auto-provisioned on first contact. Null until the
   /// bot has confirmed the guest's display name and created the account.
-  guestAccountId  Int?     @map("guest_account_id")
+  guestAccountId   Int?      @map("guest_account_id")
   /// Finite-state machine label. Free text on purpose so we can extend it
   /// without migrations: idle | greeting | collecting | quoting | holding |
   /// awaiting_payment | confirmed | escalated | done | opted_out.
-  state           String   @default("idle")
+  state            String    @default("idle")
   /// Bag of slot values the dialog has collected so far. Free-shape JSON:
   /// `{ checkIn?, checkOut?, guests?, preferredCategory?, guestName?,
   ///    language?, lastShownOptions? }`.
-  slots           Json     @default("{}")
+  slots            Json      @default("{}")
   /// Pointer to the current `Reservation` with status = "pending_hold".
-  lastHoldId      Int?     @map("last_hold_id")
+  lastHoldId       Int?      @map("last_hold_id")
   /// Snapshot of the last quote shown to the guest, used by the runtime
   /// price validator (the LLM is not allowed to invent prices).
-  lastQuoteJson   Json?    @map("last_quote_json")
+  lastQuoteJson    Json?     @map("last_quote_json")
   /// Stripe Checkout Session id for the active payment link (if any).
-  paymentSessionId String? @map("payment_session_id")
-  paymentLinkUrl   String? @map("payment_link_url")
+  paymentSessionId String?   @map("payment_session_id")
+  paymentLinkUrl   String?   @map("payment_link_url")
   paymentExpiresAt DateTime? @map("payment_expires_at")
   /// Rolling counters — fed every time `engine.runBotTurn` calls the LLM.
-  llmTurns        Int      @default(0) @map("llm_turns")
-  llmTokensIn     Int      @default(0) @map("llm_tokens_in")
-  llmTokensOut    Int      @default(0) @map("llm_tokens_out")
+  llmTurns         Int       @default(0) @map("llm_turns")
+  llmTokensIn      Int       @default(0) @map("llm_tokens_in")
+  llmTokensOut     Int       @default(0) @map("llm_tokens_out")
   /// USD cost across all turns of this conversation.
-  costUsd         Decimal  @default(0) @map("cost_usd") @db.Decimal(10, 4)
+  costUsd          Decimal   @default(0) @map("cost_usd") @db.Decimal(10, 4)
   /// Set when the bot voluntarily handed off to a human; never cleared.
   escalatedAt      DateTime? @map("escalated_at")
   escalationReason String?   @map("escalation_reason")
@@ -1887,8 +1920,8 @@ model BotConversation {
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
-  conversation WhatsAppConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
-  guestAccount GuestAccount?         @relation(fields: [guestAccountId], references: [id], onDelete: SetNull)
+  conversation WhatsAppConversation?  @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  guestAccount GuestAccount?          @relation(fields: [guestAccountId], references: [id], onDelete: SetNull)
   events       BotConversationEvent[]
 
   @@index([state, lastInboundAt])
@@ -1936,26 +1969,26 @@ model BotAllowlist {
 /// Staff see one row per inbound under each thread in the inbox and choose
 /// to send-as-is, edit, or ignore. Every decision is training feedback.
 model BotShadowDraft {
-  id               Int      @id @default(autoincrement())
-  conversationId   Int      @map("conversation_id")
+  id               Int       @id @default(autoincrement())
+  conversationId   Int       @map("conversation_id")
   /// Soft-link to the inbound `WhatsAppMessage` this draft is responding to.
   /// Unique → at most one draft per inbound message.
-  inboundMessageId Int      @unique @map("inbound_message_id")
+  inboundMessageId Int       @unique @map("inbound_message_id")
   /// What the bot would have sent (post-pacing, pre-split). Null when the
   /// bot decided silence was the right answer (rare but possible).
-  draftText        String?  @db.Text @map("draft_text")
+  draftText        String?   @map("draft_text") @db.Text
   /// Tool calls the bot would have executed. They are NOT executed in shadow
   /// mode — booking holds, payment links, and refunds remain dry.
-  draftToolCalls   Json?    @map("draft_tool_calls")
+  draftToolCalls   Json?     @map("draft_tool_calls")
   /// USD cost of the LLM turn that produced this draft.
-  draftCostUsd     Decimal  @default(0) @map("draft_cost_usd") @db.Decimal(8, 4)
+  draftCostUsd     Decimal   @default(0) @map("draft_cost_usd") @db.Decimal(8, 4)
   /// "pending" | "sent" | "edited" | "ignored" | "expired"
-  status           String   @default("pending")
+  status           String    @default("pending")
   /// What the staff member actually sent (after their edits, if any).
-  finalSentText    String?  @db.Text @map("final_sent_text")
-  decidedByUserId  Int?     @map("decided_by_user_id")
+  finalSentText    String?   @map("final_sent_text") @db.Text
+  decidedByUserId  Int?      @map("decided_by_user_id")
   decidedAt        DateTime? @map("decided_at")
-  createdAt        DateTime @default(now()) @map("created_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
 
   conversation   WhatsAppConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   inboundMessage WhatsAppMessage      @relation(fields: [inboundMessageId], references: [id], onDelete: Cascade)

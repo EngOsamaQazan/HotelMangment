@@ -369,6 +369,20 @@ export const RESOURCES: ResourceDef[] = [
       "إدارة الأطراف المحاسبية: العملاء، الموردين، الشركاء، والموظفين (الرواتب، العمولات، السلف).",
   },
   {
+    key: "accounting.cost-centers",
+    label: "مراكز التكلفة",
+    category: "accounting",
+    actions: ACTIONS,
+    routes: [
+      "/accounting/cost-centers",
+      "/api/accounting/cost-centers",
+      "/api/accounting/cost-centers/[id]",
+    ],
+    sortOrder: 135,
+    description:
+      "إدارة مراكز التكلفة (الإدارات/المشاريع/الفروع) كبُعد تحليلي للمصروفات والإيرادات.",
+  },
+  {
     key: "accounting.ledger",
     label: "دفتر الأستاذ",
     category: "accounting",
@@ -836,6 +850,7 @@ export const DEFAULT_ROLES: RolePreset[] = [
       "accounting.journal:*",
       "accounting.accounts:*",
       "accounting.parties:*",
+      "accounting.cost-centers:*",
       "accounting.ledger:*",
       "accounting.cashbook:view",
       "accounting.periods:*",

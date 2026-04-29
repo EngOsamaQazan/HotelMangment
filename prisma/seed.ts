@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { seedAccounting } from "./seed-accounting";
+import { seedCostCenters } from "./seed-cost-centers";
 import { seedUnitTypes } from "./seed-unit-types";
 
 const prisma = new PrismaClient();
@@ -339,6 +340,9 @@ async function main() {
 
   // ===== Accounting Chart of Accounts =====
   await seedAccounting();
+
+  // ===== Cost Centers (analytical dimension) =====
+  await seedCostCenters();
 
   console.log("\n✅ تمت تهيئة قاعدة البيانات بنجاح!");
   console.log("📊 الحسابات الافتراضية:");
