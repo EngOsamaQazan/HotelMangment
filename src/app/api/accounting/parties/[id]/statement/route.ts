@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { PARTY_BALANCE_ACCOUNT_TYPES } from "@/lib/accounting";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 
 export async function GET(
@@ -27,22 +29,33 @@ export async function GET(
     if (from) dateFilter.gte = new Date(from);
     if (to) dateFilter.lte = new Date(to);
 
+    // Party balance lives on balance-sheet accounts only — see the comment on
+    // `PARTY_BALANCE_ACCOUNT_TYPES` in `src/lib/accounting.ts` for why expense
+    // and revenue lines that happen to carry a `partyId` (per-employee salary
+    // expense, per-partner commission, …) must not contribute to the running
+    // balance shown on the party statement.
+    const accountFilter: Prisma.JournalLineWhereInput = {
+      account: { type: { in: [...PARTY_BALANCE_ACCOUNT_TYPES] } },
+    };
+
     let openingBalance = 0;
     if (from) {
       const openAgg = await prisma.journalLine.aggregate({
         where: {
           partyId,
+          ...accountFilter,
           entry: { status: "posted", date: { lt: new Date(from) } },
         },
         _sum: { debit: true, credit: true },
       });
       openingBalance =
-        Number(openAgg._sum.debit || 0) - Number(openAgg._sum.credit || 0);
+        Number(openAgg._sum?.debit || 0) - Number(openAgg._sum?.credit || 0);
     }
 
     const lines = await prisma.journalLine.findMany({
       where: {
         partyId,
+        ...accountFilter,
         entry: {
           status: "posted",
           ...(from || to ? { date: dateFilter } : {}),

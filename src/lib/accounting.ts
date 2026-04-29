@@ -290,12 +290,29 @@ export async function getAccountBalance(
   };
 }
 
+/**
+ * A party's running balance is a *receivable/payable* concept and must be
+ * computed only on balance-sheet accounts (asset / liability / equity).
+ * Expense and revenue accounts close to retained earnings at period end and
+ * don't represent an ongoing obligation between a party and the hotel — even
+ * if a `partyId` is attached on those lines for reporting purposes (e.g.
+ * tracking salary expense per employee on 5010, or commission per partner on
+ * 4010). Including them here would inflate balances by the cumulative
+ * expense/revenue ever booked against the party.
+ */
+export const PARTY_BALANCE_ACCOUNT_TYPES = [
+  "asset",
+  "liability",
+  "equity",
+] as const;
+
 export async function getPartyBalance(
   partyId: number,
   asOf?: Date
 ): Promise<{ debit: number; credit: number; balance: number }> {
   const where: Prisma.JournalLineWhereInput = {
     partyId,
+    account: { type: { in: [...PARTY_BALANCE_ACCOUNT_TYPES] } },
     entry: { status: "posted", ...(asOf ? { date: { lte: asOf } } : {}) },
   };
 
