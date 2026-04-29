@@ -15,11 +15,24 @@ import {
   AlertTriangle,
   HandCoins,
   X,
+  Scissors,
 } from "lucide-react";
 import { cn, formatAmount, formatDate } from "@/lib/utils";
 import { Can } from "@/components/Can";
 import { PageShell } from "@/components/ui/PageShell";
 import { PageHeader } from "@/components/ui/PageHeader";
+
+interface DeductionLine {
+  id: number;
+  name: string;
+  category: string;
+  calcType: "fixed" | "percent_gross" | "percent_net";
+  mode: "continuous" | "installment";
+  amount: number;
+  cappedReason: "installment_remaining" | "gross_exhausted" | null;
+  appliedSoFar: number;
+  remainingAfter: number;
+}
 
 interface PayrollData {
   party: {
@@ -48,8 +61,16 @@ interface PayrollData {
   empLiabBalance: number;
   advancesThisPeriod: number;
   paymentsThisPeriod: number;
+  deductions: DeductionLine[];
+  totalDeductions: number;
   net: number;
 }
+
+const CALC_LABEL: Record<DeductionLine["calcType"], string> = {
+  fixed: "ثابت",
+  percent_gross: "% من الإجمالي",
+  percent_net: "% من الصافي",
+};
 
 const ARABIC_MONTHS = [
   "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
@@ -113,7 +134,7 @@ export default function PayrollPage() {
     }
     if (
       !confirm(
-        `سيتم تسجيل:\n\n• استحقاق راتب: ${formatAmount(data.gross)} د.أ\n• صرف: ${formatAmount(data.net)} د.أ من ${paymentAccountLabel(paymentAccount)}\n• خصم سلف: ${formatAmount(data.outstandingAdvance)} د.أ\n\nهل أنت متأكد؟`
+        `سيتم تسجيل:\n\n• استحقاق راتب: ${formatAmount(data.gross)} د.أ\n• اقتطاعات: ${formatAmount(data.totalDeductions)} د.أ${data.deductions.length ? ` (${data.deductions.map((d) => d.name).join("، ")})` : ""}\n• خصم سلف: ${formatAmount(data.outstandingAdvance)} د.أ\n• صرف صافي: ${formatAmount(data.net)} د.أ من ${paymentAccountLabel(paymentAccount)}\n\nهل أنت متأكد؟`
       )
     ) {
       return;
@@ -222,6 +243,14 @@ export default function PayrollPage() {
           backHref={`/accounting/parties/${partyId}`}
           actions={
             <div className="flex flex-wrap items-center gap-2">
+              <Can permission="accounting.parties:manage_deductions">
+                <Link
+                  href={`/accounting/payroll/${partyId}/deductions`}
+                  className="flex items-center gap-2 px-4 py-2 bg-white text-primary rounded-lg text-sm hover:bg-gold-soft border border-gold/40 shadow-sm transition-colors tap-44"
+                >
+                  <Scissors size={16} /> <span>الاقتطاعات</span>
+                </Link>
+              </Can>
               <Can permission="accounting.parties:advance">
                 <button
                   onClick={openAdvance}
@@ -433,6 +462,28 @@ export default function PayrollPage() {
               الاستقطاعات
             </h3>
             <div className="space-y-2 border-r-2 border-gold/30 pr-3">
+              {data.deductions.map((d) => (
+                <Row
+                  key={d.id}
+                  label={`${d.name} (${CALC_LABEL[d.calcType]}${
+                    d.mode === "installment"
+                      ? ` — قسط، متبقي ${formatAmount(d.remainingAfter)}`
+                      : ""
+                  })`}
+                  value={d.amount}
+                  negative
+                />
+              ))}
+              {data.totalDeductions > 0 && (
+                <div className="border-t border-gold/40 pt-2">
+                  <Row
+                    label="مجموع الاقتطاعات"
+                    value={data.totalDeductions}
+                    negative
+                    bold
+                  />
+                </div>
+              )}
               <Row
                 label="سلف قائمة على الموظف"
                 value={data.outstandingAdvance}

@@ -624,6 +624,8 @@ model Account {
   partiesEq Party[]       @relation("EquityAccount")
   partiesDr Party[]       @relation("DrawAccount")
 
+  payrollDeductions PayrollDeduction[]
+
   @@index([type])
   @@index([parentId])
   @@map("accounts")
@@ -661,6 +663,9 @@ model Party {
   equityAccount Account?      @relation("EquityAccount", fields: [equityAccountId], references: [id])
   drawAccount   Account?      @relation("DrawAccount", fields: [drawAccountId], references: [id])
   lines         JournalLine[]
+
+  payrollDeductions            PayrollDeduction[]
+  payrollDeductionApplications PayrollDeductionApplication[]
 
   @@index([type])
   @@index([isActive])
@@ -733,6 +738,86 @@ model AccountingCounter {
   value Int    @default(0)
 
   @@map("accounting_counters")
+}
+
+// ============================================================================
+// Payroll Deductions (continuous & installment)
+// ============================================================================
+//
+// Represents a recurring or installment-based salary deduction configured
+// per employee (e.g. health insurance, court order, work-permit fee).
+//
+// Calculation models supported:
+//   • fixed         — flat monthly amount (`amount`)
+//   • percent_gross — `percent` × (basic + commission) each month
+//   • percent_net   — `percent` × (gross − all earlier deductions) each month
+//
+// Modes:
+//   • continuous    — applied every month within the [start, end?] window
+//   • installment   — applied each month until cumulative applied
+//                     reaches `totalAmount` (then auto-deactivates)
+//
+// `liabilityAccountId` is the credit-side GL account when the salary is
+// posted. If null, the post route falls back to the system "خصومات راتب
+// أخرى" account (2150).
+model PayrollDeduction {
+  id        Int    @id @default(autoincrement())
+  partyId   Int    @map("party_id")
+  name      String
+  category  String @default("other") // insurance | permit | court | loan | other
+
+  calcType String @map("calc_type") // fixed | percent_gross | percent_net
+  amount   Float? // for fixed
+  percent  Float? // for percent_gross | percent_net (0..1, e.g. 0.05 = 5%)
+
+  mode        String @default("continuous") // continuous | installment
+  totalAmount Float? @map("total_amount") // installment cap (full debt to recover)
+
+  startYear  Int  @map("start_year")
+  startMonth Int  @map("start_month") // 1..12
+  endYear    Int? @map("end_year")
+  endMonth   Int? @map("end_month")
+
+  liabilityAccountId Int? @map("liability_account_id")
+
+  priority Int     @default(100) // tiebreaker within same calcType
+  isActive Boolean @default(true) @map("is_active")
+  notes    String?
+
+  createdById Int?     @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  party            Party                         @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  liabilityAccount Account?                      @relation(fields: [liabilityAccountId], references: [id])
+  applications     PayrollDeductionApplication[]
+
+  @@index([partyId, isActive])
+  @@index([category])
+  @@map("payroll_deductions")
+}
+
+// One row per (deduction, year, month) recorded when the salary is posted.
+// Provides:
+//   • idempotency (unique on deductionId+year+month)
+//   • audit link to the salary payment JournalEntry
+//   • basis for installment-progress queries
+model PayrollDeductionApplication {
+  id             Int      @id @default(autoincrement())
+  deductionId    Int      @map("deduction_id")
+  partyId        Int      @map("party_id")
+  year           Int
+  month          Int // 1..12
+  appliedAmount  Float    @map("applied_amount")
+  journalEntryId Int?     @map("journal_entry_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  deduction PayrollDeduction @relation(fields: [deductionId], references: [id], onDelete: Cascade)
+  party     Party            @relation(fields: [partyId], references: [id])
+
+  @@unique([deductionId, year, month])
+  @@index([partyId, year, month])
+  @@map("payroll_deduction_applications")
 }
 
 // ============================================================================

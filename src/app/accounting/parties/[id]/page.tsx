@@ -15,6 +15,7 @@ import {
   Pencil,
   Briefcase,
   Receipt,
+  Scissors,
 } from "lucide-react";
 import { cn, formatAmount, formatDate } from "@/lib/utils";
 import { Pagination, usePaginatedSlice } from "@/components/Pagination";
@@ -281,12 +282,22 @@ export default function PartyStatementPage() {
                 بيانات الموظف والاستحقاقات
               </h3>
             </div>
-            <Link
-              href={`/accounting/payroll/${id}`}
-              className="inline-flex items-center gap-1 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700"
-            >
-              <Receipt size={14} /> سليب الراتب
-            </Link>
+            <div className="flex items-center gap-2">
+              <Can permission="accounting.parties:manage_deductions">
+                <Link
+                  href={`/accounting/payroll/${id}/deductions`}
+                  className="inline-flex items-center gap-1 text-xs bg-white text-primary border border-gold/40 px-3 py-1.5 rounded-lg hover:bg-gold-soft"
+                >
+                  <Scissors size={14} /> الاقتطاعات
+                </Link>
+              </Can>
+              <Link
+                href={`/accounting/payroll/${id}`}
+                className="inline-flex items-center gap-1 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700"
+              >
+                <Receipt size={14} /> سليب الراتب
+              </Link>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">

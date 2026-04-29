@@ -25,6 +25,10 @@ const ACCOUNTS: AccountSeed[] = [
   { code: "2010", name: "ذمم الموردين", type: "liability", subtype: "ap", normalBalance: "credit", parent: "2000", isSystem: true },
   { code: "2100", name: "حسابات الشركاء الجارية", type: "liability", subtype: "ap", normalBalance: "credit", parent: "2000", isSystem: true },
   { code: "2110", name: "مستحقات الموظفين", type: "liability", subtype: "ap", normalBalance: "credit", parent: "2000", isSystem: true },
+  { code: "2120", name: "تأمينات صحية مستحقة", type: "liability", subtype: "ap", normalBalance: "credit", parent: "2000", isSystem: true, description: "اقتطاعات التأمين الصحي على الموظفين، تُسدّد للجهة المؤمِّنة" },
+  { code: "2130", name: "ذمم محاكم وجهات حكومية", type: "liability", subtype: "ap", normalBalance: "credit", parent: "2000", isSystem: true, description: "اقتطاعات أحكام محاكم أو جهات حكومية من رواتب الموظفين" },
+  { code: "2140", name: "رسوم تصاريح عمل مستحقة", type: "liability", subtype: "ap", normalBalance: "credit", parent: "2000", isSystem: true, description: "اقتطاعات رسوم تصاريح العمل التي يتحمّلها الموظف" },
+  { code: "2150", name: "خصومات راتب أخرى", type: "liability", subtype: "ap", normalBalance: "credit", parent: "2000", isSystem: true, description: "حساب افتراضي للخصومات التي لا تخصّ جهة محدّدة" },
   { code: "2200", name: "قروض وسلف", type: "liability", subtype: "ap", normalBalance: "credit", parent: "2000", isSystem: true },
 
   { code: "3000", name: "حقوق الملكية", type: "equity", normalBalance: "credit", isSystem: true },

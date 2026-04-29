@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ACCOUNT_CODES } from "@/lib/accounting";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
+import { computePayrollDeductions } from "@/lib/payroll/deductions";
 
 /**
  * GET /api/accounting/payroll/:partyId?year=2026&month=4
@@ -118,9 +119,23 @@ export async function GET(
 
     const outstandingAdvance = empLiabBalance < 0 ? -empLiabBalance : 0;
 
-    // 3) Payslip: gross = base + commission, net = gross - outstandingAdvance (to be cleared)
+    // 3) Payslip: gross = base + commission
     const gross = Math.round((baseSalary + commission) * 100) / 100;
-    const net = Math.round((gross - outstandingAdvance) * 100) / 100;
+
+    // 4) Compute configured deductions (continuous + installments) for the month.
+    const deductionsResult = await computePayrollDeductions(
+      prisma,
+      partyId,
+      year,
+      month,
+      gross
+    );
+
+    // 5) Net = gross − totalDeductions − outstandingAdvance.
+    const net =
+      Math.round(
+        (gross - deductionsResult.total - outstandingAdvance) * 100
+      ) / 100;
 
     return NextResponse.json({
       party: {
@@ -149,6 +164,18 @@ export async function GET(
       empLiabBalance: Math.round(empLiabBalance * 100) / 100,
       advancesThisPeriod: Math.round(advancesThisPeriod * 100) / 100,
       paymentsThisPeriod: Math.round(paymentsThisPeriod * 100) / 100,
+      deductions: deductionsResult.items.map((item) => ({
+        id: item.deduction.id,
+        name: item.deduction.name,
+        category: item.deduction.category,
+        calcType: item.deduction.calcType,
+        mode: item.deduction.mode,
+        amount: item.amount,
+        cappedReason: item.cappedReason ?? null,
+        appliedSoFar: item.appliedSoFar,
+        remainingAfter: item.remainingAfter,
+      })),
+      totalDeductions: deductionsResult.total,
       net,
     });
   } catch (error) {

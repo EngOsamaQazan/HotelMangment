@@ -332,13 +332,17 @@ export const RESOURCES: ResourceDef[] = [
       "/api/accounting/parties/[id]/statement",
       "/accounting/payroll",
       "/accounting/payroll/[partyId]",
+      "/accounting/payroll/[partyId]/deductions",
       "/api/accounting/payroll/[partyId]",
       "/api/accounting/payroll/[partyId]/post",
       "/api/accounting/payroll/[partyId]/advance",
+      "/api/accounting/payroll/[partyId]/deductions",
+      "/api/accounting/payroll/[partyId]/deductions/[id]",
     ],
     extraActions: [
       { key: "payroll", label: "تسجيل الرواتب" },
       { key: "advance", label: "صرف سلفة للموظف" },
+      { key: "manage_deductions", label: "إدارة الاقتطاعات الشهرية" },
     ],
     sortOrder: 130,
     description:
