@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BookOpen, Plus, Loader2, AlertCircle, Lock, Eye, X } from "lucide-react";
 import Link from "next/link";
 import { cn, formatAmount } from "@/lib/utils";
 import { Can } from "@/components/Can";
 import { PageShell } from "@/components/ui/PageShell";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 interface Account {
   id: number;
@@ -38,6 +39,39 @@ const TYPE_COLORS: Record<string, string> = {
   expense: "bg-red-50 text-red-700 border-red-200",
 };
 
+/**
+ * Pick the most-likely parent for a freshly typed account code.
+ *
+ * Strategy: among accounts of the same `type`, prefer the one whose `code`
+ * is the LONGEST proper prefix of the new code, falling back to the
+ * type's root account (e.g. "5000" for any 5xxx expense).
+ *
+ * Examples in this codebase's 4-digit chart:
+ *   newCode="5025", type=expense → "5000 المصروفات" (root)
+ *   newCode="5081", type=expense → "5080 خدمات تقنية" if it exists, else "5000"
+ *   newCode="1015", type=asset   → "1010 الصندوق النقدي" if it exists, else "1000"
+ */
+function suggestParent(
+  newCode: string,
+  type: string,
+  pool: Account[],
+): Account | null {
+  const code = (newCode || "").trim();
+  if (!code) return null;
+  const candidates = pool
+    .filter((a) => a.type === type && a.code !== code)
+    .filter((a) => code.startsWith(a.code) && a.code.length < code.length);
+  if (candidates.length > 0) {
+    candidates.sort((a, b) => b.code.length - a.code.length);
+    return candidates[0];
+  }
+  // Fallback: the root of the same type (parentId == null with shortest code).
+  const roots = pool
+    .filter((a) => a.type === type && a.parentId == null)
+    .sort((a, b) => a.code.length - b.code.length || a.code.localeCompare(b.code));
+  return roots[0] ?? null;
+}
+
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +88,32 @@ export default function AccountsPage() {
     description: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  /** Tracks whether the user has explicitly chosen a parent. Once true, the
+   *  auto-suggest stops overriding their choice. */
+  const [parentTouched, setParentTouched] = useState(false);
+
+  const suggestedParent = useMemo(
+    () => suggestParent(form.code, form.type, accounts),
+    [form.code, form.type, accounts],
+  );
+
+  /** id → account map for cheap parent lookups in the table. */
+  const accountById = useMemo(() => {
+    const m = new Map<number, Account>();
+    for (const a of accounts) m.set(a.id, a);
+    return m;
+  }, [accounts]);
+
+  // Auto-fill the parent based on the typed code, but never override an
+  // explicit user pick (`parentTouched`).
+  useEffect(() => {
+    if (parentTouched) return;
+    const next = suggestedParent ? String(suggestedParent.id) : "";
+    if (next !== form.parentId) {
+      setForm((f) => ({ ...f, parentId: next }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestedParent, parentTouched]);
 
   const fetchAccounts = useCallback(async () => {
     setLoading(true);
@@ -104,6 +164,7 @@ export default function AccountsPage() {
         parentId: "",
         description: "",
       });
+      setParentTouched(false);
       fetchAccounts();
     } catch (err) {
       alert(err instanceof Error ? err.message : "خطأ");
@@ -186,6 +247,15 @@ export default function AccountsPage() {
                     </td>
                     <td className="px-4 py-3 font-medium text-gray-800">
                       {a.name}
+                      {a.parentId != null && accountById.get(a.parentId) && (
+                        <span className="block text-[11px] text-gray-400 mt-0.5">
+                          تحت:{" "}
+                          <span className="font-mono">
+                            {accountById.get(a.parentId)!.code}
+                          </span>{" "}
+                          {accountById.get(a.parentId)!.name}
+                        </span>
+                      )}
                       {a.description && (
                         <span className="block text-xs text-gray-400 mt-0.5">
                           {a.description}
@@ -265,6 +335,15 @@ export default function AccountsPage() {
                     <p className="text-sm font-medium text-gray-800 mt-1 break-words">
                       {a.name}
                     </p>
+                    {a.parentId != null && accountById.get(a.parentId) && (
+                      <p className="text-[11px] text-gray-400 mt-0.5 break-words">
+                        تحت:{" "}
+                        <span className="font-mono">
+                          {accountById.get(a.parentId)!.code}
+                        </span>{" "}
+                        {accountById.get(a.parentId)!.name}
+                      </p>
+                    )}
                     {a.description && (
                       <p className="text-xs text-gray-400 mt-0.5 break-words">
                         {a.description}
@@ -366,6 +445,46 @@ export default function AccountsPage() {
                 />
               </div>
               <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    الحساب الأب
+                  </label>
+                  {parentTouched && suggestedParent && (
+                    <button
+                      type="button"
+                      onClick={() => setParentTouched(false)}
+                      className="text-[11px] text-primary hover:underline"
+                      title="استخدام الاقتراح التلقائي"
+                    >
+                      اقتراح: {suggestedParent.code} — {suggestedParent.name}
+                    </button>
+                  )}
+                </div>
+                <SearchableSelect
+                  value={form.parentId}
+                  onValueChange={(v) => {
+                    setParentTouched(true);
+                    setForm((f) => ({ ...f, parentId: v }));
+                  }}
+                  options={accounts
+                    .filter((a) => a.type === form.type && a.code !== form.code)
+                    .map((a) => ({
+                      value: String(a.id),
+                      label: `${a.code} - ${a.name}`,
+                      searchText: `${a.code} ${a.name}`,
+                    }))}
+                  placeholder="(بدون أب — حساب جذري)"
+                  searchPlaceholder="بحث في الحسابات..."
+                  emptyMessage="لا يوجد حساب من نفس النوع"
+                  clearable
+                  className="w-full border rounded-lg px-3 py-2 text-sm bg-white"
+                />
+                <p className="text-[11px] text-gray-500 mt-1">
+                  يحدد مكان الحساب في شجرة الحسابات. عادةً اختر الحساب الجذري
+                  من نفس النوع (مثلاً 5000 المصروفات لأي حساب 5xxx).
+                </p>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   الوصف (اختياري)
                 </label>
@@ -381,7 +500,10 @@ export default function AccountsPage() {
               <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowForm(false)}
+                  onClick={() => {
+                    setShowForm(false);
+                    setParentTouched(false);
+                  }}
                   className="px-4 sm:px-6 py-2.5 border rounded-lg text-gray-600 hover:bg-gray-50 text-sm"
                 >
                   إلغاء
