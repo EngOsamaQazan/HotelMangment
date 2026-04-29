@@ -22,6 +22,9 @@ export async function GET(
           include: { account: true, party: true },
           orderBy: { lineOrder: "asc" },
         },
+        attachments: {
+          orderBy: { id: "asc" },
+        },
         reversalOf: true,
         reversedBy: true,
       },

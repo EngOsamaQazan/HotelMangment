@@ -19,6 +19,7 @@ import { usePermissions } from "@/lib/permissions/client";
 import { PageShell } from "@/components/ui/PageShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { KpiGrid } from "@/components/ui/KpiGrid";
+import { JournalAttachments } from "@/components/accounting/JournalAttachments";
 
 interface EmployeeSummary {
   id: number;
@@ -70,6 +71,7 @@ export default function PayrollListPage() {
     new Date().toISOString().slice(0, 10)
   );
   const [advanceNote, setAdvanceNote] = useState("");
+  const [advanceFiles, setAdvanceFiles] = useState<File[]>([]);
   const [advanceSubmitting, setAdvanceSubmitting] = useState(false);
   const [advanceError, setAdvanceError] = useState<string | null>(null);
 
@@ -118,6 +120,7 @@ export default function PayrollListPage() {
     setAdvanceAccount("1010");
     setAdvanceDate(new Date().toISOString().slice(0, 10));
     setAdvanceNote("");
+    setAdvanceFiles([]);
     setAdvanceError(null);
   }
 
@@ -152,6 +155,23 @@ export default function PayrollListPage() {
       );
       const j = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(j.error || "فشل تسجيل السلفة");
+
+      if (advanceFiles.length > 0 && j.entry?.id) {
+        const fd = new FormData();
+        for (const f of advanceFiles) fd.append("files", f);
+        const upRes = await fetch(
+          `/api/accounting/journal/${j.entry.id}/attachments`,
+          { method: "POST", body: fd }
+        );
+        if (!upRes.ok) {
+          const er = await upRes.json().catch(() => ({}));
+          alert(
+            "تم تسجيل السلفة لكن فشل رفع بعض المرفقات: " +
+              (er.error || "خطأ غير معروف")
+          );
+        }
+      }
+
       setFlash(
         `✅ تم صرف سلفة ${formatAmount(amt)} د.أ للموظف ${advanceTarget.name} من ${paymentAccountLabel(advanceAccount)} (قيد ${j.entry?.entryNumber ?? ""}).`
       );
@@ -382,6 +402,10 @@ export default function PayrollListPage() {
                   maxLength={280}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-500"
                 />
+              </div>
+
+              <div className="border-t border-gray-100 pt-3">
+                <JournalAttachments onPendingFilesChange={setAdvanceFiles} />
               </div>
 
               {advanceTarget.outstanding > 0 && (

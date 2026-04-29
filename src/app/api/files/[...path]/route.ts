@@ -14,6 +14,7 @@ import { resolveStoragePath } from "@/lib/uploads";
  *   /api/files/task/<attachmentId>           (staff-only, board members)
  *   /api/files/chat/<attachmentId>           (staff-only, conversation members)
  *   /api/files/avatar/<userId>               (staff-only)
+ *   /api/files/journal/<attachmentId>        (staff-only, accounting.journal:view)
  *   /api/files/unit-photo/<photoId>          (PUBLIC — no auth, CDN-friendly)
  *   /api/files/unit-type-photo/<photoId>     (PUBLIC — no auth, CDN-friendly)
  *
@@ -107,6 +108,22 @@ export async function GET(
       storagePath = user.avatarUrl;
       fileName = `avatar-${rowId}`;
       mimeType = mimeFromPath(storagePath);
+    } else if (kind === "journal") {
+      // Journal entry supporting documents (invoices, receipts).
+      // Anyone with `accounting.journal:view` can fetch them.
+      await requirePermission("accounting.journal:view");
+      const att = await prisma.journalAttachment.findUnique({
+        where: { id: rowId },
+      });
+      if (!att) {
+        return NextResponse.json(
+          { error: "لم يُعثر على المرفق" },
+          { status: 404 },
+        );
+      }
+      storagePath = att.storagePath;
+      fileName = att.fileName;
+      mimeType = att.mimeType;
     } else if (kind === "chat") {
       const att = await prisma.chatMessageAttachment.findUnique({
         where: { id: rowId },

@@ -690,14 +690,35 @@ model JournalEntry {
   voidReason   String?   @map("void_reason")
   reversalOfId Int?      @map("reversal_of_id")
 
-  lines      JournalLine[]
-  reversalOf JournalEntry?  @relation("Reversal", fields: [reversalOfId], references: [id])
-  reversedBy JournalEntry[] @relation("Reversal")
+  lines       JournalLine[]
+  attachments JournalAttachment[]
+  reversalOf  JournalEntry?  @relation("Reversal", fields: [reversalOfId], references: [id])
+  reversedBy  JournalEntry[] @relation("Reversal")
 
   @@index([date])
   @@index([source, sourceRefId])
   @@index([status])
   @@map("journal_entries")
+}
+
+// Optional supporting documents for a journal entry — original supplier
+// invoice, electricity bill, payment receipt, etc. Multiple files per entry,
+// stored on the shared uploads volume; only metadata lives here.
+model JournalAttachment {
+  id           Int      @id @default(autoincrement())
+  entryId      Int      @map("entry_id")
+  fileName     String   @map("file_name")
+  mimeType     String   @map("mime_type")
+  size         Int
+  storagePath  String   @map("storage_path")
+  caption      String? // free-text label e.g. "أصل الفاتورة" or "إيصال التحويل"
+  uploadedById Int?     @map("uploaded_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  entry JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@index([entryId])
+  @@map("journal_attachments")
 }
 
 model JournalLine {

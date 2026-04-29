@@ -14,6 +14,10 @@ import { cn, formatAmount, formatDate } from "@/lib/utils";
 import { Can } from "@/components/Can";
 import { PageShell } from "@/components/ui/PageShell";
 import { PageHeader } from "@/components/ui/PageHeader";
+import {
+  JournalAttachments,
+  type JournalAttachmentDTO,
+} from "@/components/accounting/JournalAttachments";
 
 interface Line {
   id: number;
@@ -41,6 +45,7 @@ interface Entry {
   voidReason: string | null;
   reversalOfId: number | null;
   lines: Line[];
+  attachments?: JournalAttachmentDTO[];
   reversalOf?: { id: number; entryNumber: string } | null;
   reversedBy?: { id: number; entryNumber: string }[];
 }
@@ -287,6 +292,13 @@ export default function JournalDetailPage() {
             </tfoot>
           </table>
         </div>
+      </div>
+
+      <div className="bg-card-bg rounded-xl p-4 sm:p-5 shadow-sm no-print">
+        <JournalAttachments
+          entryId={entry.id}
+          initial={entry.attachments ?? []}
+        />
       </div>
     </PageShell>
   );

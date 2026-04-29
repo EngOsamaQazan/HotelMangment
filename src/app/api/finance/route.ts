@@ -232,8 +232,9 @@ export async function POST(request: Request) {
       // here would let `transaction.id` numerically collide with a
       // `reservation.id`, making every "payments for reservation X" query (and
       // `reverseReservationEntries`) silently include this unrelated manual entry.
+      let journalEntry: { id: number; entryNumber: string };
       if (type === "income") {
-        await postEntry(tx, {
+        journalEntry = await postEntry(tx, {
           date: new Date(date),
           description,
           reference: bankRef || null,
@@ -245,7 +246,7 @@ export async function POST(request: Request) {
           ],
         });
       } else {
-        await postEntry(tx, {
+        journalEntry = await postEntry(tx, {
           date: new Date(date),
           description,
           reference: bankRef || null,
@@ -274,7 +275,7 @@ export async function POST(request: Request) {
         });
       }
 
-      return txn;
+      return { ...txn, journalEntryId: journalEntry.id };
     });
 
     return NextResponse.json(transaction, { status: 201 });

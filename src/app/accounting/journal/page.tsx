@@ -19,6 +19,7 @@ import { Can } from "@/components/Can";
 import { PageShell } from "@/components/ui/PageShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { FilterBar } from "@/components/ui/FilterBar";
+import { JournalAttachments } from "@/components/accounting/JournalAttachments";
 
 const PAGE_SIZE = 20;
 
@@ -104,6 +105,7 @@ export default function JournalPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
   const [form, setForm] = useState({
     date: new Date().toISOString().split("T")[0],
     description: "",
@@ -212,7 +214,27 @@ export default function JournalPage() {
         const j = await res.json();
         throw new Error(j.error || "فشل");
       }
+      const created = await res.json();
+
+      if (pendingAttachments.length > 0 && created?.id) {
+        const fd = new FormData();
+        for (const f of pendingAttachments) fd.append("files", f);
+        const upRes = await fetch(
+          `/api/accounting/journal/${created.id}/attachments`,
+          { method: "POST", body: fd }
+        );
+        if (!upRes.ok) {
+          const j = await upRes.json().catch(() => ({}));
+          alert(
+            "تم حفظ القيد لكن فشل رفع بعض المرفقات: " +
+              (j.error || "خطأ غير معروف") +
+              "\nيمكنك إعادة رفعها من شاشة عرض القيد."
+          );
+        }
+      }
+
       setShowForm(false);
+      setPendingAttachments([]);
       setForm({
         date: new Date().toISOString().split("T")[0],
         description: "",
@@ -642,6 +664,12 @@ export default function JournalPage() {
                     setForm({ ...form, reference: e.target.value })
                   }
                   className="w-full border rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+
+              <div className="border-t border-gray-100 pt-3">
+                <JournalAttachments
+                  onPendingFilesChange={setPendingAttachments}
                 />
               </div>
 
