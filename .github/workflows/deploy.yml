@@ -243,6 +243,16 @@ jobs:
             npm run --silent db:seed-permissions \
               || echo "    ⚠️ permissions sync failed (non-fatal)"
 
+            # ───── 4d2. Cost-Centers seed (every deploy) ───────────────
+            # Idempotent upsert by code: keeps the property's analytical
+            # dimension defaults (departments + revenue centers per
+            # unit-type family) in sync with the seed file. Operators may
+            # add/edit centers freely; the seed only re-applies labels and
+            # descriptions for the canonical CC-* codes.
+            echo "==> [4d2] Seeding default cost centers"
+            npm run --silent db:seed-cost-centers \
+              || echo "    ⚠️ cost-centers seed failed (non-fatal)"
+
             # ───── 4e. One-off WhatsApp backfill ───────────────────────
             # Materialises WhatsAppContact + WhatsAppConversation rows
             # from the pre-existing whatsapp_messages log and links every
