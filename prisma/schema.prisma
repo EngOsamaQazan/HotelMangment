@@ -37,7 +37,8 @@ model User {
   chatAttachments      ChatMessageAttachment[] @relation("ChatAttachmentUploader")
 
   // ---- Notifications ----
-  notifications Notification[]
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
 
   // ---- Reservation audit ----
   reservationStatusLogs ReservationStatusLog[]
@@ -1228,19 +1229,74 @@ model ChatReaction {
 model Notification {
   id          Int       @id @default(autoincrement())
   userId      Int       @map("user_id")
-  type        String // task.assigned | task.due | task.commented | chat.message | chat.mention | ...
+  /// Event code, e.g. "task.assigned", "reservation.created", "chat.mention".
+  /// Used as a reference both into `events.ts` registry (for icon + label
+  /// fallbacks) and into `NotificationPreference` rows (per-event toggles).
+  type        String
   title       String
   body        String?
   linkUrl     String?   @map("link_url")
   payloadJson Json?     @map("payload_json")
+  /// Bucketing for the notification-center UI tabs and the preferences
+  /// accordion. Mirrors `events.ts → category`. Examples:
+  ///   reservations | tasks | chat | whatsapp | finance | accounting |
+  ///   maintenance | system | security
+  category    String?
+  /// 0 = normal, 1 = high, 2 = urgent. Drives the colored "عاجل" pill in
+  /// the center and overrides quiet-hours rules.
+  priority    Int       @default(0)
   readAt      DateTime? @map("read_at")
+  /// Set when the user archives the row from the center. Archived rows
+  /// hide from "all" / "unread" tabs but stay queryable for retention.
+  archivedAt  DateTime? @map("archived_at")
+  /// Future timestamp until which this notification should be hidden from
+  /// the bell + center. The list query filters out rows with snoozedUntil
+  /// in the future (so a snoozed row reappears automatically).
+  snoozedUntil DateTime? @map("snoozed_until")
   createdAt   DateTime  @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, readAt, createdAt])
   @@index([userId, createdAt])
+  @@index([userId, archivedAt])
+  @@index([userId, category, createdAt])
   @@map("notifications")
+}
+
+/// Per-user preferences for notification delivery.
+///
+/// Two row shapes coexist in the same table:
+///   1. **Channel master** rows where `eventCode = "*"` — one per channel
+///      per user. Setting `isEnabled=false` mutes the channel for every
+///      event regardless of per-event rows. Quiet-hours / timezone are
+///      stored on the in_app master row (`*` + `in_app`).
+///   2. **Per-event** rows where `eventCode` matches an entry in
+///      `events.ts`. They override the default delivery channels declared
+///      by the event (e.g. user wants `task.assigned` over WhatsApp too).
+///
+/// `digestMode` controls batching for non-urgent rows: instant | hourly |
+/// daily | weekly. `quiet_hours_start` / `quiet_hours_end` are HH:mm
+/// strings stored in the user's IANA `timezone` (default Asia/Amman).
+model NotificationPreference {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @map("user_id")
+  /// Event code from `events.ts`, or "*" for the channel-master row.
+  eventCode       String   @map("event_code")
+  /// "in_app" | "email" | "whatsapp" | "web_push" | "sound"
+  channel         String
+  isEnabled       Boolean  @default(true) @map("is_enabled")
+  digestMode      String   @default("instant") @map("digest_mode")
+  quietHoursStart String?  @map("quiet_hours_start")
+  quietHoursEnd   String?  @map("quiet_hours_end")
+  timezone        String   @default("Asia/Amman")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventCode, channel])
+  @@index([userId])
+  @@map("notification_preferences")
 }
 
 // ============================================================================

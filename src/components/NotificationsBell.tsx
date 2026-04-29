@@ -6,9 +6,11 @@ import {
   Bell,
   Check,
   CheckCheck,
+  Inbox,
   Loader2,
   MessageSquare,
   Calendar,
+  Settings,
   UserPlus,
   AtSign,
   AlertCircle,
@@ -188,16 +190,26 @@ export function NotificationsBell({
 
       {open && (
         <div className="absolute end-0 mt-2 w-80 max-w-[calc(100vw-1rem)] bg-white rounded-xl shadow-lg border border-gray-200 z-[80] overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2">
             <h3 className="font-bold text-gray-800 text-sm">الإشعارات</h3>
-            {unread > 0 && (
-              <button
-                onClick={markAllRead}
-                className="text-xs text-primary hover:underline flex items-center gap-1"
+            <div className="flex items-center gap-3">
+              {unread > 0 && (
+                <button
+                  onClick={markAllRead}
+                  className="text-xs text-primary hover:underline flex items-center gap-1"
+                >
+                  <CheckCheck size={12} /> تعليم الكل كمقروء
+                </button>
+              )}
+              <Link
+                href="/notifications/preferences"
+                onClick={() => setOpen(false)}
+                className="text-xs text-gray-500 hover:text-primary flex items-center gap-1"
+                title="تفضيلات الإشعارات"
               >
-                <CheckCheck size={12} /> تعليم الكل كمقروء
-              </button>
-            )}
+                <Settings size={12} />
+              </Link>
+            </div>
           </div>
           <div className="max-h-[70vh] overflow-y-auto">
             {loading ? (
@@ -222,6 +234,16 @@ export function NotificationsBell({
                 ))}
               </ul>
             )}
+          </div>
+          <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50/60">
+            <Link
+              href="/notifications"
+              onClick={() => setOpen(false)}
+              className="flex items-center justify-center gap-1.5 text-xs font-bold text-primary hover:underline"
+            >
+              <Inbox size={12} />
+              فتح مركز الإشعارات
+            </Link>
           </div>
         </div>
       )}

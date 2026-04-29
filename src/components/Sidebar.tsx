@@ -21,6 +21,7 @@ import {
   MessageSquare,
   MessageCircle,
   Users2,
+  Bell,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { BrandLogo, BrandLogoInline } from "@/components/BrandLogo";
@@ -96,6 +97,7 @@ const navGroups: NavGroup[] = [
     flat: true,
     items: [
       { href: "/reports/monthly", label: "التقرير الشهري", icon: BarChart3, permission: "reports.monthly:view" },
+      { href: "/notifications", label: "مركز الإشعارات", icon: Bell, permission: "notifications:view" },
       { href: "/settings", label: "الإعدادات", icon: Settings, permission: "settings:view" },
     ],
   },
