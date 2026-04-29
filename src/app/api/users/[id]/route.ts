@@ -6,6 +6,7 @@ import {
   handleAuthError,
   invalidatePermissionsCache,
 } from "@/lib/permissions/guard";
+import { normalizeWhatsAppPhone } from "@/lib/whatsapp/phone";
 
 export async function PUT(
   request: Request,
@@ -26,7 +27,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { name, email, username, password, role } = body;
+    const { name, email, username, password, role, whatsappPhone } = body;
 
     const updateData: {
       name?: string;
@@ -34,6 +35,7 @@ export async function PUT(
       username?: string | null;
       passwordHash?: string;
       role?: "admin" | "receptionist" | "accountant";
+      whatsappPhone?: string | null;
     } = {};
 
     if (name !== undefined) updateData.name = name;
@@ -84,6 +86,23 @@ export async function PUT(
       updateData.passwordHash = await bcrypt.hash(password, 12);
     }
 
+    if (whatsappPhone !== undefined) {
+      const raw =
+        typeof whatsappPhone === "string" ? whatsappPhone.trim() : "";
+      if (!raw) {
+        updateData.whatsappPhone = null;
+      } else {
+        const norm = normalizeWhatsAppPhone(raw);
+        if (!norm) {
+          return NextResponse.json(
+            { error: "رقم واتساب غير صالح" },
+            { status: 400 }
+          );
+        }
+        updateData.whatsappPhone = norm;
+      }
+    }
+
     const user = await prisma.$transaction(async (tx) => {
       const updated = await tx.user.update({
         where: { id: userId },
@@ -95,6 +114,7 @@ export async function PUT(
           username: true,
           role: true,
           avatarUrl: true,
+          whatsappPhone: true,
           createdAt: true,
         },
       });

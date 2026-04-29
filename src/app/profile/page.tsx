@@ -15,6 +15,7 @@ import {
   EyeOff,
   AlertCircle,
   CheckCircle2,
+  MessageCircle,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { cn, formatDate, roleLabels } from "@/lib/utils";
@@ -27,6 +28,7 @@ interface MeResponse {
   username: string | null;
   role: string;
   avatarUrl: string | null;
+  whatsappPhone: string | null;
   createdAt: string;
 }
 
@@ -34,6 +36,7 @@ interface PersonalFormState {
   name: string;
   email: string;
   username: string;
+  whatsappPhone: string;
 }
 
 interface PasswordFormState {
@@ -65,6 +68,7 @@ export default function ProfilePage() {
     name: "",
     email: "",
     username: "",
+    whatsappPhone: "",
   });
   const [savingPersonal, setSavingPersonal] = useState(false);
   const [personalMsg, setPersonalMsg] = useState<{
@@ -104,6 +108,7 @@ export default function ProfilePage() {
         name: data.name ?? "",
         email: data.email ?? "",
         username: data.username ?? "",
+        whatsappPhone: data.whatsappPhone ?? "",
       });
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "خطأ غير معروف");
@@ -134,6 +139,7 @@ export default function ProfilePage() {
           name: personal.name,
           email: personal.email,
           username: personal.username,
+          whatsappPhone: personal.whatsappPhone,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -423,6 +429,22 @@ export default function ProfilePage() {
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
                 placeholder="username"
+                dir="ltr"
+              />
+            </Field>
+            <Field
+              label="رقم واتساب"
+              icon={<MessageCircle size={16} className="text-gray-400" />}
+              hint="يُستخدم لإرسال إشعارات النظام إلى واتساب الشخصي عند تفعيل قناة واتساب في الإشعارات"
+            >
+              <input
+                type="tel"
+                value={personal.whatsappPhone}
+                onChange={(e) =>
+                  setPersonal((p) => ({ ...p, whatsappPhone: e.target.value }))
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
+                placeholder="07XXXXXXXX"
                 dir="ltr"
               />
             </Field>

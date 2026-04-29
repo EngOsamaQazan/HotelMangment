@@ -434,6 +434,31 @@ export function NotificationPreferencesScreen() {
         return;
       }
       toast.success("تم الإرسال — تحقق من الجرس");
+
+      const wa = data?.whatsapp as
+        | { ok: boolean; reason: string | null; message?: string }
+        | null
+        | undefined;
+      if (wa) {
+        if (wa.ok) {
+          toast.success("تم إرسال إشعار واتساب إلى رقمك");
+        } else if (wa.reason === "no_phone") {
+          toast.error(
+            "لم يتم إرسال واتساب — أضف رقم واتساب من صفحة الملف الشخصي",
+          );
+        } else if (wa.reason === "config_missing") {
+          toast.error("واتساب غير مُهيّأ — راجع إعدادات WhatsApp Cloud");
+        } else if (wa.reason === "meta_error") {
+          toast.error(
+            wa.message
+              ? `فشل واتساب: ${wa.message}`
+              : "فشل إرسال واتساب — قد تحتاج لقالب معتمد خارج نافذة الـ24 ساعة",
+          );
+        } else {
+          toast.error("فشل إرسال إشعار واتساب");
+        }
+      }
+
       window.dispatchEvent(new CustomEvent("notifications:changed"));
     } finally {
       setTesting(false);

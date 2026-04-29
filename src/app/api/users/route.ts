@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
+import { normalizeWhatsAppPhone } from "@/lib/whatsapp/phone";
 
 export async function GET() {
   try {
@@ -14,6 +15,7 @@ export async function GET() {
         username: true,
         role: true,
         avatarUrl: true,
+        whatsappPhone: true,
         createdAt: true,
       },
       orderBy: { createdAt: "desc" },
@@ -35,13 +37,28 @@ export async function POST(request: Request) {
   try {
     await requirePermission("settings.users:create");
     const body = await request.json();
-    const { name, email, username, password, role } = body;
+    const { name, email, username, password, role, whatsappPhone } = body;
 
     if (!name || !email || !password) {
       return NextResponse.json(
         { error: "Missing required fields: name, email, password" },
         { status: 400 }
       );
+    }
+
+    let whatsappPhoneNorm: string | null = null;
+    if (whatsappPhone !== undefined && whatsappPhone !== null) {
+      const raw =
+        typeof whatsappPhone === "string" ? whatsappPhone.trim() : "";
+      if (raw) {
+        whatsappPhoneNorm = normalizeWhatsAppPhone(raw);
+        if (!whatsappPhoneNorm) {
+          return NextResponse.json(
+            { error: "رقم واتساب غير صالح" },
+            { status: 400 }
+          );
+        }
+      }
     }
 
     const existingEmail = await prisma.user.findUnique({ where: { email } });
@@ -87,6 +104,7 @@ export async function POST(request: Request) {
           username: usernameClean,
           passwordHash,
           role: roleKey,
+          whatsappPhone: whatsappPhoneNorm,
         },
         select: {
           id: true,
@@ -94,6 +112,7 @@ export async function POST(request: Request) {
           email: true,
           username: true,
           role: true,
+          whatsappPhone: true,
           createdAt: true,
         },
       });

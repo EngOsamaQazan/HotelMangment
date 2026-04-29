@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
+import { normalizeWhatsAppPhone } from "@/lib/whatsapp/phone";
 
 function sessionUserId(session: { user?: { id?: string | number } }): number {
   return Number(session.user?.id);
@@ -19,6 +20,7 @@ export async function GET() {
         username: true,
         role: true,
         avatarUrl: true,
+        whatsappPhone: true,
         createdAt: true,
       },
     });
@@ -48,12 +50,13 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { name, email, username } = body ?? {};
+    const { name, email, username, whatsappPhone } = body ?? {};
 
     const updateData: {
       name?: string;
       email?: string;
       username?: string | null;
+      whatsappPhone?: string | null;
     } = {};
 
     if (typeof name === "string") {
@@ -83,6 +86,23 @@ export async function PATCH(request: Request) {
         );
       }
       updateData.email = clean;
+    }
+
+    if (whatsappPhone !== undefined) {
+      const raw =
+        typeof whatsappPhone === "string" ? whatsappPhone.trim() : "";
+      if (!raw) {
+        updateData.whatsappPhone = null;
+      } else {
+        const norm = normalizeWhatsAppPhone(raw);
+        if (!norm) {
+          return NextResponse.json(
+            { error: "رقم واتساب غير صالح" },
+            { status: 400 },
+          );
+        }
+        updateData.whatsappPhone = norm;
+      }
     }
 
     if (username !== undefined) {
@@ -125,6 +145,7 @@ export async function PATCH(request: Request) {
         username: true,
         role: true,
         avatarUrl: true,
+        whatsappPhone: true,
         createdAt: true,
       },
     });

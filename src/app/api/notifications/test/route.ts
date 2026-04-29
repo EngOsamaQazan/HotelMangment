@@ -3,14 +3,18 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/permissions/guard";
 import { sendBrandedPush } from "@/lib/push/server";
 import { resolveDeliveryChannels } from "@/lib/notifications/preferences";
+import {
+  sendStaffWhatsApp,
+  type StaffWhatsAppResult,
+} from "@/lib/notifications/dispatch-whatsapp";
 
 /**
  * POST /api/notifications/test
  *
  * Sends a "test" notification to the calling user — useful for verifying
- * the bell, sound, and Web Push end-to-end after the user has updated
- * their preferences. The notification is honest about what it would have
- * sent: if the user has muted `web_push` we don't push.
+ * the bell, sound, Web Push, and WhatsApp end-to-end after the user has
+ * updated their preferences. The notification is honest about what it
+ * would have sent: if the user has muted `web_push` we don't push, etc.
  */
 export async function POST() {
   try {
@@ -44,11 +48,21 @@ export async function POST() {
       });
     }
 
+    let whatsapp: StaffWhatsAppResult | null = null;
+    if (channels.includes("whatsapp")) {
+      whatsapp = await sendStaffWhatsApp(userId, {
+        title,
+        body,
+        url: "/notifications",
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       success: true,
       channels,
       notificationId: created.id,
+      whatsapp,
     });
   } catch (error) {
     const authErr = handleAuthError(error);

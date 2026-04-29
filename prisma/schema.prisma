@@ -15,6 +15,11 @@ model User {
   passwordHash String   @map("password_hash")
   role         String   @default("receptionist")
   avatarUrl    String?  @map("avatar_url")
+  /// Personal WhatsApp number (E.164 digits, no leading "+") used to deliver
+  /// staff notifications when the "whatsapp" channel is enabled in their
+  /// notification preferences. Optional — empty value means WhatsApp delivery
+  /// is silently skipped for that user.
+  whatsappPhone String? @map("whatsapp_phone")
   createdAt    DateTime @default(now()) @map("created_at")
 
   userRoles           UserRole[]

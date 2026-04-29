@@ -58,10 +58,9 @@ export const CHANNELS: ChannelDef[] = [
   {
     key: "whatsapp",
     nameAr: "واتساب",
-    descriptionAr: "إرسال إشعارات إلى رقم واتساب الموظف.",
+    descriptionAr: "إرسال إشعارات إلى رقم واتساب الشخصي للموظف.",
     icon: "message-circle",
     color: "#25d366",
-    comingSoon: true,
   },
   {
     key: "email",

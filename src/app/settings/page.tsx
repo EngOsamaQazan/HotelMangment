@@ -37,6 +37,7 @@ interface UserRecord {
   username: string | null;
   role: "admin" | "receptionist" | "accountant";
   avatarUrl?: string | null;
+  whatsappPhone?: string | null;
   createdAt: string;
 }
 
@@ -59,6 +60,7 @@ interface UserFormData {
   username: string;
   password: string;
   role: "admin" | "receptionist" | "accountant";
+  whatsappPhone: string;
 }
 
 const emptyUserForm: UserFormData = {
@@ -67,6 +69,7 @@ const emptyUserForm: UserFormData = {
   username: "",
   password: "",
   role: "receptionist",
+  whatsappPhone: "",
 };
 
 export default function SettingsPage() {
@@ -152,6 +155,7 @@ export default function SettingsPage() {
         email: userForm.email,
         username: userForm.username,
         role: userForm.role,
+        whatsappPhone: userForm.whatsappPhone,
       };
       if (userForm.password) body.password = userForm.password;
 
@@ -404,6 +408,7 @@ export default function SettingsPage() {
                                   username: user.username ?? "",
                                   password: "",
                                   role: user.role,
+                                  whatsappPhone: user.whatsappPhone ?? "",
                                 });
                                 setShowUserForm(false);
                               }}
@@ -471,6 +476,7 @@ export default function SettingsPage() {
                               username: user.username ?? "",
                               password: "",
                               role: user.role,
+                              whatsappPhone: user.whatsappPhone ?? "",
                             });
                             setShowUserForm(false);
                           }}
@@ -1048,6 +1054,26 @@ function UserFormModal({
                 setForm({ ...form, password: e.target.value })
               }
               placeholder="••••••••"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary direction-ltr text-right"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              رقم واتساب
+              <span className="text-gray-400 font-normal">
+                {" "}
+                (اختياري — لاستقبال إشعارات النظام عبر واتساب)
+              </span>
+            </label>
+            <input
+              type="tel"
+              value={form.whatsappPhone}
+              onChange={(e) =>
+                setForm({ ...form, whatsappPhone: e.target.value })
+              }
+              placeholder="07XXXXXXXX"
+              autoComplete="off"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary direction-ltr text-right"
             />
           </div>
