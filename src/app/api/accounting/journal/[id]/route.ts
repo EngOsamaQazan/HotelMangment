@@ -19,7 +19,7 @@ export async function GET(
       where: { id: entryId },
       include: {
         lines: {
-          include: { account: true, party: true },
+          include: { account: true, party: true, costCenter: true },
           orderBy: { lineOrder: "asc" },
         },
         attachments: {

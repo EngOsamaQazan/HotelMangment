@@ -263,6 +263,14 @@ const SECTIONS: Section[] = [
     tone: "red",
   },
   {
+    href: "/accounting/reports/cost-centers",
+    title: "نتائج مراكز التكلفة",
+    desc: "إجمالي المدين/الدائن/الصافي لكل مركز مع تجميع تلقائي للأبناء",
+    icon: Target,
+    permission: "accounting.reports:view",
+    tone: "rose",
+  },
+  {
     href: "/accounting/periods",
     title: "الفترات المالية",
     desc: "فتح/إقفال الفترات وقيد إقفال سنوي",

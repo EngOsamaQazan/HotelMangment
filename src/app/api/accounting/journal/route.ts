@@ -43,7 +43,7 @@ export async function GET(request: Request) {
         where,
         include: {
           lines: {
-            include: { account: true, party: true },
+            include: { account: true, party: true, costCenter: true },
             orderBy: { lineOrder: "asc" },
           },
         },
@@ -86,6 +86,8 @@ export async function POST(request: Request) {
           accountId?: number;
           accountCode?: string;
           partyId?: number | null;
+          costCenterId?: number | null;
+          costCenterCode?: string | null;
           debit?: number | string;
           credit?: number | string;
           description?: string | null;
@@ -93,6 +95,8 @@ export async function POST(request: Request) {
           accountId: l.accountId ? Number(l.accountId) : undefined,
           accountCode: l.accountCode,
           partyId: l.partyId ? Number(l.partyId) : null,
+          costCenterId: l.costCenterId ? Number(l.costCenterId) : null,
+          costCenterCode: l.costCenterCode ?? null,
           debit: l.debit ? Number(l.debit) : 0,
           credit: l.credit ? Number(l.credit) : 0,
           description: l.description ?? null,
@@ -101,7 +105,10 @@ export async function POST(request: Request) {
       return tx.journalEntry.findUnique({
         where: { id: result.id },
         include: {
-          lines: { include: { account: true, party: true }, orderBy: { lineOrder: "asc" } },
+          lines: {
+            include: { account: true, party: true, costCenter: true },
+            orderBy: { lineOrder: "asc" },
+          },
         },
       });
     });

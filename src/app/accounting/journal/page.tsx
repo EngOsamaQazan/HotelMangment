@@ -37,10 +37,18 @@ interface Party {
   type: string;
 }
 
+interface CostCenter {
+  id: number;
+  code: string;
+  name: string;
+  isActive: boolean;
+}
+
 interface JournalLine {
   id: number;
   accountId: number;
   partyId: number | null;
+  costCenterId: number | null;
   debit: number;
   credit: number;
   description: string | null;
@@ -64,6 +72,7 @@ interface JournalEntry {
 interface FormLine {
   accountId: string;
   partyId: string;
+  costCenterId: string;
   debit: string;
   credit: string;
   description: string;
@@ -84,6 +93,7 @@ function emptyLine(): FormLine {
   return {
     accountId: "",
     partyId: "",
+    costCenterId: "",
     debit: "",
     credit: "",
     description: "",
@@ -97,6 +107,7 @@ export default function JournalPage() {
 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [parties, setParties] = useState<Party[]>([]);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
 
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -150,9 +161,13 @@ export default function JournalPage() {
       Promise.all([
         fetch("/api/accounting/accounts").then((r) => r.json()),
         fetch("/api/accounting/parties").then((r) => r.json()),
-      ]).then(([a, p]) => {
+        fetch("/api/accounting/cost-centers?active=1")
+          .then((r) => (r.ok ? r.json() : { centers: [] }))
+          .catch(() => ({ centers: [] })),
+      ]).then(([a, p, c]) => {
         setAccounts(a.accounts || []);
         setParties(p.parties || []);
+        setCostCenters(c.centers || []);
       });
     }
   }, [showForm]);
@@ -205,6 +220,7 @@ export default function JournalPage() {
             .map((l) => ({
               accountId: Number(l.accountId),
               partyId: l.partyId ? Number(l.partyId) : null,
+              costCenterId: l.costCenterId ? Number(l.costCenterId) : null,
               debit: l.debit ? Number(l.debit) : 0,
               credit: l.credit ? Number(l.credit) : 0,
               description: l.description || null,
@@ -533,6 +549,7 @@ export default function JournalPage() {
                       <tr className="bg-gray-50 text-gray-600">
                         <th className="px-2 py-2 text-right font-medium">الحساب</th>
                         <th className="px-2 py-2 text-right font-medium">الطرف</th>
+                        <th className="px-2 py-2 text-right font-medium">مركز التكلفة</th>
                         <th className="px-2 py-2 text-right font-medium">مدين</th>
                         <th className="px-2 py-2 text-right font-medium">دائن</th>
                         <th className="px-2 py-2 text-right font-medium">بيان</th>
@@ -571,6 +588,23 @@ export default function JournalPage() {
                               }))}
                               placeholder="—"
                               searchPlaceholder="بحث في الأطراف..."
+                              clearable
+                              className="w-full border rounded px-2 py-1.5 text-xs"
+                            />
+                          </td>
+                          <td className="px-2 py-1">
+                            <SearchableSelect
+                              value={line.costCenterId}
+                              onValueChange={(v) =>
+                                updateLine(idx, { costCenterId: v })
+                              }
+                              options={costCenters.map((c) => ({
+                                value: String(c.id),
+                                label: `${c.code} - ${c.name}`,
+                                searchText: `${c.code} ${c.name}`,
+                              }))}
+                              placeholder="—"
+                              searchPlaceholder="بحث في مراكز التكلفة..."
                               clearable
                               className="w-full border rounded px-2 py-1.5 text-xs"
                             />
@@ -632,7 +666,7 @@ export default function JournalPage() {
                     </tbody>
                     <tfoot>
                       <tr className="bg-gray-50 font-bold">
-                        <td className="px-2 py-2" colSpan={2}>
+                        <td className="px-2 py-2" colSpan={3}>
                           الإجمالي
                         </td>
                         <td className="px-2 py-2">{formatAmount(totals.debit)}</td>

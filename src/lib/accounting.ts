@@ -36,6 +36,9 @@ export interface PostEntryLine {
   accountId?: number;
   accountCode?: string;
   partyId?: number | null;
+  /** Analytical dimension. Pass either id or code (registry seeds use codes). */
+  costCenterId?: number | null;
+  costCenterCode?: string | null;
   debit?: number;
   credit?: number;
   description?: string | null;
@@ -79,6 +82,22 @@ async function resolveAccountId(
     return acc.id;
   }
   throw new AccountingError("يجب تمرير accountId أو accountCode لكل سطر قيد");
+}
+
+async function resolveCostCenterId(
+  tx: Tx,
+  line: PostEntryLine,
+): Promise<number | null> {
+  if (line.costCenterId != null) return line.costCenterId;
+  if (line.costCenterCode) {
+    const cc = await tx.costCenter.findUnique({
+      where: { code: line.costCenterCode },
+    });
+    // Soft-resolve: if the seeded center isn't present (e.g. fresh DB before
+    // `db:seed-cost-centers`), skip the tag rather than blocking the post.
+    return cc?.id ?? null;
+  }
+  return null;
 }
 
 async function ensurePeriodOpen(tx: Tx, date: Date): Promise<void> {
@@ -151,9 +170,11 @@ export async function postEntry(
   const lineData = await Promise.all(
     input.lines.map(async (line, idx) => {
       const accountId = await resolveAccountId(tx, line);
+      const costCenterId = await resolveCostCenterId(tx, line);
       return {
         accountId,
         partyId: line.partyId ?? null,
+        costCenterId,
         debit: round2(line.debit || 0),
         credit: round2(line.credit || 0),
         description: line.description ?? null,

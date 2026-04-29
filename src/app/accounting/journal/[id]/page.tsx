@@ -23,11 +23,13 @@ interface Line {
   id: number;
   accountId: number;
   partyId: number | null;
+  costCenterId: number | null;
   debit: number;
   credit: number;
   description: string | null;
   account: { code: string; name: string };
   party: { id: number; name: string } | null;
+  costCenter: { id: number; code: string; name: string } | null;
 }
 
 interface Entry {
@@ -237,6 +239,7 @@ export default function JournalDetailPage() {
               <tr>
                 <th className="sticky-start text-right">الحساب</th>
                 <th className="text-right">الطرف</th>
+                <th className="text-right">مركز التكلفة</th>
                 <th className="text-right">البيان</th>
                 <th className="text-right">مدين</th>
                 <th className="text-right">دائن</th>
@@ -265,6 +268,20 @@ export default function JournalDetailPage() {
                       <span className="text-gray-400">—</span>
                     )}
                   </td>
+                  <td>
+                    {l.costCenter ? (
+                      <span className="inline-flex items-center gap-1 text-xs">
+                        <span className="font-mono text-gray-500">
+                          {l.costCenter.code}
+                        </span>
+                        <span className="text-gray-700">
+                          {l.costCenter.name}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </td>
                   <td className="text-gray-600">
                     {l.description || "—"}
                   </td>
@@ -279,7 +296,7 @@ export default function JournalDetailPage() {
             </tbody>
             <tfoot>
               <tr className="bg-gray-100 font-bold">
-                <td className="sticky-start" colSpan={3}>
+                <td className="sticky-start" colSpan={4}>
                   الإجمالي
                 </td>
                 <td className="text-green-700">

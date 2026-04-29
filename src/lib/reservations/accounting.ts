@@ -10,6 +10,56 @@ import {
 type Tx = Prisma.TransactionClient | PrismaClient;
 
 /**
+ * Cost-center mapping for revenue lines based on the unit-type family.
+ *
+ * Source of truth for the codes: `prisma/seed-cost-centers.ts`.
+ * Categories come from `UnitType.category` (apartment | hotel_room | suite |
+ * studio). Anything that doesn't fit one of the families falls back to the
+ * "إيرادات إضافية" bucket so the dimension is never silently dropped.
+ */
+const REVENUE_CC_BY_CATEGORY: Record<string, string> = {
+  studio: "CC-220",
+  apartment: "CC-230",
+  hotel_room: "CC-210",
+  suite: "CC-210",
+};
+const REVENUE_CC_FALLBACK = "CC-290";
+
+function revenueCostCenterCodeForCategory(
+  category: string | null | undefined,
+): string {
+  if (!category) return REVENUE_CC_FALLBACK;
+  return REVENUE_CC_BY_CATEGORY[category] ?? REVENUE_CC_FALLBACK;
+}
+
+/**
+ * Look up the analytical cost-center code that should tag the revenue line
+ * for a given reservation, by walking Reservation → Unit → UnitType.category.
+ *
+ * Returns the FALLBACK code on any miss (no unit-type linked, deactivated
+ * unit, …) so a reservation never fails to post just because the dimension
+ * is unresolvable.
+ */
+async function revenueCostCenterCodeForReservation(
+  tx: Tx,
+  reservationId: number,
+): Promise<string> {
+  const res = await tx.reservation.findUnique({
+    where: { id: reservationId },
+    select: {
+      unit: {
+        select: {
+          unitTypeRef: { select: { category: true } },
+        },
+      },
+    },
+  });
+  return revenueCostCenterCodeForCategory(
+    res?.unit?.unitTypeRef?.category ?? null,
+  );
+}
+
+/**
  * Reservation accounting helpers.
  *
  * Posting policy (ISO/IFRS aligned, immutable ledger):
@@ -77,6 +127,10 @@ export async function postReservationEntries(
   });
 
   if (totalAmount > 0) {
+    const revenueCcCode = await revenueCostCenterCodeForReservation(
+      tx,
+      reservationId,
+    );
     await postEntry(tx, {
       date: checkIn,
       description: `حجز #${reservationId} - ${guestName} - ${unitNumber}`,
@@ -91,6 +145,7 @@ export async function postReservationEntries(
         },
         {
           accountCode: ACCOUNT_CODES.REVENUE_ROOMS,
+          costCenterCode: revenueCcCode,
           credit: totalAmount,
           description: `إيراد حجز ${unitNumber}`,
         },
@@ -198,6 +253,10 @@ export async function postExtensionEntries(
   const extRef = extensionId != null ? `ext:${extensionId}` : null;
 
   if (addedAmount > 0) {
+    const revenueCcCode = await revenueCostCenterCodeForReservation(
+      tx,
+      reservationId,
+    );
     await postEntry(tx, {
       date: extensionDate,
       description: `تمديد حجز #${reservationId} - ${guestName} - ${unitNumber}`,
@@ -213,6 +272,7 @@ export async function postExtensionEntries(
         },
         {
           accountCode: ACCOUNT_CODES.REVENUE_ROOMS,
+          costCenterCode: revenueCcCode,
           credit: addedAmount,
           description: `إيراد تمديد حجز ${unitNumber}`,
         },
