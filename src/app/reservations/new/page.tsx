@@ -23,6 +23,7 @@ import {
 import IdScanner from "@/components/IdScanner";
 import { NumberInput } from "@/components/ui/NumberInput";
 import { CountrySelect } from "@/components/ui/CountrySelect";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { PhoneInput } from "@/components/ui/PhoneInput";
 import { dialCodeForNationality } from "@/lib/dial-codes";
 import {
@@ -531,19 +532,20 @@ export default function NewReservationPage() {
               <label className="block text-sm font-medium text-gray-600 mb-1.5">
                 رقم الوحدة <span className="text-red-500">*</span>
               </label>
-              <select
+              <SearchableSelect
                 value={unitId}
-                onChange={(e) => setUnitId(e.target.value)}
+                onValueChange={setUnitId}
+                options={filteredUnits.map((u) => ({
+                  value: String(u.id),
+                  label: u.unitNumber,
+                }))}
+                placeholder="اختر الوحدة"
+                searchPlaceholder="بحث برقم الوحدة..."
                 className={cn(
-                  "w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm",
-                  touched.unitId && !unitId ? "border-red-300 bg-red-50" : "border-gray-200"
+                  "w-full px-4 py-2.5 border rounded-lg text-sm",
+                  touched.unitId && !unitId ? "border-red-300 bg-red-50" : "border-gray-200",
                 )}
-              >
-                <option value="">اختر الوحدة</option>
-                {filteredUnits.map((u) => (
-                  <option key={u.id} value={u.id}>{u.unitNumber}</option>
-                ))}
-              </select>
+              />
               {filteredUnits.length === 0 && (
                 <p className="text-xs text-amber-600 mt-1">لا توجد وحدات شاغرة من هذا النوع</p>
               )}

@@ -14,6 +14,7 @@ import { formatAmount, formatDate } from "@/lib/utils";
 import { Pagination, usePaginatedSlice } from "@/components/Pagination";
 import { PageShell } from "@/components/ui/PageShell";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 const PAGE_SIZE = 20;
 
@@ -136,18 +137,19 @@ export default function LedgerPage() {
         <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3">
           <div className="min-w-0">
             <label className="block text-xs text-gray-500 mb-1">الحساب</label>
-            <select
+            <SearchableSelect
               value={accountId}
-              onChange={(e) => setAccountId(e.target.value)}
+              onValueChange={setAccountId}
+              options={accounts.map((a) => ({
+                value: String(a.id),
+                label: `${a.code} - ${a.name}`,
+                searchText: `${a.code} ${a.name}`,
+              }))}
+              placeholder="— اختر حساباً —"
+              searchPlaceholder="بحث في الحسابات..."
+              clearable
               className="w-full border rounded-lg px-3 py-2 text-sm"
-            >
-              <option value="">— اختر حساباً —</option>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.code} - {a.name}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <div className="min-w-0">
             <label className="block text-xs text-gray-500 mb-1">من</label>

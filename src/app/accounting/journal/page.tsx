@@ -20,6 +20,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { JournalAttachments } from "@/components/accounting/JournalAttachments";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 const PAGE_SIZE = 20;
 
@@ -542,37 +543,37 @@ export default function JournalPage() {
                       {form.lines.map((line, idx) => (
                         <tr key={idx} className="border-t border-gray-100">
                           <td className="px-2 py-1">
-                            <select
+                            <SearchableSelect
                               value={line.accountId}
-                              onChange={(e) =>
-                                updateLine(idx, { accountId: e.target.value })
+                              onValueChange={(v) =>
+                                updateLine(idx, { accountId: v })
                               }
-                              className="w-full border rounded px-2 py-1.5 text-xs"
+                              options={accounts.map((a) => ({
+                                value: String(a.id),
+                                label: `${a.code} - ${a.name}`,
+                                searchText: `${a.code} ${a.name}`,
+                              }))}
+                              placeholder="—"
+                              searchPlaceholder="بحث في الحسابات..."
                               required
-                            >
-                              <option value="">—</option>
-                              {accounts.map((a) => (
-                                <option key={a.id} value={a.id}>
-                                  {a.code} - {a.name}
-                                </option>
-                              ))}
-                            </select>
+                              className="w-full border rounded px-2 py-1.5 text-xs"
+                            />
                           </td>
                           <td className="px-2 py-1">
-                            <select
+                            <SearchableSelect
                               value={line.partyId}
-                              onChange={(e) =>
-                                updateLine(idx, { partyId: e.target.value })
+                              onValueChange={(v) =>
+                                updateLine(idx, { partyId: v })
                               }
+                              options={parties.map((p) => ({
+                                value: String(p.id),
+                                label: p.name,
+                              }))}
+                              placeholder="—"
+                              searchPlaceholder="بحث في الأطراف..."
+                              clearable
                               className="w-full border rounded px-2 py-1.5 text-xs"
-                            >
-                              <option value="">—</option>
-                              {parties.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                  {p.name}
-                                </option>
-                              ))}
-                            </select>
+                            />
                           </td>
                           <td className="px-2 py-1">
                             <input

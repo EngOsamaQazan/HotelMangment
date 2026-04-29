@@ -15,6 +15,7 @@ import { usePermissions } from "@/lib/permissions/client";
 import { Can } from "@/components/Can";
 import { PageShell } from "@/components/ui/PageShell";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 interface UnitLite {
   id: number;
@@ -326,43 +327,41 @@ function CreateMergeModal({
             <label className="block text-xs font-medium text-gray-600 mb-1">
               الوحدة الأولى
             </label>
-            <select
+            <SearchableSelect
               value={unitA}
-              onChange={(e) => {
-                setUnitA(e.target.value);
+              onValueChange={(v) => {
+                setUnitA(v);
                 setUnitB("");
               }}
-              className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+              options={available.map((u) => ({
+                value: String(u.id),
+                label: `${u.unitNumber} · طابق ${u.floor}${u.unitTypeName ? ` · ${u.unitTypeName}` : ""}`,
+                searchText: `${u.unitNumber} ${u.floor} ${u.unitTypeName ?? ""}`,
+              }))}
+              placeholder="— اختر —"
+              searchPlaceholder="بحث برقم الوحدة..."
               required
-            >
-              <option value="">— اختر —</option>
-              {available.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.unitNumber} · طابق {u.floor}
-                  {u.unitTypeName ? ` · ${u.unitTypeName}` : ""}
-                </option>
-              ))}
-            </select>
+              className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white"
+            />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">
               الوحدة الثانية
             </label>
-            <select
+            <SearchableSelect
               value={unitB}
-              onChange={(e) => setUnitB(e.target.value)}
+              onValueChange={setUnitB}
               disabled={!selA}
-              className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white disabled:opacity-60"
+              options={unitBOptions.map((u) => ({
+                value: String(u.id),
+                label: `${u.unitNumber} · طابق ${u.floor}${u.unitTypeName ? ` · ${u.unitTypeName}` : ""}`,
+                searchText: `${u.unitNumber} ${u.floor} ${u.unitTypeName ?? ""}`,
+              }))}
+              placeholder="— اختر —"
+              searchPlaceholder="بحث برقم الوحدة..."
               required
-            >
-              <option value="">— اختر —</option>
-              {unitBOptions.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.unitNumber} · طابق {u.floor}
-                  {u.unitTypeName ? ` · ${u.unitTypeName}` : ""}
-                </option>
-              ))}
-            </select>
+              className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white"
+            />
           </div>
         </div>
         <div>

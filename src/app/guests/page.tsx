@@ -32,6 +32,7 @@ import { Can } from "@/components/Can";
 import { usePermissions } from "@/lib/permissions/client";
 import { PageShell } from "@/components/ui/PageShell";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { KpiGrid } from "@/components/ui/KpiGrid";
 import { FilterBar } from "@/components/ui/FilterBar";
 
@@ -367,19 +368,20 @@ export default function GuestsPage() {
             className="w-full pr-10 pl-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
           />
         </div>
-        <select
-          value={nationality}
-          onChange={(e) => setNationality(e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm bg-white min-w-0 max-w-full"
-          style={{ flex: "1 1 10rem" }}
-        >
-          <option value="">كل الجنسيات</option>
-          {data?.nationalities.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
+        <div className="min-w-0 max-w-full" style={{ flex: "1 1 10rem" }}>
+          <SearchableSelect
+            value={nationality}
+            onValueChange={setNationality}
+            options={(data?.nationalities ?? []).map((n) => ({
+              value: n,
+              label: n,
+            }))}
+            placeholder="كل الجنسيات"
+            searchPlaceholder="بحث عن الجنسية..."
+            clearable
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white"
+          />
+        </div>
       </FilterBar>
 
       {/* ------------------------------------------------------------------ */}

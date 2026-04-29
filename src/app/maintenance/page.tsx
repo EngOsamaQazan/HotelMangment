@@ -24,6 +24,7 @@ import { Can } from "@/components/Can";
 import { UserAvatar } from "@/components/tasks/shared";
 import { PageShell } from "@/components/ui/PageShell";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 const PAGE_SIZE = 20;
 
@@ -456,22 +457,19 @@ export default function MaintenancePage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   الوحدة
                 </label>
-                <select
+                <SearchableSelect
                   required
                   value={form.unitId}
-                  onChange={(e) =>
-                    setForm({ ...form, unitId: e.target.value })
-                  }
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                >
-                  <option value="">اختر الوحدة</option>
-                  {units.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.unitNumber} -{" "}
-                      {u.unitType === "room" ? "غرفة" : "شقة"}
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={(v) => setForm({ ...form, unitId: v })}
+                  options={units.map((u) => ({
+                    value: String(u.id),
+                    label: `${u.unitNumber} - ${u.unitType === "room" ? "غرفة" : "شقة"}`,
+                    searchText: `${u.unitNumber} ${u.unitType}`,
+                  }))}
+                  placeholder="اختر الوحدة"
+                  searchPlaceholder="بحث برقم الوحدة..."
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                />
               </div>
 
               <div>

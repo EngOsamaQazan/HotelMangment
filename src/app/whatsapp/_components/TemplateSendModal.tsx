@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AlertTriangle, FileText, Loader2, Send, X } from "lucide-react";
 import { CombinedPhoneInput } from "@/components/ui/CombinedPhoneInput";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import type { TemplateRow } from "../_types";
 
 interface Props {
@@ -92,20 +93,25 @@ export function TemplateSendModal({
                 className="text-sm"
               />
             </div>
-            <label className="block">
+            <div className="block">
               <span className="text-sm text-gray-600">القالب</span>
-              <select
-                value={selectedId ?? ""}
-                onChange={(e) => setSelectedId(Number(e.target.value))}
-                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              >
-                {templates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} — {t.language} ({t.category})
-                  </option>
-                ))}
-              </select>
-            </label>
+              <div className="mt-1">
+                <SearchableSelect
+                  value={selectedId === null ? "" : String(selectedId)}
+                  onValueChange={(v) =>
+                    setSelectedId(v === "" ? null : Number(v))
+                  }
+                  options={templates.map((t) => ({
+                    value: String(t.id),
+                    label: `${t.name} — ${t.language} (${t.category})`,
+                    searchText: `${t.name} ${t.language} ${t.category}`,
+                  }))}
+                  placeholder="اختر قالباً"
+                  searchPlaceholder="بحث في القوالب..."
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                />
+              </div>
+            </div>
           </>
         )}
 

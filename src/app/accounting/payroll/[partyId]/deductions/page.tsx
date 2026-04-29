@@ -20,6 +20,7 @@ import { cn, formatAmount } from "@/lib/utils";
 import { Can } from "@/components/Can";
 import { PageShell } from "@/components/ui/PageShell";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 type CalcType = "fixed" | "percent_gross" | "percent_net";
 type Mode = "continuous" | "installment";
@@ -852,20 +853,21 @@ function DeductionModal({
                 (الجهة المستفيدة من الاقتطاع)
               </span>
             </label>
-            <select
-              value={accountId}
-              onChange={(e) =>
-                setAccountId(e.target.value === "" ? "" : Number(e.target.value))
+            <SearchableSelect
+              value={accountId === "" ? "" : String(accountId)}
+              onValueChange={(v) =>
+                setAccountId(v === "" ? "" : Number(v))
               }
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-            >
-              <option value="">— افتراضي حسب الفئة —</option>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.code} — {a.name}
-                </option>
-              ))}
-            </select>
+              options={accounts.map((a) => ({
+                value: String(a.id),
+                label: `${a.code} — ${a.name}`,
+                searchText: `${a.code} ${a.name}`,
+              }))}
+              placeholder="— افتراضي حسب الفئة —"
+              searchPlaceholder="بحث في الحسابات..."
+              clearable
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+            />
           </div>
 
           <div>
