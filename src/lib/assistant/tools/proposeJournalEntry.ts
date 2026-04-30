@@ -28,6 +28,14 @@ import {
 
 const EPS = 0.005;
 const MAX_LINES = 20;
+const CASH_FAMILY_ACCOUNT_CODES = new Set(["1010", "1020", "1030"]);
+const PARTY_CURRENT_ACCOUNT_BY_TYPE: Record<string, string> = {
+  employee: "2110",
+  partner: "2100",
+  supplier: "2010",
+  lender: "2200",
+  guest: "1100",
+};
 
 interface ProposeJournalLine {
   accountCode: string;
@@ -179,14 +187,41 @@ export async function proposeJournalEntry(
   }
 
   const partyNameById = new Map<number, string>();
+  const partyTypeById = new Map<number, string>();
   if (partyIds.size > 0) {
     const found = await prisma.party.findMany({
       where: { id: { in: Array.from(partyIds) }, isActive: true },
-      select: { id: true, name: true },
+      select: { id: true, name: true, type: true },
     });
-    for (const p of found) partyNameById.set(p.id, p.name);
+    for (const p of found) {
+      partyNameById.set(p.id, p.name);
+      partyTypeById.set(p.id, p.type);
+    }
     if (partyNameById.size !== partyIds.size) {
       return err({ code: "not_found", message: "بعض الأطراف غير موجودة. استعمل searchParty أولاً." });
+    }
+  }
+
+  // Guardrail: if a party paid on behalf of the hotel, the party belongs on
+  // their current-account line (AP partners/employees/suppliers), NOT on a
+  // cash-family credit line. The model occasionally drafts:
+  //   Dr Expense / Cr 1010 Cash, partyId=<partner>
+  // which reads as "cash left the hotel", while the natural-language request
+  // "أنا دفعت عن الفندق" means the hotel now owes the speaker.
+  for (const [idx, line] of input.lines.entries()) {
+    const c = round2(Number(line.credit) || 0);
+    if (line.partyId != null && c > 0 && CASH_FAMILY_ACCOUNT_CODES.has(line.accountCode)) {
+      const partyType = partyTypeById.get(Number(line.partyId));
+      const expected = partyType ? PARTY_CURRENT_ACCOUNT_BY_TYPE[partyType] : null;
+      return err({
+        code: "bad_input",
+        message:
+          `السطر ${idx + 1}: لا تضع partyId على سطر دائن لحساب نقدي (${line.accountCode}). ` +
+          `إذا كان الطرف دفع عن الفندق فاجعل السطر الدائن على حسابه الجاري` +
+          (expected ? ` (${expected})` : "") +
+          `، واترك الصندوق/البنك فقط عندما يخرج المال فعلاً من الفندق.`,
+        field: "lines",
+      });
     }
   }
 
