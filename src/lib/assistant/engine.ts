@@ -420,6 +420,14 @@ async function replayHistory(conversationId: number): Promise<ChatMessage[]> {
     if (r.role === "user") {
       out.push({ role: "user", content: wrapUserText(r.content) });
     } else if (r.role === "assistant") {
+      if (isOperationalAssistantNotice(r.content)) {
+        // Do not let transient infrastructure notices ("no provider",
+        // "budget exhausted", etc.) become part of the LLM's persona.
+        // WhatsApp staff sessions keep a long-running conversation, so a
+        // temporary OpenAI-key outage can otherwise poison the next turn and
+        // make the model keep repeating the old notice even after recovery.
+        continue;
+      }
       const calls = (r.toolCalls as unknown as ToolCall[] | null) ?? undefined;
       out.push({
         role: "assistant",
@@ -437,6 +445,15 @@ async function replayHistory(conversationId: number): Promise<ChatMessage[]> {
     }
   }
   return out;
+}
+
+function isOperationalAssistantNotice(content: string | null): boolean {
+  if (!content) return false;
+  return (
+    content.includes("لم يتم ضبط مزوّد ذكاء اصطناعي") ||
+    content.includes("نفدت الميزانية اليومية للمساعد") ||
+    content.includes("المساعد الذكي معطّل")
+  );
 }
 
 async function persistAssistantText(
