@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sparkles, X, ExternalLink, Loader2 } from "lucide-react";
+import { GraduationCap, Loader2, ExternalLink, Settings2, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Can } from "@/components/Can";
 import { AssistantQuickPanel } from "./AssistantQuickPanel";
@@ -163,6 +163,28 @@ export function AssistantFab() {
                   <ExternalLink size={14} />
                 </Link>
               )}
+              {/* Admin shortcuts — only render for users with the relevant
+                  permissions; <Can> handles the gating + suspense. */}
+              <Can permission="assistant:learning_review">
+                <Link
+                  href="/settings/assistant/learning"
+                  onClick={() => setOpen(false)}
+                  className="p-1 text-gray-500 hover:text-amber-700 hover:bg-white/70 rounded"
+                  title="تعلّم المساعد"
+                >
+                  <GraduationCap size={14} />
+                </Link>
+              </Can>
+              <Can permission="assistant:configure">
+                <Link
+                  href="/settings/assistant"
+                  onClick={() => setOpen(false)}
+                  className="p-1 text-gray-500 hover:text-amber-700 hover:bg-white/70 rounded"
+                  title="إعدادات المساعد"
+                >
+                  <Settings2 size={14} />
+                </Link>
+              </Can>
               <button
                 onClick={() => setOpen(false)}
                 className="p-1 text-gray-500 hover:text-gray-700 rounded"

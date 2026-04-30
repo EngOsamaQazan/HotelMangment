@@ -81,9 +81,9 @@ function SignInInner() {
 
         <p className="text-center text-xs text-gray-400 mt-6">
           فريق العمل؟{" "}
-          <Link href="/login" className="text-primary hover:underline">
+          <a href="/login" className="text-primary hover:underline">
             استخدم بوابة الموظفين
-          </Link>
+          </a>
         </p>
       </div>
     </GuestShell>

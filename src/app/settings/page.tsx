@@ -22,6 +22,7 @@ import {
   Search,
   ChevronLeft,
   Sparkles,
+  GraduationCap,
 } from "lucide-react";
 import Link from "next/link";
 import { cn, formatDate, roleLabels } from "@/lib/utils";
@@ -817,6 +818,24 @@ const MODULES: ModuleTile[] = [
     permission: "settings.whatsapp:view",
     icon: Bell,
     tone: "rose",
+  },
+  {
+    key: "assistant",
+    label: "المساعد الذكي",
+    description: "تفعيل/إيقاف المساعد، الميزانية اليومية بالدولار، ونوافذ المحادثة عبر الواتساب.",
+    href: "/settings/assistant",
+    permission: "assistant:configure",
+    icon: Sparkles,
+    tone: "amber",
+  },
+  {
+    key: "assistant-learning",
+    label: "تعلّم المساعد الذكي",
+    description: "صندوق إخفاقات المساعد، اعتماد دروس عربية تُحقن في برومبت كل محادثة، وإدارة المكتبة.",
+    href: "/settings/assistant/learning",
+    permission: "assistant:learning_review",
+    icon: GraduationCap,
+    tone: "violet",
   },
 ];
 

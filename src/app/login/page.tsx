@@ -3,7 +3,6 @@
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
 
 export default function LoginPage() {
@@ -117,12 +116,12 @@ export default function LoginPage() {
           <div className="mt-6 pt-4 border-t border-gray-100 text-center">
             <p className="text-xs text-gray-500">
               ضيف؟{" "}
-              <Link
+              <a
                 href="/signin"
                 className="text-primary font-bold hover:text-primary-dark underline underline-offset-2"
               >
                 سجّل دخولك من هنا
-              </Link>
+              </a>
             </p>
           </div>
         </div>

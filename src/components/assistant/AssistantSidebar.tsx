@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Sparkles, Trash2 } from "lucide-react";
+import { GraduationCap, Plus, Settings2, Sparkles, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Can } from "@/components/Can";
 
 interface ConversationRow {
   id: number;
@@ -74,6 +75,25 @@ export function AssistantSidebar({ activeId }: Props) {
       <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
         <Sparkles size={18} className="text-amber-500" />
         <h2 className="font-bold text-sm flex-1">المساعد الذكي</h2>
+        {/* Admin shortcuts — gated by permissions, hidden for regular staff. */}
+        <Can permission="assistant:learning_review">
+          <Link
+            href="/settings/assistant/learning"
+            className="p-1.5 rounded-md text-gray-500 hover:text-amber-700 hover:bg-amber-50 transition-colors"
+            title="تعلّم المساعد"
+          >
+            <GraduationCap size={16} />
+          </Link>
+        </Can>
+        <Can permission="assistant:configure">
+          <Link
+            href="/settings/assistant"
+            className="p-1.5 rounded-md text-gray-500 hover:text-amber-700 hover:bg-amber-50 transition-colors"
+            title="إعدادات المساعد"
+          >
+            <Settings2 size={16} />
+          </Link>
+        </Can>
         <button
           onClick={startNew}
           disabled={creating}
