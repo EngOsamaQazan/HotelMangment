@@ -29,6 +29,7 @@ export async function GET(_req: Request, ctx: Ctx) {
         assignedTo: { select: { id: true, name: true } },
         assignedBy: { select: { id: true, name: true } },
         messages: {
+          where: { deletedAt: null },
           orderBy: { id: "desc" },
           take: 1,
           select: {

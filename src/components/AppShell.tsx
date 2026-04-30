@@ -6,6 +6,7 @@ import { NotificationsBell } from "@/components/NotificationsBell";
 import { UserMenu } from "@/components/UserMenu";
 import { RoutePermissionGate } from "@/components/RoutePermissionGate";
 import { StaffManifestSwitch } from "@/components/StaffManifestSwitch";
+import { AssistantFab } from "@/components/assistant/AssistantFab";
 
 const AUTH_ROUTES = new Set(["/login", "/signin", "/signup"]);
 
@@ -52,6 +53,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <RoutePermissionGate>{children}</RoutePermissionGate>
         </div>
       </main>
+      <AssistantFab />
     </div>
   );
 }

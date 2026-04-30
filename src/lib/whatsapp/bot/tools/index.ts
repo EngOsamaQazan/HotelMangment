@@ -89,23 +89,45 @@ const REGISTRY: { [K in ToolName]: ToolImpl<K> } = {
 /**
  * Run a tool by name. The input is `unknown` because it comes from an LLM
  * (the schema-strict mode does most of the validation; each tool also
- * validates its own fields). Returns the same `ToolResult` shape every
- * tool produces.
+ * validates its own fields).
+ *
+ * Two overloads:
+ *   • Typed `ToolName` callers (e.g. `fallback.ts` running `getQuote` directly)
+ *     get back the strongly-typed `ToolResult<ToolIO[Name]["output"]>`.
+ *   • Engine / sandbox callers receive `name` as a plain `string` from the
+ *     LLM provider; we re-narrow it against `TOOL_NAMES` and return
+ *     `ToolResult<unknown>` because the union widening happens at runtime.
  */
+import { TOOL_NAMES } from "./types";
+
+function isToolName(name: string): name is ToolName {
+  return (TOOL_NAMES as readonly string[]).includes(name);
+}
+
 export async function runTool<Name extends ToolName>(
   name: Name,
   input: unknown,
   ctx: ToolContext,
-): Promise<ToolResult<ToolIO[Name]["output"]>> {
-  const impl = REGISTRY[name];
-  if (!impl) {
+): Promise<ToolResult<ToolIO[Name]["output"]>>;
+export async function runTool(
+  name: string,
+  input: unknown,
+  ctx: ToolContext,
+): Promise<ToolResult<unknown>>;
+export async function runTool(
+  name: string,
+  input: unknown,
+  ctx: ToolContext,
+): Promise<ToolResult<unknown>> {
+  if (!isToolName(name)) {
     return {
       ok: false,
       error: { code: "internal", message: `unknown tool: ${name}` },
     };
   }
+  const impl = REGISTRY[name] as ToolImpl<ToolName>;
   try {
-    return await impl(input as ToolIO[Name]["input"], ctx);
+    return (await impl(input as never, ctx)) as ToolResult<unknown>;
   } catch (e) {
     console.error(`[bot/tools/${name}] uncaught`, e);
     return {

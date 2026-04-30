@@ -1,19 +1,40 @@
 import "server-only";
-import type { ToolJsonSchema, ToolName } from "@/lib/whatsapp/bot/tools";
 
 /**
- * Provider-agnostic surface for the bot's LLM. Implementations:
+ * Provider-agnostic surface for any LLM-driven feature in the app
+ * (the WhatsApp customer bot AND the staff assistant share this layer).
+ * Implementations:
  *   • OpenAIAdapter   (Phase 3)   — gpt-4o-mini default.
  *   • GeminiAdapter   (later)     — gemini-2.0-flash for cost.
  *   • AnthropicAdapter (later)    — claude-haiku for highest dialog quality.
  *
- * The bot engine never imports a concrete provider — it always asks
- * `getLLMProvider()` and gets back the configured adapter. This keeps the
+ * Callers never import a concrete provider — they always ask
+ * `getLLMProvider()` and get back the configured adapter. This keeps each
  * engine testable (swap a fake provider in unit tests) and lets us A/B
  * different models without touching the dialog logic.
+ *
+ * Tool names are typed as `string` here (not the WhatsApp bot's union)
+ * because each engine ships its own set of tools. The adapter validates
+ * tool calls against the schemas the caller passes in `ChatRequest.tools`.
  */
 
 export type LLMProviderId = "openai" | "gemini" | "anthropic";
+
+/**
+ * Provider-neutral JSON Schema for a tool. Mirrors the OpenAI / Anthropic
+ * shape so each adapter only needs a one-liner translation. Shared by the
+ * WhatsApp bot tools and the staff assistant tools.
+ */
+export interface ToolJsonSchema {
+  name: string;
+  description: string;
+  parameters: {
+    type: "object";
+    properties: Record<string, unknown>;
+    required?: string[];
+    additionalProperties: false;
+  };
+}
 
 /** Roles mirror OpenAI's chat completions for direct mapping convenience. */
 export type ChatRole = "system" | "user" | "assistant" | "tool";
@@ -44,7 +65,8 @@ export interface ChatToolMessage extends ChatMessageBase {
   /** Stringified JSON returned by the tool runtime. */
   content: string;
   toolCallId: string;
-  toolName: ToolName;
+  /** Tool name — engine-specific union, validated by the schemas in ChatRequest.tools. */
+  toolName: string;
 }
 
 export type ChatMessage =
@@ -55,7 +77,8 @@ export type ChatMessage =
 
 export interface ToolCall {
   id: string;
-  name: ToolName;
+  /** Tool name — validated by the engine against the schemas it sent. */
+  name: string;
   /** Raw JSON string emitted by the model — caller is responsible for parsing. */
   argumentsJson: string;
 }

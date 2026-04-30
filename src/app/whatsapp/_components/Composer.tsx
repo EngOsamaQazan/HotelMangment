@@ -10,10 +10,34 @@ import {
   StickyNote,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Can } from "@/components/Can";
 
 type MediaKind = "image" | "video" | "document" | "audio";
+
+/**
+ * Hard caps come from Meta's WhatsApp Cloud API spec — we cannot increase
+ * them. Files larger than this fail with a generic body-parse error on
+ * the proxy/edge before our route even runs (e.g. nginx default 1MB,
+ * or our 100MB max). We validate here so the user sees a clear, instant
+ * message instead of the cryptic "Failed to parse body as FormData".
+ *
+ * Source: https://developers.facebook.com/docs/whatsapp/cloud-api/messages/video-messages/
+ */
+const MEDIA_LIMITS: Record<MediaKind, { bytes: number; label: string }> = {
+  image: { bytes: 5 * 1024 * 1024, label: "5MB" },
+  video: { bytes: 16 * 1024 * 1024, label: "16MB" },
+  audio: { bytes: 16 * 1024 * 1024, label: "16MB" },
+  document: { bytes: 100 * 1024 * 1024, label: "100MB" },
+};
+
+const MEDIA_KIND_LABEL: Record<MediaKind, string> = {
+  image: "الصورة",
+  video: "الفيديو",
+  audio: "الملف الصوتي",
+  document: "المستند",
+};
 
 interface Props {
   onSend: (text: string) => Promise<void>;
@@ -83,6 +107,21 @@ export function Composer({
   }
 
   function onFileSelected(file: File, kind: MediaKind) {
+    const limit = MEDIA_LIMITS[kind];
+    if (file.size > limit.bytes) {
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+      toast.error(
+        `حجم ${MEDIA_KIND_LABEL[kind]} (${sizeMb}MB) يتجاوز الحد المسموح به من واتساب (${limit.label}).`,
+        {
+          description:
+            kind === "video"
+              ? "اضغط الفيديو أو قصّه قبل الإرسال — Meta لا تقبل فيديو أكبر من 16MB."
+              : "اختَر ملفاً أصغر حجماً.",
+          duration: 6000,
+        },
+      );
+      return;
+    }
     const previewUrl = kind === "image" ? URL.createObjectURL(file) : null;
     setPendingFile({ file, kind, previewUrl });
     setMode("reply");

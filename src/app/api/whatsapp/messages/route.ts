@@ -60,9 +60,29 @@ export async function GET(req: Request) {
           mediaFilename: true,
           mediaSize: true,
           isInternalNote: true,
+          editedAt: true,
+          editedByUserId: true,
+          deletedAt: true,
+          deletedByUserId: true,
         },
       });
-      return NextResponse.json(rows.reverse());
+      // Soft-deleted messages are still returned so the UI can render
+      // "حُذِفت هذه الرسالة" placeholders (matches WhatsApp UX). The
+      // payload omits the body / media to avoid leaking the original
+      // contents on the wire.
+      const sanitized = rows.map((r) =>
+        r.deletedAt
+          ? {
+              ...r,
+              body: null,
+              mediaId: null,
+              mediaMimeType: null,
+              mediaFilename: null,
+              mediaSize: null,
+            }
+          : r,
+      );
+      return NextResponse.json(sanitized.reverse());
     }
 
     // Thread list using DISTINCT ON + GROUP BY aggregate in a single query.
@@ -90,6 +110,7 @@ export async function GET(req: Request) {
           status      AS last_status,
           created_at  AS last_at
         FROM whatsapp_messages
+        WHERE deleted_at IS NULL
         ORDER BY contact_phone, id DESC
       ),
       names AS (
@@ -103,7 +124,7 @@ export async function GET(req: Request) {
         SELECT
           contact_phone,
           COUNT(*)::bigint AS total_count,
-          SUM(CASE WHEN direction = 'inbound' AND status = 'received' THEN 1 ELSE 0 END)::bigint
+          SUM(CASE WHEN direction = 'inbound' AND status = 'received' AND deleted_at IS NULL THEN 1 ELSE 0 END)::bigint
                            AS unread_count
         FROM whatsapp_messages
         GROUP BY contact_phone

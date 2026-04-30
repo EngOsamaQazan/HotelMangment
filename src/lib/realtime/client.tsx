@@ -55,7 +55,11 @@ export interface NotificationPayload {
 
 // ── WhatsApp realtime payloads (mirror src/lib/whatsapp/fanout.ts) ──
 export interface WhatsAppMessagePayload {
-  op: "message:new" | "message:status";
+  op:
+    | "message:new"
+    | "message:status"
+    | "message:edit"
+    | "message:delete";
   conversationId: number;
   contactPhone: string;
   contactName?: string | null;
@@ -74,6 +78,11 @@ export interface WhatsAppMessagePayload {
   status?: string;
   errorCode?: string | null;
   errorMessage?: string | null;
+  /** Set on `message:edit`. */
+  editedAt?: string | null;
+  editedByUserId?: number | null;
+  /** Set on `message:delete`. */
+  deletedByUserId?: number | null;
   targetUserIds?: number[];
 }
 

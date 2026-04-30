@@ -49,11 +49,21 @@ export interface Message {
   readAt: string | null;
   createdAt: string;
   isInternalNote?: boolean;
+  /** Who sent this row (for outbound) — used to gate edit/delete UI. */
+  sentByUserId?: number | null;
   /** Meta media id — present for image/video/audio/document/sticker. */
   mediaId?: string | null;
   mediaMimeType?: string | null;
   mediaFilename?: string | null;
   mediaSize?: number | null;
+  /** Set when a staff member edits the body (only for internal notes). */
+  editedAt?: string | null;
+  editedByUserId?: number | null;
+  /** Soft-delete: when present, the row is hidden from inbox previews and
+   *  the bubble renders a "حُذِفت هذه الرسالة" placeholder. WhatsApp Cloud
+   *  API does not support recalling messages from the customer's device. */
+  deletedAt?: string | null;
+  deletedByUserId?: number | null;
 }
 
 export interface TemplateRow {

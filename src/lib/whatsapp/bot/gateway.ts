@@ -26,7 +26,8 @@ export interface GatewayInput extends RunBotTurnInput {}
 export type GatewayDecision =
   | { action: "skip"; reason: string }
   | { action: "run_bot"; mode: "llm" | "fallback" }
-  | { action: "shadow"; reason: string };
+  | { action: "shadow"; reason: string }
+  | { action: "run_staff_assistant"; staffUserId: number };
 
 export async function decideGatewayAction(
   input: GatewayInput,
@@ -34,6 +35,11 @@ export async function decideGatewayAction(
   const phone = normalizePhone(input.phone);
   if (!phone) return { action: "skip", reason: "empty_phone" };
 
+  // Staff-bot short-circuit: if this number belongs to a registered staff
+  // user AND the staff assistant is enabled, divert to the internal
+  // assistant pipeline regardless of customer-bot config. The staff
+  // assistant authenticates via OTP, so we don't trust the phone alone —
+  // it just decides which pipeline handles the message.
   const cfg = await prisma.whatsAppConfig.findUnique({
     where: { id: 1 },
     select: {
@@ -46,8 +52,19 @@ export async function decideGatewayAction(
       botActiveHoursStart: true,
       botActiveHoursEnd: true,
       isActive: true,
+      assistantWaEnabled: true,
     },
   });
+
+  if (cfg?.assistantWaEnabled) {
+    const staffUser = await prisma.user.findFirst({
+      where: { whatsappPhone: phone },
+      select: { id: true },
+    });
+    if (staffUser) {
+      return { action: "run_staff_assistant", staffUserId: staffUser.id };
+    }
+  }
 
   if (!cfg || !cfg.isActive || cfg.botMode === "off") {
     return { action: "skip", reason: "bot_off" };
@@ -136,6 +153,21 @@ export async function dispatchInboundToBot(input: GatewayInput): Promise<Dispatc
     const decision = await decideGatewayAction(input);
     if (decision.action === "skip") {
       return { outcome: "skipped", reason: decision.reason };
+    }
+    if (decision.action === "run_staff_assistant") {
+      // Lazy-imported to avoid circulars (the staff handler imports from
+      // `@/lib/assistant` which transitively pulls in things we don't need
+      // for the customer bot's hot path).
+      const { handleStaffWaMessage } = await import("@/lib/assistant/whatsapp/handler");
+      const r = await handleStaffWaMessage({
+        staffUserId: decision.staffUserId,
+        phone: normalizePhone(input.phone) || input.phone,
+        body: input.inboundBody,
+        type: input.inboundType,
+        receivedAt: input.inboundAt,
+        conversationId: input.conversationId ?? null,
+      });
+      return { outcome: r.replied ? "replied" : "skipped", reason: r.reason };
     }
     if (decision.action === "run_bot") {
       const r = await runBotTurn(input);

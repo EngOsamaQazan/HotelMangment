@@ -55,20 +55,14 @@ export const TOOL_NAMES = [
 export type ToolName = (typeof TOOL_NAMES)[number];
 
 /**
- * OpenAI / Anthropic-style JSON Schema for a tool. We keep our own minimal
- * shape rather than importing the openai SDK types so the tools layer stays
- * provider-agnostic (Phase 3 LLM adapters translate this on the way out).
+ * OpenAI / Anthropic-style JSON Schema for a tool. The shared shape lives in
+ * `@/lib/llm/types` so both the WhatsApp bot and the staff assistant emit the
+ * same structure to every adapter; here we just narrow the `name` field to
+ * this engine's tool union for stronger autocomplete inside the bot module.
  */
-export interface ToolJsonSchema {
-  name: ToolName;
-  description: string;
-  parameters: {
-    type: "object";
-    properties: Record<string, unknown>;
-    required?: string[];
-    additionalProperties: false;
-  };
-}
+import type { ToolJsonSchema as SharedToolJsonSchema } from "@/lib/llm/types";
+
+export type ToolJsonSchema = SharedToolJsonSchema & { name: ToolName };
 
 /** Convenience constructors so each tool file stays terse. */
 export function ok<T>(data: T): { ok: true; data: T } {

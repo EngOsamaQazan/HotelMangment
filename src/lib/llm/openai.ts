@@ -1,8 +1,6 @@
 import "server-only";
 import OpenAI from "openai";
 import type { ChatRequest, LLMProvider, LLMResponse, ToolCall } from "./types";
-import type { ToolName } from "@/lib/whatsapp/bot/tools";
-import { TOOL_NAMES } from "@/lib/whatsapp/bot/tools";
 
 /**
  * OpenAI Chat Completions adapter.
@@ -35,10 +33,6 @@ const PRICING: Record<string, ModelPricing> = {
 
 function pricingFor(model: string): ModelPricing {
   return PRICING[model] ?? PRICING["gpt-4o-mini"];
-}
-
-function isKnownTool(name: string): name is ToolName {
-  return (TOOL_NAMES as readonly string[]).includes(name);
 }
 
 export class OpenAIAdapter implements LLMProvider {
@@ -116,12 +110,13 @@ export class OpenAIAdapter implements LLMProvider {
       (promptTokens / 1_000_000) * pricing.inUsdPerM +
       (completionTokens / 1_000_000) * pricing.outUsdPerM;
 
+    const knownTools = new Set(req.tools.map((t) => t.name));
     const rawCalls = choice?.message?.tool_calls ?? [];
     const toolCalls: ToolCall[] = [];
     for (const c of rawCalls) {
       if (c.type !== "function") continue;
       const name = c.function.name;
-      if (!isKnownTool(name)) {
+      if (!knownTools.has(name)) {
         // Drop hallucinated tool names — engine will see no tool calls and
         // can ask the model to retry or escalate.
         console.warn("[llm/openai] dropping unknown tool call", name);

@@ -72,6 +72,7 @@ export async function GET(req: Request) {
         contact: true,
         assignedTo: { select: { id: true, name: true } },
         messages: {
+          where: { deletedAt: null },
           orderBy: { id: "desc" },
           take: 1,
           select: {

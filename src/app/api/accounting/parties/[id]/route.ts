@@ -60,6 +60,7 @@ export async function PATCH(
       notes,
       isActive,
       code,
+      userId,
       // employee-specific
       baseSalary,
       commissionRate,
@@ -77,6 +78,21 @@ export async function PATCH(
     if (notes !== undefined) data.notes = notes;
     if (isActive !== undefined) data.isActive = isActive;
     if (code !== undefined) data.code = code;
+    if (userId !== undefined) {
+      // Null clears the link; a number sets it. We do not validate the
+      // user row here — the unique constraint on `parties.user_id` will
+      // bounce duplicate links with a Prisma "P2002" error that we
+      // surface as 409 below.
+      const parsed =
+        userId === null || userId === "" ? null : Number(userId);
+      if (parsed !== null && (!Number.isInteger(parsed) || parsed <= 0)) {
+        return NextResponse.json(
+          { error: "userId غير صالح" },
+          { status: 400 },
+        );
+      }
+      data.userId = parsed;
+    }
     if (baseSalary !== undefined)
       data.baseSalary = baseSalary === null || baseSalary === "" ? null : Number(baseSalary);
     if (commissionRate !== undefined)
@@ -90,12 +106,24 @@ export async function PATCH(
       data.terminationDate = terminationDate ? new Date(terminationDate) : null;
     if (jobTitle !== undefined) data.jobTitle = jobTitle || null;
 
-    const party = await prisma.party.update({
-      where: { id: partyId },
-      data,
-    });
-
-    return NextResponse.json(party);
+    try {
+      const party = await prisma.party.update({
+        where: { id: partyId },
+        data,
+      });
+      return NextResponse.json(party);
+    } catch (e) {
+      const code = (e as { code?: string }).code;
+      if (code === "P2002") {
+        // Unique constraint on parties.user_id was violated → user is
+        // already linked to a different party.
+        return NextResponse.json(
+          { error: "هذا المستخدم مرتبط بالفعل بطرف آخر" },
+          { status: 409 },
+        );
+      }
+      throw e;
+    }
   } catch (error) {
     const authErr = handleAuthError(error);
     if (authErr) return authErr;

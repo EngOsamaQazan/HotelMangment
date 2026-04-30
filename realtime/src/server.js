@@ -249,6 +249,16 @@ function handleWhatsAppEvent(payload) {
       io.to("wa:inbox").emit("wa:inbox:update", payload);
       return;
     }
+    case "message:edit":
+    case "message:delete": {
+      // Local-only edit/delete events (no Meta round-trip). Forward to the
+      // open conversation room so all viewers update simultaneously, plus
+      // the inbox room so list previews refresh when the deleted/edited
+      // row was the last message.
+      if (room) io.to(room).emit("wa:message:status", payload);
+      io.to("wa:inbox").emit("wa:inbox:update", payload);
+      return;
+    }
     case "conversation:update": {
       if (room) io.to(room).emit("wa:conversation:update", payload);
       io.to("wa:inbox").emit("wa:conversation:update", payload);

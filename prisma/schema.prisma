@@ -64,6 +64,14 @@ model User {
   botAllowlistEntries BotAllowlist[]   @relation("BotAllowlistAdder")
   botShadowDecisions  BotShadowDraft[] @relation("BotShadowDraftDecider")
 
+  // ---- Staff AI Assistant ----
+  assistantConversations AssistantConversation[] @relation("AssistantConversationOwner")
+  assistantActions       AssistantAction[]       @relation("AssistantActionExecutor")
+  assistantWaSessions    AssistantWaSession[]    @relation("AssistantWaSessionUser")
+
+  // ---- Accounting Party link (1:1 — a system user can map to one party) ----
+  party Party? @relation("UserParty")
+
   @@map("users")
 }
 
@@ -656,6 +664,11 @@ model Party {
   apAccountId     Int?      @map("ap_account_id")
   equityAccountId Int?      @map("equity_account_id")
   drawAccountId   Int?      @map("draw_account_id")
+  /// Optional 1:1 link to a system User. When set, `getLLMProvider` /
+  /// the staff assistant resolves the speaker's accounting identity
+  /// directly via this FK instead of fuzzy-matching on names. A user
+  /// may map to ONE party only (a partner, employee, etc.).
+  userId          Int?      @unique @map("user_id")
 
   // ---- Employee-specific fields (used when type = 'employee') ----
   baseSalary      Float?    @map("base_salary")
@@ -671,6 +684,7 @@ model Party {
   apAccount     Account?      @relation("APAccount", fields: [apAccountId], references: [id])
   equityAccount Account?      @relation("EquityAccount", fields: [equityAccountId], references: [id])
   drawAccount   Account?      @relation("DrawAccount", fields: [drawAccountId], references: [id])
+  user          User?         @relation("UserParty", fields: [userId], references: [id], onDelete: SetNull)
   lines         JournalLine[]
 
   payrollDeductions            PayrollDeduction[]
@@ -1551,6 +1565,30 @@ model WhatsAppConfig {
   /// Public origin used when constructing Stripe success/cancel URLs.
   botPublicBaseUrl          String?   @map("bot_public_base_url")
 
+  // ---- Staff AI Assistant (separate budget, same provider/key) ----
+  /// Master switch for the internal staff assistant at /assistant.
+  /// Defaults to true so the assistant lights up automatically the moment
+  /// `botLlmApiKeyEnc` is configured (the LLM provider is shared).
+  assistantEnabled        Boolean   @default(true) @map("assistant_enabled")
+  /// USD spending budget per UTC day, independent of the customer-facing
+  /// bot's `botDailyBudgetUsd`. When crossed the assistant refuses turns
+  /// and asks the staff to proceed manually — the customer bot keeps
+  /// running on its own counter and vice-versa.
+  assistantDailyBudgetUsd Decimal   @default(2) @map("assistant_daily_budget_usd") @db.Decimal(8, 2)
+  assistantCostTodayUsd   Decimal   @default(0) @map("assistant_cost_today_usd") @db.Decimal(8, 4)
+  assistantCostResetAt    DateTime? @map("assistant_cost_reset_at")
+
+  // ---- Staff Assistant via WhatsApp (Phase B) ----
+  /// Master switch for "talk to the assistant via WhatsApp" using your
+  /// registered staff number. Default true once OTP infra is configured.
+  assistantWaEnabled        Boolean @default(true) @map("assistant_wa_enabled")
+  /// Idle timeout in minutes — session expires this many minutes after the
+  /// last inbound message from the staff number.
+  assistantWaSessionMinutes Int     @default(30) @map("assistant_wa_session_minutes")
+  /// Hard ceiling on session duration (regardless of activity) to prevent
+  /// "I forgot my phone unlocked" abuse. Default 8 hours.
+  assistantWaMaxSessionHours Int    @default(8) @map("assistant_wa_max_session_hours")
+
   lastVerifiedAt DateTime? @map("last_verified_at")
   lastVerifyOk   Boolean?  @map("last_verify_ok")
   lastError      String?   @map("last_error")
@@ -1613,6 +1651,19 @@ model WhatsAppMessage {
   mediaSha256     String?   @map("media_sha256")
   /// Byte size (best-effort — set from Content-Length during download).
   mediaSize       Int?      @map("media_size")
+  /// ─── Edit / Delete (local-only) ─────────────────────────────────────
+  /// WhatsApp Cloud API does NOT support editing or deleting business
+  /// messages on the customer's device — these fields only affect what
+  /// the staff inbox renders. For internal notes the edit is fully
+  /// authoritative; for outbound/inbound messages it's a "soft delete"
+  /// that hides the row from the inbox while leaving the customer's copy
+  /// untouched.
+  editedAt        DateTime? @map("edited_at")
+  editedByUserId  Int?      @map("edited_by_user_id")
+  /// Snapshot of the original body taken on first edit, for staff audit.
+  originalBody    String?   @map("original_body")
+  deletedAt       DateTime? @map("deleted_at")
+  deletedByUserId Int?      @map("deleted_by_user_id")
   createdAt       DateTime  @default(now()) @map("created_at")
 
   conversation WhatsAppConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
@@ -1623,6 +1674,7 @@ model WhatsAppMessage {
   @@index([reservationId])
   @@index([conversationId, createdAt])
   @@index([mediaId])
+  @@index([deletedAt])
   @@map("whatsapp_messages")
 }
 
@@ -2000,4 +2052,241 @@ model BotShadowDraft {
   @@index([conversationId, createdAt])
   @@index([status, createdAt])
   @@map("bot_shadow_drafts")
+}
+
+// ─────────────────────── Staff AI Assistant ────────────────────────────
+// One conversation = one chat thread on /assistant. We keep the messages
+// and pending "action drafts" (journal entries, reservations, etc.) in
+// separate tables so the LLM history and the audit log of executed
+// actions can be queried independently.
+
+model AssistantConversation {
+  id             Int      @id @default(autoincrement())
+  /// Staff member who owns this conversation (no sharing for now).
+  userId         Int      @map("user_id")
+  /// Auto-generated short title (first user message, truncated).
+  title          String   @default("محادثة جديدة")
+  /// Rolling LLM cost across every turn in the conversation.
+  costUsdTotal   Decimal  @default(0) @map("cost_usd_total") @db.Decimal(10, 4)
+  llmTurns       Int      @default(0) @map("llm_turns")
+  llmTokensIn    Int      @default(0) @map("llm_tokens_in")
+  llmTokensOut   Int      @default(0) @map("llm_tokens_out")
+  lastMessageAt  DateTime? @map("last_message_at")
+  archivedAt     DateTime? @map("archived_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  user       User                 @relation("AssistantConversationOwner", fields: [userId], references: [id], onDelete: Cascade)
+  messages   AssistantMessage[]
+  actions    AssistantAction[]
+  failures   AssistantFailure[]
+  waSession  AssistantWaSession?  @relation("AssistantWaSessionConversation")
+
+  @@index([userId, lastMessageAt])
+  @@index([archivedAt])
+  @@map("assistant_conversations")
+}
+
+/// Append-only log of every message exchanged in an assistant conversation.
+/// Roles mirror the OpenAI chat-completions taxonomy (system/user/assistant/tool)
+/// so we can replay them straight into the LLM on the next turn.
+model AssistantMessage {
+  id             Int      @id @default(autoincrement())
+  conversationId Int      @map("conversation_id")
+  /// "user" | "assistant" | "tool" — never "system" (system prompt is rebuilt per turn).
+  role           String
+  /// Plain text (user/assistant) or stringified JSON tool result (tool).
+  content        String   @db.Text
+  /// For assistant messages only — the LLM's tool_call announcements.
+  toolCalls      Json?    @map("tool_calls")
+  /// For tool messages only — the OpenAI tool_call_id and tool name.
+  toolCallId     String?  @map("tool_call_id")
+  toolName       String?  @map("tool_name")
+  /// LLM usage for the assistant turn that produced this message.
+  usage          Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("assistant_messages")
+}
+
+/// A draft action proposed by the assistant that requires human confirmation
+/// before any side-effect is committed. The LLM never executes write
+/// operations directly — it ALWAYS produces a row here and then the
+/// employee clicks "تأكيد" to trigger `executor.run(actionId)`.
+model AssistantAction {
+  id             Int      @id @default(autoincrement())
+  conversationId Int      @map("conversation_id")
+  /// "journal_entry" | "reservation_create" | "maintenance_create" |
+  /// "task_create" | "payroll_advance" | …
+  kind           String
+  /// Arabic one-liner shown next to the confirm button.
+  summary        String   @db.Text
+  /// Structured payload ready to be passed to the executor for the matching
+  /// kind. Schema is per-kind and validated by the executor.
+  payload        Json
+  /// Where the draft originated. Helps audit + tells the WhatsApp handler
+  /// to render text-friendly summaries instead of card payloads.
+  /// "web" (default) | "wa".
+  source         String   @default("web")
+  /// "pending" | "confirmed" | "executed" | "rejected" | "failed" | "expired"
+  status         String   @default("pending")
+  /// FK to the staff member who clicked "تأكيد" / "إلغاء" (null until then).
+  executedById   Int?     @map("executed_by_id")
+  confirmedAt    DateTime? @map("confirmed_at")
+  executedAt     DateTime? @map("executed_at")
+  /// Foreign-key to the row created by the executor (e.g. journalEntryId).
+  /// Stored as a string because the target table varies by kind.
+  executedRefId  String?  @map("executed_ref_id")
+  errorMessage   String?  @map("error_message") @db.Text
+  /// Pending drafts auto-expire after 30 minutes — checked on confirm.
+  expiresAt      DateTime  @map("expires_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  conversation AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  executedBy   User?                 @relation("AssistantActionExecutor", fields: [executedById], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
+  @@index([status, expiresAt])
+  @@map("assistant_actions")
+}
+
+/// WhatsApp-side authenticated session for staff. The state machine lives
+/// here:
+///   pending_otp → active → expired/revoked
+/// We bind it 1:1 to a single AssistantConversation row so message history
+/// flows through the same engine the web UI uses.
+model AssistantWaSession {
+  id               Int       @id @default(autoincrement())
+  /// FK to the staff `User` row that owns this session — resolved from
+  /// `User.whatsappPhone == phone` at the moment the OTP is sent.
+  userId           Int       @map("user_id")
+  /// E.164 digits. Same shape as `WhatsAppMessage.contactPhone`.
+  phone            String
+  /// "pending_otp" | "active" | "expired" | "revoked" | "locked"
+  status           String    @default("pending_otp")
+  /// bcrypt hash of the 6-digit OTP. Stored here (not in `guest_otps`) so
+  /// the staff session is fully self-contained and can be revoked or
+  /// audited without affecting the guest auth tables.
+  otpCodeHash      String?   @map("otp_code_hash")
+  /// Short OTP TTL — staff are actively typing, so 60 seconds is fine.
+  otpExpiresAt     DateTime? @map("otp_expires_at")
+  /// Failed-verify counter. >= 5 → status flips to "locked" for 15 minutes.
+  otpAttempts      Int       @default(0) @map("otp_attempts")
+  /// Refreshed on every authenticated inbound; used to enforce idle timeout.
+  lastActivityAt   DateTime  @default(now()) @map("last_activity_at")
+  /// Hard ceiling regardless of activity — set at OTP verification time.
+  sessionExpiresAt DateTime  @map("session_expires_at")
+  /// Optional `AssistantConversation.id` so we replay the same chat history.
+  conversationId   Int?      @unique @map("conversation_id")
+  /// Audit trail.
+  revokedAt        DateTime? @map("revoked_at")
+  revokedReason    String?   @map("revoked_reason")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  user         User                   @relation("AssistantWaSessionUser", fields: [userId], references: [id], onDelete: Cascade)
+  conversation AssistantConversation? @relation("AssistantWaSessionConversation", fields: [conversationId], references: [id], onDelete: SetNull)
+
+  @@index([phone, status])
+  @@index([userId, status])
+  @@index([sessionExpiresAt])
+  @@map("assistant_wa_sessions")
+}
+
+/// Captured turn where the assistant ended with an apology / "I can't" reply
+/// even after the engine's reflection retry. Each row represents an
+/// improvement opportunity that an admin can review and convert into a
+/// curated AssistantLesson. We deliberately store the full user text and
+/// the assistant's eventual reply so the admin (and the lesson-drafter
+/// LLM call) has the same context the staff member saw.
+model AssistantFailure {
+  id              Int      @id @default(autoincrement())
+  conversationId  Int      @map("conversation_id")
+  /// The AssistantMessage row that triggered this turn (the user's input).
+  userMessageId   Int?     @map("user_message_id")
+  /// Sanitised user text and the assistant's final reply, copied here so
+  /// truncating/archiving the conversation later doesn't break the inbox.
+  userText        String   @map("user_text") @db.Text
+  assistantReply  String   @map("assistant_reply") @db.Text
+  /// JSON: array of {name, argumentsJson, ok, error?} captured from this
+  /// turn so the drafter knows which tools the model already tried.
+  toolsTried      Json     @map("tools_tried")
+  /// JSON {path, title} from the FAB context, when present.
+  pageContext     Json?    @map("page_context")
+  /// Heuristic tags assigned in detect.ts — e.g.
+  ///   ["not_found"]      — model said it couldn't find data
+  ///   ["no_permission"]  — model said the user lacks a permission
+  ///   ["unclear"]        — model asked the user to rephrase
+  ///   ["hallucinated"]   — apology came WITHOUT calling any tool
+  tagsJson        Json     @map("tags_json")
+  /// "open" — needs review.
+  /// "drafted" — a lesson was generated and is sitting in `AssistantLesson`.
+  /// "dismissed" — admin marked as not actionable.
+  /// "addressed" — fixed via approved lesson (or other manual change).
+  status          String   @default("open")
+  /// Admin who acted on this row (drafted / dismissed / addressed).
+  reviewedById    Int?     @map("reviewed_by_id")
+  reviewedAt      DateTime? @map("reviewed_at")
+  reviewNote      String?   @map("review_note") @db.Text
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  conversation AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  /// Lessons drafted from this failure (usually 0 or 1, but multiple drafts
+  /// over time are allowed if the first one was rejected and a new drafter
+  /// pass produced a different rule).
+  lessons      AssistantLesson[]     @relation("FailureLessons")
+
+  @@index([status, createdAt])
+  @@index([conversationId])
+  @@map("assistant_failures")
+}
+
+/// A curated rule the assistant should follow on future turns. The set of
+/// `status=approved` rows is loaded into the system prompt at every turn so
+/// admin-approved lessons take effect immediately, no deploy required.
+///
+/// Every lesson goes through admin review before it can affect behaviour
+/// (the `learning_review` permission gates the inbox UI). Drafts proposed
+/// by the LLM carry `proposedByLlm=true` and `status="draft"`.
+model AssistantLesson {
+  id                Int      @id @default(autoincrement())
+  /// Short Arabic title shown in the admin UI (≈40 chars).
+  title             String
+  /// Comma-separated keywords/synonyms used to match relevance against the
+  /// most recent user message at prompt-build time. May be empty for
+  /// global lessons.
+  triggerKeywords   String   @default("") @map("trigger_keywords")
+  /// 1–3 lines of Arabic guidance injected into the system prompt verbatim.
+  guidance          String   @db.Text
+  /// "global" or "module:<resourceKey>" (e.g. "module:reservations") so the
+  /// admin can group lessons by area.
+  scope             String   @default("global")
+  /// "draft" — created by drafter, awaiting admin.
+  /// "approved" — active, injected into prompt.
+  /// "disabled" — kept for audit but no longer injected.
+  status            String   @default("draft")
+  /// Optional FK to the AssistantFailure that triggered this draft.
+  sourceFailureId   Int?     @map("source_failure_id")
+  /// True when the row was generated by lesson-drafter (vs typed by admin).
+  proposedByLlm     Boolean  @default(false) @map("proposed_by_llm")
+  /// Audit columns for review.
+  reviewedById      Int?     @map("reviewed_by_id")
+  reviewedAt        DateTime? @map("reviewed_at")
+  /// How many turns picked this lesson into the prompt — drives ordering
+  /// when more lessons exist than the per-turn budget.
+  usageCount        Int      @default(0) @map("usage_count")
+  lastUsedAt        DateTime? @map("last_used_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  sourceFailure AssistantFailure? @relation("FailureLessons", fields: [sourceFailureId], references: [id], onDelete: SetNull)
+
+  @@index([status, scope])
+  @@index([status, usageCount])
+  @@map("assistant_lessons")
 }

@@ -1,0 +1,289 @@
+import "server-only";
+import { prisma } from "@/lib/prisma";
+import { sendBotText } from "@/lib/whatsapp/bot/sender";
+import { runAssistantTurn } from "@/lib/assistant/engine";
+import { executeAssistantAction, rejectAssistantAction } from "@/lib/assistant/executor";
+import {
+  findActiveSession,
+  findStaffByPhone,
+  issueOtp,
+  bumpActivity,
+  revokeSession,
+  verifyOtp,
+} from "./session";
+import { formatActionForWhatsApp, parseActionCommand, parseSessionCommand } from "./formatter";
+
+/**
+ * State machine that handles every inbound WhatsApp message coming from a
+ * registered staff phone number. The webhook → gateway → here.
+ *
+ *   pending_otp  ← any unauthenticated message → send a fresh OTP and wait
+ *   active       ← the staff types the 6-digit code → kick off the engine
+ *   active       ← already authenticated → forward to the assistant engine
+ *
+ * Side-channel commands ("خروج"/"logout", "أكّد A12"/"ألغِ A12") are
+ * intercepted before the LLM sees them so a confirmation never costs a
+ * model turn.
+ */
+
+const ORIGIN = "bot:staff-assistant";
+
+export interface HandleStaffWaInput {
+  staffUserId: number;
+  phone: string;
+  body: string | null;
+  type: string;
+  receivedAt: Date;
+  conversationId: number | null;
+  /**
+   * Optional outbound capture. When provided, outgoing WhatsApp text is
+   * pushed into this array instead of (or in addition to) being delivered
+   * via `sendBotText`. Used by the sandbox tester at
+   * `/api/assistant/wa/sandbox` so operators can debug the staff flow on
+   * localhost without a public webhook URL or a real outbound message.
+   */
+  capture?: string[];
+  /**
+   * When true, outbound messages are ONLY captured — the WhatsApp Cloud
+   * API is not contacted at all. Defaults to false (production behaviour).
+   */
+  dryRun?: boolean;
+}
+
+export interface HandleStaffWaResult {
+  replied: boolean;
+  reason?: string;
+  /** Mirror of `capture` for callers that didn't pre-allocate the array. */
+  captured?: string[];
+  /**
+   * IDs of `AssistantAction` rows created during this turn. The sandbox UI
+   * uses this to fetch and render rich draft cards instead of the plain-text
+   * WhatsApp summaries — production callers can ignore it.
+   */
+  pendingActionIds?: number[];
+  /** Conversation row backing this turn (created on first authenticated message). */
+  conversationId?: number | null;
+}
+
+async function send(input: HandleStaffWaInput, text: string): Promise<void> {
+  if (input.capture) input.capture.push(text);
+  if (!input.dryRun) {
+    await sendBotText(input.phone, text, { origin: ORIGIN });
+  }
+}
+
+export async function handleStaffWaMessage(
+  input: HandleStaffWaInput,
+): Promise<HandleStaffWaResult> {
+  // We only care about textual content for the assistant — media goes to
+  // a generic "currently not supported" reply.
+  if (input.type !== "text" || !input.body) {
+    await send(input, "أستقبل النصوص فقط حالياً. أرسل طلبك مكتوباً من فضلك.");
+    return { replied: true, reason: "non_text", captured: input.capture };
+  }
+  const body = input.body.trim();
+  if (!body) return { replied: false, reason: "empty_body", captured: input.capture };
+
+  const cfg = await prisma.whatsAppConfig.findUnique({
+    where: { id: 1 },
+    select: {
+      assistantWaEnabled: true,
+      assistantWaSessionMinutes: true,
+      assistantWaMaxSessionHours: true,
+    },
+  });
+  if (cfg && !cfg.assistantWaEnabled) {
+    return { replied: false, reason: "wa_assistant_disabled", captured: input.capture };
+  }
+  const sessionMinutes = cfg?.assistantWaSessionMinutes ?? 30;
+  const maxSessionHours = cfg?.assistantWaMaxSessionHours ?? 8;
+
+  // ── 1. Active session? ─────────────────────────────────────────────
+  const session = await findActiveSession({ phone: input.phone, sessionMinutes });
+  if (session) {
+    return await handleAuthenticated({
+      session,
+      input,
+      body,
+      sessionMinutes,
+    });
+  }
+
+  // ── 2. No active session: maybe the message IS the OTP code ────────
+  const codeMatch = body.match(/\b(\d{6})\b/);
+  if (codeMatch) {
+    const result = await verifyOtp({ phone: input.phone, code: codeMatch[1] });
+    if (result.ok) {
+      const staff = await findStaffByPhone(input.phone);
+      const greeting = `أهلاً ${staff?.name ?? ""}! تم التحقق. الجلسة سارية لـ ${sessionMinutes} دقيقة من آخر نشاط. اكتب طلبك أو "مساعدة" لمعرفة المتاح. اكتب "خروج" لإنهاء الجلسة.`;
+      await send(input, greeting.trim());
+      return { replied: true, reason: "otp_verified", captured: input.capture };
+    }
+    await send(input, otpFailureText(result.reason));
+    return { replied: true, reason: `otp_${result.reason}`, captured: input.capture };
+  }
+
+  // ── 3. No active session, no code: send a fresh OTP ───────────────
+  const otp = await issueOtp({
+    userId: input.staffUserId,
+    phone: input.phone,
+    sessionMinutes,
+    maxSessionHours,
+  });
+  const text = [
+    `*رمز الدخول للمساعد الذكي*`,
+    `${otp.code}`,
+    ``,
+    `صالح لمدة 60 ثانية. أرسل الرمز لإكمال تسجيل الدخول.`,
+    `لا تشارك هذا الرمز مع أحد — حتى لو ادّعى أنه من إدارة الفندق.`,
+  ].join("\n");
+  await send(input, text);
+  return { replied: true, reason: "otp_issued", captured: input.capture };
+}
+
+// ──────────────────────── authenticated path ────────────────────────
+
+async function handleAuthenticated(args: {
+  session: { id: number; userId: number; conversationId: number | null };
+  input: HandleStaffWaInput;
+  body: string;
+  sessionMinutes: number;
+}): Promise<HandleStaffWaResult> {
+  const { session, input, body } = args;
+  await bumpActivity(session.id);
+
+  // Sub-commands first.
+  const sessionCmd = parseSessionCommand(body);
+  if (sessionCmd === "logout") {
+    await revokeSession({ sessionId: session.id, reason: "user_logout" });
+    await send(input, "تم إنهاء الجلسة. أرسل أي رسالة لتلقّي رمز جديد.");
+    return { replied: true, reason: "logout", captured: input.capture };
+  }
+  if (sessionCmd === "help") {
+    await send(input, helpText(args.sessionMinutes));
+    return { replied: true, reason: "help", captured: input.capture };
+  }
+  const actionCmd = parseActionCommand(body);
+  if (actionCmd) {
+    return await handleActionCommand({
+      session,
+      input,
+      kind: actionCmd.kind,
+      actionId: actionCmd.actionId,
+    });
+  }
+
+  // ── Forward to the same assistant engine the web UI uses ──────────
+  const conversationId = await ensureConversation(session, input.staffUserId);
+  const staff = await findStaffByPhone(input.phone);
+  const result = await runAssistantTurn({
+    conversationId,
+    userId: session.userId,
+    staffName: staff?.name ?? "الموظف",
+    userMessage: body,
+  });
+
+  // Mark every action created in this turn with source="wa" so audit/UI can
+  // distinguish later (the web UI already opens with source="web" by default).
+  if (result.pendingActionIds.length > 0) {
+    await prisma.assistantAction.updateMany({
+      where: { id: { in: result.pendingActionIds } },
+      data: { source: "wa" },
+    });
+  }
+
+  // Send the assistant's natural-language reply first (always, including
+  // dry-run — it's the prose answer to the user's question).
+  if (result.text) {
+    await send(input, result.text);
+  }
+
+  // For each draft: in production we render it as a plain-text WhatsApp
+  // message (since real WhatsApp doesn't support rich cards). In dry-run
+  // we SKIP the text — the sandbox UI fetches the action rows directly via
+  // `pendingActionIds` and renders the proper React card identical to the
+  // one used on the full /assistant page.
+  if (result.pendingActionIds.length > 0 && !input.dryRun) {
+    const actions = await prisma.assistantAction.findMany({
+      where: { id: { in: result.pendingActionIds } },
+      orderBy: { id: "asc" },
+    });
+    for (const a of actions) {
+      await send(input, formatActionForWhatsApp(a));
+    }
+  }
+
+  return {
+    replied: true,
+    reason: result.mode,
+    captured: input.capture,
+    pendingActionIds: result.pendingActionIds,
+    conversationId,
+  };
+}
+
+async function handleActionCommand(args: {
+  session: { id: number; userId: number };
+  input: HandleStaffWaInput;
+  kind: "confirm" | "reject";
+  actionId: number;
+}): Promise<HandleStaffWaResult> {
+  const { session, input, kind, actionId } = args;
+  const fn = kind === "confirm" ? executeAssistantAction : rejectAssistantAction;
+  const r = await fn(actionId, session.userId);
+  if (!r.ok) {
+    await send(input, `تعذّر تنفيذ الأمر على المسودة A${actionId}: ${r.message}`);
+    return { replied: true, reason: r.errorCode ?? "command_failed", captured: input.capture };
+  }
+  await send(input, r.message);
+  return { replied: true, reason: kind, captured: input.capture };
+}
+
+// ─────────────────────── helpers ───────────────────────
+
+async function ensureConversation(
+  session: { id: number; conversationId: number | null },
+  userId: number,
+): Promise<number> {
+  if (session.conversationId) return session.conversationId;
+  const conv = await prisma.assistantConversation.create({
+    data: { userId, title: "محادثة واتس" },
+    select: { id: true },
+  });
+  await prisma.assistantWaSession.update({
+    where: { id: session.id },
+    data: { conversationId: conv.id },
+  });
+  return conv.id;
+}
+
+function otpFailureText(reason: string): string {
+  switch (reason) {
+    case "no_pending":
+      return "لا يوجد رمز فعّال. أرسل أي رسالة لإصدار رمز جديد.";
+    case "expired":
+      return "انتهت صلاحية الرمز. أرسل أي رسالة للحصول على رمز جديد.";
+    case "mismatch":
+      return "الرمز غير صحيح. أعد المحاولة، أو أرسل أي رسالة جديدة لإصدار رمز.";
+    case "locked":
+      return "تم قفل الجلسة لعدد محاولات فاشلة. حاول لاحقاً بعد 15 دقيقة.";
+    case "too_many":
+      return "تجاوزت عدد المحاولات المسموح. تم القفل لمدة 15 دقيقة.";
+    default:
+      return "تعذّر التحقق من الرمز. حاول لاحقاً.";
+  }
+}
+
+function helpText(sessionMinutes: number): string {
+  return [
+    "أنا مساعدك الذكي عبر الواتس. تستطيع:",
+    "- صياغة قيد محاسبي بطلب طبيعي ('اصرف 50 دينار حق ضيافة')",
+    "- إنشاء حجز ('احجز للضيف خالد غرفة 305 ليلتين')",
+    "- صرف سلفة، طلب صيانة، إنشاء مهمة، تغيير حالة غرفة",
+    "- الإجابة على 'كيف أفعل كذا في النظام؟'",
+    "",
+    `الجلسة سارية ${sessionMinutes}د من آخر نشاط — عند الانتهاء نرسل رمزاً جديداً.`,
+    "اكتب 'خروج' في أي وقت لإنهاء الجلسة فوراً.",
+    "كل عملية كتابة تُنشئ مسودة تتلقاها برسالة منفصلة، ولا تُنفّذ إلا بعد ردّك بـ 'أكّد Axx'.",
+  ].join("\n");
+}

@@ -67,6 +67,8 @@ function WhatsAppInboxInner() {
   const canSend = useHasPermission("whatsapp:send");
   const canAssign = useHasPermission("whatsapp:assign");
   const canNotes = useHasPermission("whatsapp:notes");
+  const canEditMessage = useHasPermission("whatsapp:edit_message");
+  const canDeleteMessage = useHasPermission("whatsapp:delete_message");
 
   const isMobile = useIsMobile();
   const isBelowLg = useIsBelowLg();
@@ -293,6 +295,19 @@ function WhatsAppInboxInner() {
       }
     },
     onMessageStatus: (p) => {
+      // Local-only edit/delete events ride the same channel — refetch the
+      // active thread so the bubble re-renders with the new body or the
+      // soft-deleted placeholder.
+      if (p.op === "message:edit" || p.op === "message:delete") {
+        if (
+          data.selectedPhone &&
+          p.contactPhone === data.selectedPhone
+        ) {
+          void data.loadMessages(data.selectedPhone);
+        }
+        data.loadList();
+        return;
+      }
       data.patchMessageStatus(p.messageId, {
         status: p.status ?? "sent",
         errorCode: p.errorCode ?? null,
@@ -595,6 +610,9 @@ function WhatsAppInboxInner() {
                 canReply={canReply}
                 replyDisabledReason={replyDisabledReason}
                 canNotes={canNotes}
+                canEditMessage={canEditMessage}
+                canDeleteMessage={canDeleteMessage}
+                canManageMessages={canAssign}
                 sending={sending}
                 onSend={(t) => send(active.contactPhone, t)}
                 onSendNote={sendNote}
@@ -677,6 +695,9 @@ function ActiveConversation({
   canReply,
   replyDisabledReason,
   canNotes,
+  canEditMessage,
+  canDeleteMessage,
+  canManageMessages,
   sending,
   onSend,
   onSendNote,
@@ -694,6 +715,9 @@ function ActiveConversation({
   canReply: boolean;
   replyDisabledReason: string | null;
   canNotes: boolean;
+  canEditMessage: boolean;
+  canDeleteMessage: boolean;
+  canManageMessages: boolean;
   sending: boolean;
   onSend: (t: string) => Promise<void>;
   onSendNote: (t: string) => Promise<void>;
@@ -727,7 +751,15 @@ function ActiveConversation({
         ) : (
           <div className="space-y-2">
             {messages.map((m) => (
-              <MessageBubble key={m.id} m={m} />
+              <MessageBubble
+                key={m.id}
+                m={m}
+                currentUserId={currentUserId}
+                canEdit={canEditMessage}
+                canDelete={canDeleteMessage}
+                canManage={canManageMessages}
+                onMutated={onConversationChanged}
+              />
             ))}
             <div ref={bottomRef} />
           </div>

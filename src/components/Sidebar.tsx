@@ -22,6 +22,7 @@ import {
   MessageCircle,
   Users2,
   Bell,
+  Sparkles,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { BrandLogo, BrandLogoInline } from "@/components/BrandLogo";
@@ -63,6 +64,7 @@ const navGroups: NavGroup[] = [
     flat: true,
     items: [
       { href: "/", label: "لوحة التحكم", icon: LayoutDashboard, permission: "dashboard:view" },
+      { href: "/assistant", label: "المساعد الذكي", icon: Sparkles, permission: "assistant:use" },
       { href: "/reservations", label: "الحجوزات", icon: CalendarCheck, permission: "reservations:view" },
       { href: "/rooms", label: "حالة الغرف", icon: BedDouble, permission: "rooms:view" },
       { href: "/guests", label: "الضيوف", icon: Users, permission: "guests:view" },

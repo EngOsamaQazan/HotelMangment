@@ -50,6 +50,7 @@ interface StatementData {
     nationalId: string | null;
     notes: string | null;
     isActive: boolean;
+    userId: number | null;
     jobTitle: string | null;
     baseSalary: number | null;
     commissionRate: number | null;
@@ -225,6 +226,11 @@ export default function PartyStatementPage() {
           {data.party.nationalId && (
             <span className="inline-flex items-center gap-1">
               رقم وطني: {data.party.nationalId}
+            </span>
+          )}
+          {data.party.userId != null && (
+            <span className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-800 px-2 py-0.5 rounded text-xs font-medium">
+              <User size={12} /> مرتبط بمستخدم النظام #{data.party.userId}
             </span>
           )}
         </div>
