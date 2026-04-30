@@ -1,7 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Send, Loader2, Sparkles } from "lucide-react";
+import {
+  Send,
+  Loader2,
+  Sparkles,
+  Mic,
+  Square,
+  ImagePlus,
+  X,
+  Paperclip,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ActionDraftCard, type AssistantAction } from "./ActionDraftCard";
 
@@ -30,6 +39,15 @@ interface Props {
   conversationId: number;
 }
 
+interface PendingMedia {
+  kind: "audio" | "image";
+  blob: Blob;
+  mimeType: string;
+  durationSec?: number;
+  previewUrl: string;
+  filename: string;
+}
+
 export function AssistantChat({ conversationId }: Props) {
   const [data, setData] = useState<ConversationData>({
     conversation: null,
@@ -41,6 +59,18 @@ export function AssistantChat({ conversationId }: Props) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Voice recording.
+  const [recording, setRecording] = useState(false);
+  const [recordingSec, setRecordingSec] = useState(0);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordStartRef = useRef<number>(0);
+
+  // Pending media awaiting send (voice clip or image).
+  const [pending, setPending] = useState<PendingMedia | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -71,9 +101,62 @@ export function AssistantChat({ conversationId }: Props) {
     }
   }, [data.messages.length, data.actions.length, sending]);
 
+  // Cleanup the object URL when pending media changes/clears.
+  useEffect(() => {
+    return () => {
+      if (pending?.previewUrl) URL.revokeObjectURL(pending.previewUrl);
+    };
+  }, [pending]);
+
+  // Cleanup recorder on unmount.
+  useEffect(() => {
+    return () => {
+      if (recorderRef.current && recorderRef.current.state !== "inactive") {
+        recorderRef.current.stream.getTracks().forEach((t) => t.stop());
+        recorderRef.current.stop();
+      }
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    };
+  }, []);
+
   const send = useCallback(async () => {
+    if (sending) return;
     const text = input.trim();
-    if (!text || sending) return;
+    if (pending) {
+      // Send media (audio/image) — caption is the textarea value.
+      setSending(true);
+      setError(null);
+      try {
+        const fd = new FormData();
+        fd.append("kind", pending.kind);
+        fd.append(pending.kind, pending.blob, pending.filename);
+        if (text) fd.append("caption", text);
+        const res = await fetch(
+          `/api/assistant/conversations/${conversationId}/media`,
+          { method: "POST", body: fd },
+        );
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setError(json.error || "تعذّر إرسال الملف");
+        } else {
+          setData((prev) => ({
+            conversation: prev.conversation,
+            messages: json.messages ?? prev.messages,
+            actions: json.actions ?? prev.actions,
+          }));
+          setInput("");
+          if (pending.previewUrl) URL.revokeObjectURL(pending.previewUrl);
+          setPending(null);
+        }
+      } catch {
+        setError("خطأ في الاتصال");
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
+
+    if (!text) return;
     setInput("");
     setSending(true);
     setError(null);
@@ -101,7 +184,7 @@ export function AssistantChat({ conversationId }: Props) {
     } finally {
       setSending(false);
     }
-  }, [conversationId, input, sending]);
+  }, [conversationId, input, sending, pending]);
 
   const onAction = useCallback(
     async (actionId: number, kind: "confirm" | "reject") => {
@@ -116,6 +199,113 @@ export function AssistantChat({ conversationId }: Props) {
     },
     [load],
   );
+
+  // ── Voice recording handlers ──────────────────────────────────────
+  const startRecording = useCallback(async () => {
+    if (recording || sending) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError("متصفحك لا يدعم تسجيل الصوت");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const supported = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/webm")
+          ? "audio/webm"
+          : MediaRecorder.isTypeSupported("audio/mp4")
+            ? "audio/mp4"
+            : "";
+      const recorder = supported
+        ? new MediaRecorder(stream, { mimeType: supported })
+        : new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        const mime = recorder.mimeType || "audio/webm";
+        const blob = new Blob(audioChunksRef.current, { type: mime });
+        const previewUrl = URL.createObjectURL(blob);
+        const ext = mime.includes("mp4") ? "m4a" : mime.includes("ogg") ? "ogg" : "webm";
+        const durationSec = Math.max(
+          1,
+          Math.round((Date.now() - recordStartRef.current) / 1000),
+        );
+        setPending({
+          kind: "audio",
+          blob,
+          mimeType: mime,
+          durationSec,
+          previewUrl,
+          filename: `voice-${Date.now()}.${ext}`,
+        });
+        stream.getTracks().forEach((t) => t.stop());
+      };
+      recorderRef.current = recorder;
+      recorder.start();
+      recordStartRef.current = Date.now();
+      setRecordingSec(0);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSec((s) => s + 1);
+      }, 1000);
+      setRecording(true);
+      setError(null);
+    } catch (err) {
+      console.error("[assistant/chat] mic permission denied", err);
+      setError("لم يتم منح إذن المايكروفون");
+    }
+  }, [recording, sending]);
+
+  const stopRecording = useCallback(() => {
+    if (!recording) return;
+    recorderRef.current?.stop();
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    setRecording(false);
+  }, [recording]);
+
+  const cancelRecording = useCallback(() => {
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      recorderRef.current.stream.getTracks().forEach((t) => t.stop());
+      recorderRef.current.stop();
+      audioChunksRef.current = [];
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    setRecording(false);
+    setPending(null);
+  }, []);
+
+  // ── Image picker ──────────────────────────────────────────────────
+  const onPickFile = useCallback((file: File) => {
+    if (!file.type.startsWith("image/")) {
+      setError("الرجاء اختيار صورة");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setError("الصورة أكبر من 8 ميجابايت");
+      return;
+    }
+    const previewUrl = URL.createObjectURL(file);
+    setPending({
+      kind: "image",
+      blob: file,
+      mimeType: file.type,
+      previewUrl,
+      filename: file.name || `image-${Date.now()}.jpg`,
+    });
+    setError(null);
+  }, []);
+
+  const clearPending = useCallback(() => {
+    if (pending?.previewUrl) URL.revokeObjectURL(pending.previewUrl);
+    setPending(null);
+  }, [pending]);
 
   // Build a unified timeline: assistant messages mixed with action cards in
   // creation order.
@@ -146,7 +336,7 @@ export function AssistantChat({ conversationId }: Props) {
       </div>
     );
   }
-  if (error) {
+  if (error && !data.conversation) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center text-red-500 max-w-md px-6">
@@ -155,6 +345,10 @@ export function AssistantChat({ conversationId }: Props) {
       </div>
     );
   }
+
+  const composerDisabled = sending || recording;
+  const canSubmit =
+    !composerDisabled && (pending != null || input.trim().length > 0);
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-gray-50">
@@ -172,8 +366,8 @@ export function AssistantChat({ conversationId }: Props) {
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-4 space-y-3">
         {timeline.length === 0 && (
           <div className="text-center text-gray-400 text-sm py-12">
-            ابدأ بكتابة طلبك بالعربية أدناه. مثال: «أبو زيد دفع 50 دينار للفندق نيابة عن
-            الشريك حسام».
+            ابدأ بكتابة طلبك بالعربية، أو سجّل ملاحظة صوتية، أو أرفق صورة (هوية،
+            إيصال، عداد...).
           </div>
         )}
         {timeline.map((item) =>
@@ -196,6 +390,83 @@ export function AssistantChat({ conversationId }: Props) {
         )}
       </div>
 
+      {error && (
+        <div className="bg-red-50 border-t border-red-200 text-red-700 text-xs px-3 py-2 flex items-center justify-between">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="hover:text-red-900">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {pending && (
+        <div className="bg-amber-50 border-t border-amber-200 px-3 py-2 flex items-center gap-2 text-xs">
+          {pending.kind === "audio" ? (
+            <>
+              <Mic size={16} className="text-amber-600 shrink-0" />
+              <audio controls src={pending.previewUrl} className="flex-1 max-w-full h-8" />
+              <span className="text-amber-700 tabular-nums">
+                {pending.durationSec ?? 0}ث
+              </span>
+            </>
+          ) : (
+            <>
+              <ImagePlus size={16} className="text-amber-600 shrink-0" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={pending.previewUrl}
+                alt="معاينة"
+                className="h-12 w-12 rounded object-cover border border-amber-200"
+              />
+              <span className="flex-1 text-amber-800 truncate">{pending.filename}</span>
+            </>
+          )}
+          <button
+            onClick={clearPending}
+            disabled={sending}
+            className="rounded-md p-1 text-amber-700 hover:bg-amber-100 disabled:opacity-50"
+            aria-label="إزالة المرفق"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {recording && (
+        <div className="bg-rose-50 border-t border-rose-200 px-3 py-2 flex items-center gap-2 text-xs">
+          <span className="inline-block h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+          <span className="text-rose-700 flex-1">يجري التسجيل…</span>
+          <span className="text-rose-700 tabular-nums">{recordingSec}ث</span>
+          <button
+            onClick={cancelRecording}
+            className="rounded-md p-1 text-rose-700 hover:bg-rose-100"
+            aria-label="إلغاء التسجيل"
+          >
+            <X size={14} />
+          </button>
+          <button
+            onClick={stopRecording}
+            className="rounded-md p-1 text-rose-700 hover:bg-rose-100"
+            aria-label="إنهاء التسجيل"
+          >
+            <Square size={14} />
+          </button>
+        </div>
+      )}
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onPickFile(file);
+          e.target.value = "";
+        }}
+      />
+
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -203,6 +474,31 @@ export function AssistantChat({ conversationId }: Props) {
         }}
         className="border-t border-gray-200 bg-white p-3 flex items-end gap-2 safe-bottom"
       >
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={composerDisabled || pending != null}
+          className="h-10 w-10 shrink-0 rounded-lg border border-gray-200 bg-white text-gray-500 hover:text-amber-600 hover:border-amber-300 disabled:opacity-50 flex items-center justify-center"
+          aria-label="إرفاق صورة"
+          title="إرفاق صورة"
+        >
+          <Paperclip size={18} />
+        </button>
+        <button
+          type="button"
+          onClick={recording ? stopRecording : startRecording}
+          disabled={sending || pending != null}
+          className={cn(
+            "h-10 w-10 shrink-0 rounded-lg border flex items-center justify-center disabled:opacity-50 transition-colors",
+            recording
+              ? "bg-rose-500 border-rose-500 text-white animate-pulse"
+              : "bg-white border-gray-200 text-gray-500 hover:text-amber-600 hover:border-amber-300",
+          )}
+          aria-label={recording ? "إيقاف التسجيل" : "تسجيل صوتي"}
+          title={recording ? "إيقاف التسجيل" : "تسجيل صوتي"}
+        >
+          {recording ? <Square size={18} /> : <Mic size={18} />}
+        </button>
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -213,13 +509,19 @@ export function AssistantChat({ conversationId }: Props) {
             }
           }}
           rows={2}
-          placeholder="مثال: اصرف سلفة 100 دينار لأبو زيد، أو سجّل قيد عن دفعة عميل…"
+          placeholder={
+            pending
+              ? pending.kind === "audio"
+                ? "أضف ملاحظة (اختياري) ثم أرسل التسجيل…"
+                : "صف الصورة أو أضف تعليماً للمساعد (اختياري)…"
+              : "مثال: اصرف سلفة 100 دينار لأبو زيد، أو سجّل قيد عن دفعة عميل…"
+          }
           className="flex-1 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
           disabled={sending}
         />
         <button
           type="submit"
-          disabled={sending || !input.trim()}
+          disabled={!canSubmit}
           className="h-10 px-4 rounded-lg bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white flex items-center gap-1.5 text-sm font-medium"
         >
           {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}

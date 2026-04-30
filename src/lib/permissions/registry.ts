@@ -309,6 +309,7 @@ export const RESOURCES: ResourceDef[] = [
       "/api/assistant/conversations",
       "/api/assistant/conversations/[id]",
       "/api/assistant/conversations/[id]/messages",
+      "/api/assistant/conversations/[id]/media",
       "/api/assistant/actions/[id]/confirm",
       "/api/assistant/actions/[id]/reject",
       "/api/assistant/config",
