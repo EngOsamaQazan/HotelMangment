@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { sendBotText } from "@/lib/whatsapp/bot/sender";
+import { sendBotButtons, sendBotText } from "@/lib/whatsapp/bot/sender";
 import { runAssistantTurn } from "@/lib/assistant/engine";
 import { executeAssistantAction, rejectAssistantAction } from "@/lib/assistant/executor";
 import {
@@ -11,7 +11,14 @@ import {
   revokeSession,
   verifyOtp,
 } from "./session";
-import { formatActionForWhatsApp, parseActionCommand, parseSessionCommand } from "./formatter";
+import {
+  buildActionButtons,
+  formatActionBodyForButtons,
+  formatActionForWhatsApp,
+  parseActionCommand,
+  parseButtonReply,
+  parseSessionCommand,
+} from "./formatter";
 
 /**
  * State machine that handles every inbound WhatsApp message coming from a
@@ -72,14 +79,83 @@ async function send(input: HandleStaffWaInput, text: string): Promise<void> {
   }
 }
 
+/**
+ * Send an action draft as an Interactive Button message — the closest
+ * native WhatsApp equivalent of the React `ActionDraftCard`. The body
+ * carries the formatted journal/reservation/etc. summary; two reply
+ * buttons let the staff member tap "تأكيد" or "إلغاء" without typing
+ * the action id.
+ *
+ * In dry-run mode (sandbox) we still capture the same text fallback so
+ * the operator can debug the message structure.
+ */
+async function sendActionDraft(
+  input: HandleStaffWaInput,
+  action: import("@prisma/client").AssistantAction,
+): Promise<void> {
+  const body = formatActionBodyForButtons(action);
+  if (input.capture) input.capture.push(body);
+  if (input.dryRun) return;
+  try {
+    await sendBotButtons({
+      to: input.phone,
+      bodyText: body,
+      buttons: buildActionButtons(action.id),
+      origin: ORIGIN,
+    });
+  } catch (e) {
+    // Fallback: if interactive messages fail (rare — usually means the
+    // template/window expired), drop down to a plain text version that
+    // still includes "أكّد A12" instructions.
+    console.warn("[assistant/wa] interactive button send failed, falling back to text", e);
+    await sendBotText(input.phone, formatActionForWhatsApp(action), { origin: ORIGIN });
+  }
+}
+
 export async function handleStaffWaMessage(
   input: HandleStaffWaInput,
 ): Promise<HandleStaffWaResult> {
+  // Interactive button replies arrive as `type=interactive`, body=`id|title`.
+  // We treat them the same as text for downstream parsing but try the
+  // button-payload parser first because it's authoritative.
+  if (input.type === "interactive" && input.body) {
+    const btn = parseButtonReply(input.body);
+    if (btn) {
+      const cfg = await prisma.whatsAppConfig.findUnique({
+        where: { id: 1 },
+        select: { assistantWaSessionMinutes: true, assistantWaEnabled: true },
+      });
+      if (cfg && !cfg.assistantWaEnabled) {
+        return { replied: false, reason: "wa_assistant_disabled", captured: input.capture };
+      }
+      const sessionMinutes = cfg?.assistantWaSessionMinutes ?? 30;
+      const session = await findActiveSession({ phone: input.phone, sessionMinutes });
+      if (!session) {
+        // The button must come from a draft we previously sent inside an
+        // active session — if the session expired, bounce them to the OTP
+        // path again (any next inbound will trigger a new code).
+        await send(input, "انتهت الجلسة. أرسل أي رسالة لإصدار رمز جديد ثم أعد المحاولة.");
+        return { replied: true, reason: "btn_no_session", captured: input.capture };
+      }
+      await bumpActivity(session.id);
+      return await handleActionCommand({
+        session,
+        input,
+        kind: btn.kind,
+        actionId: btn.actionId,
+      });
+    }
+    // Unknown interactive payload — fall through to the standard parser.
+  }
+
   // We only care about textual content for the assistant — media goes to
   // a generic "currently not supported" reply.
-  if (input.type !== "text" || !input.body) {
+  if (input.type !== "text" && input.type !== "interactive") {
     await send(input, "أستقبل النصوص فقط حالياً. أرسل طلبك مكتوباً من فضلك.");
     return { replied: true, reason: "non_text", captured: input.capture };
+  }
+  if (!input.body) {
+    return { replied: false, reason: "empty_body", captured: input.capture };
   }
   const body = input.body.trim();
   if (!body) return { replied: false, reason: "empty_body", captured: input.capture };
@@ -198,18 +274,19 @@ async function handleAuthenticated(args: {
     await send(input, result.text);
   }
 
-  // For each draft: in production we render it as a plain-text WhatsApp
-  // message (since real WhatsApp doesn't support rich cards). In dry-run
-  // we SKIP the text — the sandbox UI fetches the action rows directly via
-  // `pendingActionIds` and renders the proper React card identical to the
-  // one used on the full /assistant page.
+  // For each draft we send a native WhatsApp Interactive Button message —
+  // the closest thing to the React `ActionDraftCard` used on the web UI:
+  // a single bubble carrying the journal/reservation/etc. body plus two
+  // reply buttons ("تأكيد" / "إلغاء") so the staff doesn't have to type
+  // "أكّد Axx". In dry-run mode (sandbox) we skip the actual send — the
+  // UI renders the rich React card directly from `pendingActionIds`.
   if (result.pendingActionIds.length > 0 && !input.dryRun) {
     const actions = await prisma.assistantAction.findMany({
       where: { id: { in: result.pendingActionIds } },
       orderBy: { id: "asc" },
     });
     for (const a of actions) {
-      await send(input, formatActionForWhatsApp(a));
+      await sendActionDraft(input, a);
     }
   }
 

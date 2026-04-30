@@ -140,16 +140,45 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<Assis
     now,
   };
 
-  // Resolve the speaker's accounting identity directly via the User↔Party
-  // 1:1 link. This is far more reliable than the name-based search the
-  // model used to do in the prompt (Arabic name variations + multiple
-  // people sharing first names → wrong matches). The bot still has
-  // `searchParty` as a fallback for everyone else mentioned in the
-  // conversation.
-  const speakerParty = await prisma.party.findUnique({
+  // Resolve the speaker's accounting identity. Three-step fallback:
+  //   1. Formal `Party.userId` 1:1 link — set up via /accounting/parties
+  //      or the seed script. Most reliable.
+  //   2. Best-effort exact-name match against `Party.name` ≈ `User.name`.
+  //      Used when the admin hasn't wired the link yet — saves the staff
+  //      from having to identify themselves on every turn.
+  //   3. null → prompt asks the user to clarify.
+  let speakerParty = await prisma.party.findUnique({
     where: { userId: input.userId },
-    select: { id: true, name: true, type: true, apAccountId: true, equityAccountId: true, drawAccountId: true },
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      apAccountId: true,
+      equityAccountId: true,
+      drawAccountId: true,
+    },
   });
+  if (!speakerParty && input.staffName) {
+    // Reuse the same Arabic folding used by `searchParty` — see
+    // src/lib/assistant/arabic.ts.
+    const { normalizeArabic } = await import("./arabic");
+    const folded = normalizeArabic(input.staffName);
+    if (folded) {
+      const candidates = await prisma.party.findMany({
+        where: { isActive: true },
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          apAccountId: true,
+          equityAccountId: true,
+          drawAccountId: true,
+        },
+      });
+      const match = candidates.find((p) => normalizeArabic(p.name) === folded);
+      if (match) speakerParty = match;
+    }
+  }
 
   // Pull admin-approved lessons relevant to this turn. Errors here are
   // never fatal — we log and proceed without the memory section.

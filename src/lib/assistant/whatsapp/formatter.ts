@@ -51,6 +51,66 @@ export function formatActionForWhatsApp(action: AssistantAction): string {
   return lines.join("\n");
 }
 
+/**
+ * Render an action as the body text for an Interactive Button message.
+ * Same content as `formatActionForWhatsApp` but **without** the
+ * "أرسل أكّد …" instructions — those are replaced by real buttons that
+ * the user taps. The body must stay under 1024 chars (Meta limit).
+ */
+export function formatActionBodyForButtons(action: AssistantAction): string {
+  const ref = `A${action.id}`;
+  const label = KIND_LABEL[action.kind] ?? action.kind;
+  const out: string[] = [];
+  out.push(`*[مسودة #${ref}]* ${label}`);
+  out.push(action.summary);
+  out.push("");
+  const body = renderBody(action);
+  if (body) out.push(body);
+  out.push("");
+  out.push("صلاحية المسودة: 30 دقيقة.");
+
+  let text = out.join("\n");
+  // Meta caps the body at 1024 chars; keep a safe margin so the trailing
+  // ellipsis doesn't push us over.
+  if (text.length > 1000) text = text.slice(0, 996) + "…";
+  return text;
+}
+
+export interface ActionButton {
+  id: string;
+  title: string;
+}
+
+/**
+ * Two reply buttons the user taps to confirm or reject the draft.
+ * Reusable button IDs follow the `cmd:Axx` shape — see `parseButtonReply`.
+ */
+export function buildActionButtons(actionId: number): ActionButton[] {
+  return [
+    { id: `confirm:A${actionId}`, title: "تأكيد ✅" },
+    { id: `reject:A${actionId}`, title: "إلغاء ❌" },
+  ];
+}
+
+/**
+ * Detect a button-reply payload coming back through the webhook. Returns
+ * null when the body isn't a draft action button reply we recognise.
+ *
+ * The webhook squashes button replies into "id|title" — see
+ * src/app/api/whatsapp/webhook/route.ts:447.
+ */
+export function parseButtonReply(
+  body: string,
+): { kind: "confirm" | "reject"; actionId: number } | null {
+  // Format: "<id>|<title>" → split off the title, then match the id shape.
+  const id = body.split("|", 1)[0]?.trim() ?? "";
+  const m = id.match(/^(confirm|reject):A(\d+)$/i);
+  if (!m) return null;
+  const actionId = Number(m[2]);
+  if (!Number.isInteger(actionId) || actionId <= 0) return null;
+  return { kind: m[1].toLowerCase() as "confirm" | "reject", actionId };
+}
+
 function renderBody(action: AssistantAction): string {
   const p = action.payload as Record<string, unknown> | null;
   if (!p) return "";
