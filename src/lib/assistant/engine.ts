@@ -428,7 +428,20 @@ async function replayHistory(conversationId: number): Promise<ChatMessage[]> {
         // make the model keep repeating the old notice even after recovery.
         continue;
       }
-      const calls = (r.toolCalls as unknown as ToolCall[] | null) ?? undefined;
+      const rawCalls = (r.toolCalls as unknown as ToolCall[] | null) ?? null;
+      // Strip the synthetic "_reflection_skipped" marker we add when the
+      // reflection retry kicks in. It only exists in our audit trail so the
+      // admin can see the suppressed apology — it must NEVER be replayed
+      // to the LLM because OpenAI rejects assistant messages with
+      // tool_calls that have no matching tool response.
+      const calls = rawCalls
+        ? rawCalls.filter((c) => c.id !== "_reflection_skipped" && c.name !== "_reflection")
+        : null;
+      if (rawCalls && rawCalls.length > 0 && (!calls || calls.length === 0)) {
+        // The whole message was an internal reflection-skipped marker —
+        // drop it from history entirely; the user never saw it.
+        continue;
+      }
       out.push({
         role: "assistant",
         content: r.content || null,
