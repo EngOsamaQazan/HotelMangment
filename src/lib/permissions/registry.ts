@@ -319,8 +319,11 @@ export const RESOURCES: ResourceDef[] = [
       "/api/assistant/learning/failures",
       "/api/assistant/learning/failures/[id]",
       "/api/assistant/learning/failures/[id]/draft",
+      "/api/assistant/learning/failures/manual",
       "/api/assistant/learning/lessons",
       "/api/assistant/learning/lessons/[id]",
+      "/api/assistant/learning/conversations",
+      "/api/assistant/learning/conversations/[id]",
     ],
     extraActions: [
       { key: "use", label: "استخدام المساعد" },

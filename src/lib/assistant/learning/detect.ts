@@ -13,28 +13,42 @@ import "server-only";
 // Patterns are tuned on the project's dialect of Arabic apologies. False
 // positives are cheap (one extra LLM hop); false negatives mean the model
 // gets away with apologising without the system trying to learn.
+//
+// IMPORTANT: JavaScript regex `\b` is ASCII-only — it never fires around
+// Arabic letters. The patterns below therefore avoid `\b` and rely on the
+// `u` (unicode) flag plus explicit non-letter lookarounds where needed.
 // ---------------------------------------------------------------------------
 
 const APOLOGY_PATTERNS: { re: RegExp; tag: AssistantFailureTag }[] = [
   // "I couldn't / wasn't able to ..."
-  { re: /\b(?:تعذّر|تعذر|لم\s+أتمكّن|لم\s+أتمكن|لم\s+أستطع)\b/u, tag: "not_found" },
+  { re: /(?:تعذّر|تعذر|لم\s+أتمكّن|لم\s+أتمكن|لم\s+أستطع|لم\s+أجد|لم\s+يتمكّن|لم\s+يتمكن)/u, tag: "not_found" },
   // Explicit "I don't have / there is no info"
-  { re: /\b(?:لا\s+أملك|لا\s+تتوفّر|لا\s+تتوفر|لا\s+توجد\s+(?:معلومات|بيانات)|بيانات\s+غير\s+كافية|معلومات\s+غير\s+كافية|لا\s+توجد\s+نتائج)\b/u, tag: "not_found" },
-  // "I can't / not allowed"
-  { re: /\b(?:لا\s+أستطيع|لا\s+يمكنني|غير\s+قادر)\b/u, tag: "not_found" },
+  { re: /(?:لا\s+أملك|لا\s+تتوفّر|لا\s+تتوفر|لا\s+توجد\s+(?:معلومات|بيانات|نتائج|سجلات)|بيانات\s+غير\s+كافية|معلومات\s+غير\s+كافية|بيانات\s+ناقصة)/u, tag: "not_found" },
+  // "I can't / not allowed / unable to retrieve"
+  { re: /(?:لا\s+أستطيع|لا\s+يمكنني|غير\s+قادر|غير\s+متاح\s+لي|ليس\s+بإمكاني|ليس\s+بمقدوري)/u, tag: "not_found" },
+  // Specific failure phrasing seen in production: "looks like there's a
+  // problem / I had a problem / there was an issue while running the tool"
+  { re: /(?:يبدو\s+أن\s+هناك\s+مشكلة|واجهت\s+مشكلة|حدثت\s+مشكلة|توجد\s+مشكلة|مشكلة\s+في\s+(?:استعلام|الاستعلام|الأداة|الاتصال|قاعدة\s+البيانات)|تعذّر\s+تشغيل\s+الأداة|الأداة\s+لم\s+ترجع)/u, tag: "tool_error" },
+  // Hedging / "the result might be inaccurate"
+  { re: /(?:غير\s+دقيق|قد\s+(?:لا\s+)?يكون\s+(?:دقيقاً|دقيقا)|لست\s+متأكداً|لست\s+متأكدا|لا\s+يمكن\s+التأكّد|لا\s+يمكن\s+التأكد)/u, tag: "uncertain" },
   // Explicit lack-of-permission language
-  { re: /\b(?:لا\s+تملك\s+(?:الصلاحية|صلاحية)|ليست\s+لديك\s+(?:الصلاحية|صلاحية)|بحاجة\s+إلى\s+صلاحية|صلاحياتك\s+لا\s+تسمح)\b/u, tag: "no_permission" },
+  { re: /(?:لا\s+تملك\s+(?:الصلاحية|صلاحية)|ليست\s+لديك\s+(?:الصلاحية|صلاحية)|بحاجة\s+إلى\s+صلاحية|صلاحياتك\s+لا\s+تسمح|صلاحية\s+(?:الوصول|التنفيذ))/u, tag: "no_permission" },
   // "Sorry / apologies"
-  { re: /\b(?:أعتذر|آسف|عذرًا|عذراً|عذرا|متأسف)\b/u, tag: "not_found" },
+  { re: /(?:أعتذر|أعتذرُ|آسف|عذرًا|عذراً|عذرا|متأسف|نأسف)/u, tag: "not_found" },
   // "Need more details to ..."
-  { re: /\b(?:بحاجة\s+(?:إلى\s+)?(?:مزيد|المزيد)|أحتاج\s+(?:إلى\s+)?(?:مزيد|المزيد)|أعد\s+صياغة|وضّح|وضح\s+أكثر)\b/u, tag: "unclear" },
+  { re: /(?:بحاجة\s+(?:إلى\s+)?(?:مزيد|المزيد)|أحتاج\s+(?:إلى\s+)?(?:مزيد|المزيد)|أعد\s+صياغة|وضّح|وضح\s+أكثر|هل\s+يمكنك\s+توضيح)/u, tag: "unclear" },
+  // Counter-question instead of an answer ("هل ترغب…؟" before any data shown)
+  { re: /(?:هل\s+ترغب|هل\s+تريد|هل\s+تود|هل\s+تفضّل|هل\s+تفضل)\s+(?:في\s+)?(?:معرفة|الاطلاع|الحصول)/u, tag: "deflection" },
 ];
 
 export type AssistantFailureTag =
   | "not_found"
   | "no_permission"
   | "unclear"
-  | "hallucinated";
+  | "hallucinated"
+  | "tool_error"
+  | "uncertain"
+  | "deflection";
 
 export interface ApologyDetection {
   isApology: boolean;

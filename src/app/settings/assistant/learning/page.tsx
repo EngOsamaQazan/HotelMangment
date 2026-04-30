@@ -14,6 +14,10 @@ import {
   Trash2,
   Tag,
   RefreshCcw,
+  MessageSquare,
+  Search,
+  ChevronLeft,
+  Flag,
 } from "lucide-react";
 import { Can } from "@/components/Can";
 import { PageShell } from "@/components/ui/PageShell";
@@ -50,6 +54,10 @@ const TAG_LABELS: Record<string, { label: string; tone: string }> = {
   no_permission: { label: "نقص صلاحية", tone: "bg-rose-100 text-rose-700" },
   unclear: { label: "غموض/توضيح", tone: "bg-slate-100 text-slate-700" },
   hallucinated: { label: "اعتذار بلا أداة", tone: "bg-red-100 text-red-700" },
+  tool_error: { label: "فشل أداة", tone: "bg-orange-100 text-orange-700" },
+  uncertain: { label: "تردد/تشكيك", tone: "bg-purple-100 text-purple-700" },
+  deflection: { label: "سؤال بدل إجابة", tone: "bg-blue-100 text-blue-700" },
+  wrong_answer: { label: "إجابة خاطئة", tone: "bg-fuchsia-100 text-fuchsia-700" },
 };
 
 interface FailureRow {
@@ -81,6 +89,51 @@ interface LessonRow {
   updatedAt: string;
 }
 
+interface ConversationListRow {
+  id: number;
+  title: string;
+  staff: string;
+  messageCount: number;
+  llmTurns: number;
+  costUsd: number;
+  lastUserMessage: string | null;
+  lastUserAt: string | null;
+  lastMessageAt: string | null;
+  createdAt: string;
+}
+
+interface ConversationMessage {
+  id: number;
+  role: string;
+  content: string;
+  toolName: string | null;
+  toolCalls: unknown[] | null;
+  usage: unknown | null;
+  createdAt: string;
+  precedingUserId: number | null;
+}
+
+interface ConversationDetail {
+  conversation: {
+    id: number;
+    title: string;
+    staff: string;
+    llmTurns: number;
+    costUsd: number;
+    lastMessageAt: string | null;
+    createdAt: string;
+  };
+  messages: ConversationMessage[];
+  failures: Array<{
+    id: number;
+    userMessageId: number | null;
+    assistantReply: string;
+    status: string;
+    tags: unknown;
+    createdAt: string;
+  }>;
+}
+
 export default function AssistantLearningPage() {
   return (
     <Can permission="assistant:learning_review" fallback={<NoAccess />}>
@@ -99,7 +152,7 @@ function NoAccess() {
 }
 
 function Inner() {
-  const [tab, setTab] = useState<"failures" | "drafts" | "approved">("failures");
+  const [tab, setTab] = useState<"failures" | "drafts" | "approved" | "conversations">("failures");
   const [failures, setFailures] = useState<FailureRow[]>([]);
   const [failureSummary, setFailureSummary] = useState({ open: 0, drafted: 0, dismissed: 0, addressed: 0 });
   const [lessons, setLessons] = useState<LessonRow[]>([]);
@@ -108,6 +161,10 @@ function Inner() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [conversations, setConversations] = useState<ConversationListRow[]>([]);
+  const [conversationsTotal, setConversationsTotal] = useState(0);
+  const [conversationSearch, setConversationSearch] = useState("");
+  const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
 
   const loadFailures = useCallback(async () => {
     const res = await fetch(`/api/assistant/learning/failures?status=open&limit=100`, {
@@ -129,14 +186,31 @@ function Inner() {
     }
   }, []);
 
+  const loadConversations = useCallback(
+    async (search?: string) => {
+      const qs = new URLSearchParams();
+      qs.set("limit", "50");
+      if (search) qs.set("search", search);
+      const res = await fetch(`/api/assistant/learning/conversations?${qs.toString()}`, {
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const j = await res.json();
+        setConversations(Array.isArray(j.conversations) ? j.conversations : []);
+        setConversationsTotal(Number(j.total) || 0);
+      }
+    },
+    [],
+  );
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      await Promise.all([loadFailures(), loadLessons()]);
+      await Promise.all([loadFailures(), loadLessons(), loadConversations()]);
     } finally {
       setLoading(false);
     }
-  }, [loadFailures, loadLessons]);
+  }, [loadFailures, loadLessons, loadConversations]);
 
   useEffect(() => {
     void loadAll();
@@ -233,7 +307,7 @@ function Inner() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
         <Stat
           label="إخفاقات مفتوحة"
           value={failureSummary.open}
@@ -241,6 +315,14 @@ function Inner() {
           tone="bg-amber-50 text-amber-700"
           active={tab === "failures"}
           onClick={() => setTab("failures")}
+        />
+        <Stat
+          label="المحادثات"
+          value={conversationsTotal}
+          icon={MessageSquare}
+          tone="bg-cyan-50 text-cyan-700"
+          active={tab === "conversations"}
+          onClick={() => setTab("conversations")}
         />
         <Stat
           label="دروس مقترحة"
@@ -267,8 +349,8 @@ function Inner() {
       </div>
 
       <div className="flex items-center justify-between mb-3">
-        <div className="flex gap-1">
-          {(["failures", "drafts", "approved"] as const).map((k) => (
+        <div className="flex gap-1 flex-wrap">
+          {(["failures", "conversations", "drafts", "approved"] as const).map((k) => (
             <button
               key={k}
               onClick={() => setTab(k)}
@@ -280,6 +362,7 @@ function Inner() {
               )}
             >
               {k === "failures" && "إخفاقات"}
+              {k === "conversations" && "كل المحادثات"}
               {k === "drafts" && "دروس مقترحة"}
               {k === "approved" && "دروس فعّالة"}
             </button>
@@ -310,6 +393,26 @@ function Inner() {
           onDraft={draftLesson}
           onDismiss={(id) => updateFailure(id, "dismissed")}
           onMarkAddressed={(id) => updateFailure(id, "addressed")}
+        />
+      )}
+      {tab === "conversations" && activeConversationId == null && (
+        <ConversationsList
+          conversations={conversations}
+          search={conversationSearch}
+          onSearchChange={(v) => {
+            setConversationSearch(v);
+            void loadConversations(v);
+          }}
+          onOpen={(id) => setActiveConversationId(id)}
+        />
+      )}
+      {tab === "conversations" && activeConversationId != null && (
+        <ConversationDetailView
+          conversationId={activeConversationId}
+          onBack={() => setActiveConversationId(null)}
+          onFlagged={() => {
+            void loadFailures();
+          }}
         />
       )}
       {tab === "drafts" && (
@@ -850,5 +953,369 @@ function CreateLessonModal({
         </div>
       </div>
     </div>
+  );
+}
+
+// ─────────────────────── Conversations review ───────────────────────
+
+function ConversationsList({
+  conversations,
+  search,
+  onSearchChange,
+  onOpen,
+}: {
+  conversations: ConversationListRow[];
+  search: string;
+  onSearchChange: (v: string) => void;
+  onOpen: (id: number) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <Search
+          size={14}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+        />
+        <input
+          value={search}
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder="ابحث في محتوى المحادثات أو اسم الموظف..."
+          className="w-full pr-9 pl-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+        />
+      </div>
+
+      {conversations.length === 0 ? (
+        <div className="bg-white rounded-xl border border-gray-200 p-10 text-center text-sm text-gray-500">
+          لا توجد محادثات مطابقة. سجلّات الموظفين على «المساعد الذكي» ستظهر هنا.
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-100">
+          {conversations.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => onOpen(c.id)}
+              className="w-full flex items-start gap-3 p-3 text-right hover:bg-amber-50 transition-colors"
+            >
+              <div className="rounded-lg bg-cyan-50 text-cyan-700 p-2 shrink-0">
+                <MessageSquare size={16} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold text-sm text-gray-800 truncate">
+                    {c.title || `محادثة #${c.id}`}
+                  </span>
+                  <span className="text-[10px] text-gray-500">·</span>
+                  <span className="text-[11px] text-gray-600">{c.staff}</span>
+                  <span className="text-[10px] text-gray-500">·</span>
+                  <span className="text-[10px] text-gray-500">
+                    {c.messageCount} رسالة · {c.llmTurns} جولة LLM
+                  </span>
+                  {c.costUsd > 0 && (
+                    <>
+                      <span className="text-[10px] text-gray-500">·</span>
+                      <span className="text-[10px] text-emerald-600 tabular-nums">
+                        ${c.costUsd.toFixed(4)}
+                      </span>
+                    </>
+                  )}
+                </div>
+                {c.lastUserMessage && (
+                  <p className="text-xs text-gray-600 mt-1 line-clamp-2 leading-relaxed">
+                    {c.lastUserMessage}
+                  </p>
+                )}
+                <div className="text-[10px] text-gray-400 mt-1" dir="ltr">
+                  {c.lastMessageAt
+                    ? new Date(c.lastMessageAt).toLocaleString("ar-EG")
+                    : new Date(c.createdAt).toLocaleString("ar-EG")}
+                </div>
+              </div>
+              <ChevronLeft size={14} className="text-gray-400 mt-2" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ConversationDetailView({
+  conversationId,
+  onBack,
+  onFlagged,
+}: {
+  conversationId: number;
+  onBack: () => void;
+  onFlagged: () => void;
+}) {
+  const [data, setData] = useState<ConversationDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [flagging, setFlagging] = useState<{
+    assistantMessageId: number;
+    note: string;
+  } | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/assistant/learning/conversations/${conversationId}`, {
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const j = await res.json();
+        setData(j as ConversationDetail);
+      } else {
+        const j = await res.json().catch(() => ({}));
+        setError(j.error || "تعذّر التحميل");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [conversationId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const submitFlag = useCallback(async () => {
+    if (!flagging) return;
+    setBusy(flagging.assistantMessageId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/assistant/learning/failures/manual`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId,
+          assistantMessageId: flagging.assistantMessageId,
+          reviewNote: flagging.note,
+          tags: ["wrong_answer"],
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(j.error || "فشل الوسم");
+      } else {
+        setFlagging(null);
+        onFlagged();
+        await load();
+      }
+    } finally {
+      setBusy(null);
+    }
+  }, [flagging, conversationId, onFlagged, load]);
+
+  const flaggedAssistantIds = useMemo(() => {
+    if (!data) return new Set<number>();
+    const ids = new Set<number>();
+    for (const f of data.failures) {
+      if (f.userMessageId == null) continue;
+      const userIdx = data.messages.findIndex((m) => m.id === f.userMessageId);
+      if (userIdx === -1) continue;
+      const next = data.messages
+        .slice(userIdx + 1)
+        .find((m) => m.role === "assistant" && m.content?.includes(f.assistantReply.slice(0, 40)));
+      if (next) ids.add(next.id);
+    }
+    return ids;
+  }, [data]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12 text-gray-400">
+        <Loader2 className="animate-spin" size={24} />
+      </div>
+    );
+  }
+  if (!data) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-6 text-sm text-gray-500">
+        {error || "تعذّر تحميل المحادثة."}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between bg-white rounded-xl border border-gray-200 p-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            onClick={onBack}
+            className="rounded-md border border-gray-200 p-1.5 text-gray-500 hover:bg-gray-50"
+            aria-label="رجوع"
+          >
+            <ChevronLeft size={14} className="rotate-180" />
+          </button>
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-gray-800 truncate">
+              {data.conversation.title}
+            </div>
+            <div className="text-[11px] text-gray-500">
+              {data.conversation.staff} · {data.conversation.llmTurns} جولة · $
+              {data.conversation.costUsd.toFixed(4)}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2">
+          {error}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {data.messages.map((m) => (
+          <ConversationMessageRow
+            key={m.id}
+            message={m}
+            alreadyFlagged={flaggedAssistantIds.has(m.id)}
+            busy={busy === m.id}
+            onFlag={() =>
+              setFlagging({ assistantMessageId: m.id, note: "" })
+            }
+          />
+        ))}
+      </div>
+
+      {flagging && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-lg p-5 space-y-3">
+            <h3 className="font-bold text-gray-800 flex items-center gap-2">
+              <Flag size={16} className="text-fuchsia-500" /> وسم الإجابة كخاطئة
+            </h3>
+            <p className="text-xs text-gray-600">
+              ستضاف هذه الإجابة إلى قائمة الإخفاقات حتى تتمكن من اقتراح درس
+              يصحّح المساعد. اكتب باختصار ما كان يجب أن يجيب به.
+            </p>
+            <textarea
+              value={flagging.note}
+              onChange={(e) =>
+                setFlagging((prev) => (prev ? { ...prev, note: e.target.value } : prev))
+              }
+              rows={4}
+              placeholder="مثال: كان يجب استدعاء أداة kpiOccupancy ثم استخراج إجمالي الغرف من Unit، وعدم الادعاء بأن البيانات غير متاحة."
+              className="w-full border border-gray-300 rounded-md p-2 text-sm focus:border-amber-500 focus:outline-none"
+            />
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                onClick={() => setFlagging(null)}
+                className="px-3 py-1.5 text-sm rounded-md border border-gray-300 text-gray-600 hover:bg-gray-50"
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={submitFlag}
+                disabled={busy != null}
+                className="px-3 py-1.5 text-sm rounded-md bg-fuchsia-500 hover:bg-fuchsia-600 text-white inline-flex items-center gap-1 disabled:opacity-60"
+              >
+                {busy != null ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Flag size={14} />
+                )}
+                وسم وإرسال
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ConversationMessageRow({
+  message,
+  alreadyFlagged,
+  busy,
+  onFlag,
+}: {
+  message: ConversationMessage;
+  alreadyFlagged: boolean;
+  busy: boolean;
+  onFlag: () => void;
+}) {
+  const isUser = message.role === "user";
+  const isTool = message.role === "tool";
+  const isAssistant = message.role === "assistant";
+  const tone = isUser
+    ? "bg-amber-50 border-amber-200"
+    : isTool
+      ? "bg-slate-50 border-slate-200"
+      : "bg-white border-gray-200";
+
+  const label = isUser
+    ? "الموظف"
+    : isTool
+      ? `أداة: ${message.toolName ?? ""}`
+      : "المساعد";
+
+  return (
+    <article className={cn("rounded-xl border p-3 space-y-2", tone)}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[11px] text-gray-500 flex items-center gap-2">
+          <span className="font-bold text-gray-700">{label}</span>
+          <span>·</span>
+          <span dir="ltr">{new Date(message.createdAt).toLocaleString("ar-EG")}</span>
+          {alreadyFlagged && (
+            <>
+              <span>·</span>
+              <span className="px-2 py-0.5 rounded-full bg-fuchsia-100 text-fuchsia-700 text-[10px] font-medium">
+                موسومة
+              </span>
+            </>
+          )}
+        </div>
+        {isAssistant && (
+          <button
+            onClick={onFlag}
+            disabled={busy || alreadyFlagged}
+            className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-fuchsia-200 text-fuchsia-700 hover:bg-fuchsia-50 disabled:opacity-50"
+            title="وسم كإجابة خاطئة وأرسل للمراجعة"
+          >
+            <Flag size={11} />
+            وسم
+          </button>
+        )}
+      </div>
+
+      {isTool ? (
+        <details className="text-xs">
+          <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
+            عرض ناتج الأداة
+          </summary>
+          <pre
+            dir="ltr"
+            className="mt-2 bg-white border border-gray-200 rounded p-2 text-[11px] overflow-x-auto whitespace-pre-wrap"
+          >
+            {message.content}
+          </pre>
+        </details>
+      ) : (
+        <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+          {message.content}
+        </p>
+      )}
+
+      {isAssistant && Array.isArray(message.toolCalls) && message.toolCalls.length > 0 && (
+        <details className="text-[11px] text-gray-500">
+          <summary className="cursor-pointer hover:text-gray-700">
+            استدعى {message.toolCalls.length} أداة
+          </summary>
+          <ul className="mt-1 list-disc ps-4 space-y-0.5" dir="ltr">
+            {message.toolCalls.map((tc, idx) => {
+              const call = tc as { name?: string; argumentsJson?: string };
+              return (
+                <li key={idx} className="font-mono">
+                  {call.name}({call.argumentsJson || "{}"})
+                </li>
+              );
+            })}
+          </ul>
+        </details>
+      )}
+    </article>
   );
 }
