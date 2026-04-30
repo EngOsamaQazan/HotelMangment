@@ -19,6 +19,7 @@ import {
   parseButtonReply,
   parseSessionCommand,
 } from "./formatter";
+import { transcribeWhatsAppAudio } from "./transcription";
 
 /**
  * State machine that handles every inbound WhatsApp message coming from a
@@ -40,6 +41,9 @@ export interface HandleStaffWaInput {
   phone: string;
   body: string | null;
   type: string;
+  mediaId?: string | null;
+  mediaMimeType?: string | null;
+  whatsappMessageId?: number | null;
   receivedAt: Date;
   conversationId: number | null;
   /**
@@ -77,6 +81,35 @@ async function send(input: HandleStaffWaInput, text: string): Promise<void> {
   if (!input.dryRun) {
     await sendBotText(input.phone, text, { origin: ORIGIN });
   }
+}
+
+async function transcribeAudioMessage(input: HandleStaffWaInput): Promise<string | null> {
+  if (!input.mediaId) {
+    await send(input, "وصلني تسجيل صوتي بدون ملف قابل للتحميل. أعد إرساله أو اكتب طلبك نصياً.");
+    return null;
+  }
+
+  const result = await transcribeWhatsAppAudio(input.mediaId);
+  if (!result.ok) {
+    await send(input, audioTranscriptionFailureText(result.error));
+    return null;
+  }
+
+  if (input.whatsappMessageId) {
+    try {
+      await prisma.whatsAppMessage.update({
+        where: { id: input.whatsappMessageId },
+        data: {
+          body: `[تفريغ صوتي]\n${result.text}`,
+          mediaMimeType: input.mediaMimeType ?? undefined,
+        },
+      });
+    } catch (error) {
+      console.warn("[assistant/wa] failed to persist audio transcript", error);
+    }
+  }
+
+  return result.text;
 }
 
 /**
@@ -148,17 +181,19 @@ export async function handleStaffWaMessage(
     // Unknown interactive payload — fall through to the standard parser.
   }
 
-  // We only care about textual content for the assistant — media goes to
-  // a generic "currently not supported" reply.
-  if (input.type !== "text" && input.type !== "interactive") {
+  // We only care about text-like content for the assistant. Audio is first
+  // transcribed to text, then routed through the same command/LLM path.
+  if (input.type !== "text" && input.type !== "interactive" && input.type !== "audio") {
     await send(input, "أستقبل النصوص فقط حالياً. أرسل طلبك مكتوباً من فضلك.");
     return { replied: true, reason: "non_text", captured: input.capture };
   }
-  if (!input.body) {
+  if (!input.body && input.type !== "audio") {
     return { replied: false, reason: "empty_body", captured: input.capture };
   }
-  const body = input.body.trim();
-  if (!body) return { replied: false, reason: "empty_body", captured: input.capture };
+  const body = (input.body ?? "").trim();
+  if (!body && input.type !== "audio") {
+    return { replied: false, reason: "empty_body", captured: input.capture };
+  }
 
   const cfg = await prisma.whatsAppConfig.findUnique({
     where: { id: 1 },
@@ -177,10 +212,15 @@ export async function handleStaffWaMessage(
   // ── 1. Active session? ─────────────────────────────────────────────
   const session = await findActiveSession({ phone: input.phone, sessionMinutes });
   if (session) {
+    const effectiveBody =
+      input.type === "audio" ? await transcribeAudioMessage(input) : body;
+    if (!effectiveBody) {
+      return { replied: true, reason: "audio_transcription_failed", captured: input.capture };
+    }
     return await handleAuthenticated({
       session,
       input,
-      body,
+      body: effectiveBody,
       sessionMinutes,
     });
   }
@@ -348,6 +388,21 @@ function otpFailureText(reason: string): string {
       return "تجاوزت عدد المحاولات المسموح. تم القفل لمدة 15 دقيقة.";
     default:
       return "تعذّر التحقق من الرمز. حاول لاحقاً.";
+  }
+}
+
+function audioTranscriptionFailureText(reason: string): string {
+  switch (reason) {
+    case "missing_key":
+      return "لا أستطيع تفريغ التسجيل حالياً لأن مفتاح OpenAI غير مضبوط. اكتب طلبك نصياً أو راجع إعدادات المساعد.";
+    case "unsupported_provider":
+      return "تفريغ التسجيلات الصوتية متاح حالياً مع OpenAI فقط. اكتب طلبك نصياً من فضلك.";
+    case "too_large":
+      return "التسجيل الصوتي كبير جداً للتفريغ. أرسل مقطعاً أقصر أو اكتب طلبك نصياً.";
+    case "empty":
+      return "لم أستطع استخراج نص واضح من التسجيل. أعد التسجيل بصوت أوضح أو اكتب طلبك نصياً.";
+    default:
+      return "تعذّر تفريغ التسجيل الصوتي الآن. جرّب مرة أخرى أو اكتب طلبك نصياً.";
   }
 }
 

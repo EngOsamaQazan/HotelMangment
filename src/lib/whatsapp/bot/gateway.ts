@@ -21,7 +21,13 @@ import { ensureBotConversation, normalizePhone } from "./identity";
  * percentage) plug in without touching the webhook again.
  */
 
-export interface GatewayInput extends RunBotTurnInput {}
+export interface GatewayInput extends RunBotTurnInput {
+  /** Meta media id for inbound media messages; used by the staff assistant for audio transcription. */
+  inboundMediaId?: string | null;
+  inboundMediaMimeType?: string | null;
+  /** Stored WhatsAppMessage row id, when available. */
+  inboundMessageId?: number | null;
+}
 
 export type GatewayDecision =
   | { action: "skip"; reason: string }
@@ -164,6 +170,9 @@ export async function dispatchInboundToBot(input: GatewayInput): Promise<Dispatc
         phone: normalizePhone(input.phone) || input.phone,
         body: input.inboundBody,
         type: input.inboundType,
+        mediaId: input.inboundMediaId ?? null,
+        mediaMimeType: input.inboundMediaMimeType ?? null,
+        whatsappMessageId: input.inboundMessageId ?? null,
         receivedAt: input.inboundAt,
         conversationId: input.conversationId ?? null,
       });

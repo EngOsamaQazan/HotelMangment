@@ -212,6 +212,9 @@ async function handleInbound(msg: WebhookInboundMessage, contactName: string | n
     contactName,
     inboundBody: body,
     inboundType: type,
+    inboundMediaId: media?.id ?? null,
+    inboundMediaMimeType: media?.mimeType ?? null,
+    inboundMessageId: stored.id,
     inboundAt: messageAt,
     conversationId: conversation.id,
   });
