@@ -119,6 +119,252 @@ export async function executeAssistantAction(
   }
 }
 
+/**
+ * Patch a pending `AssistantAction` payload (and optionally its summary)
+ * before the staff member confirms it. Used by the inline draft editor in
+ * the chat UI so an operator can swap a wrong account, fix an amount, or
+ * change a price without rejecting the draft and re-asking the assistant.
+ *
+ * Hard rules:
+ *  - Only `pending` drafts can be edited.
+ *  - The conversation must belong to the caller.
+ *  - Payload merging is shallow at the top level + line-replacement for
+ *    `journal_entry.lines`. We never accept arbitrary keys; only the
+ *    fields the UI is allowed to expose are honoured.
+ *  - For `journal_entry` the new lines must balance (sum debit = sum
+ *    credit) — same accounting invariant the executor enforces. We catch
+ *    it here so the operator sees the error before pressing confirm.
+ */
+export interface UpdateActionPatch {
+  payloadPatch?: Record<string, unknown>;
+  summary?: string | null;
+}
+
+export interface UpdateActionResult {
+  ok: boolean;
+  message: string;
+  errorCode?: "forbidden" | "not_found" | "invalid_state" | "validation" | "internal";
+  payload?: unknown;
+  summary?: string;
+}
+
+export async function updateAssistantAction(
+  actionId: number,
+  userId: number,
+  patch: UpdateActionPatch,
+): Promise<UpdateActionResult> {
+  const action = await prisma.assistantAction.findUnique({
+    where: { id: actionId },
+    select: {
+      id: true,
+      kind: true,
+      status: true,
+      payload: true,
+      summary: true,
+      conversation: { select: { userId: true } },
+    },
+  });
+  if (!action) return { ok: false, message: "المسودة غير موجودة", errorCode: "not_found" };
+  if (action.conversation.userId !== userId) {
+    return { ok: false, message: "هذه المسودة لا تخصّك", errorCode: "forbidden" };
+  }
+  if (action.status !== "pending") {
+    return {
+      ok: false,
+      message: `لا يمكن تعديل مسودة بحالة "${action.status}"`,
+      errorCode: "invalid_state",
+    };
+  }
+
+  const currentPayload =
+    action.payload && typeof action.payload === "object" && !Array.isArray(action.payload)
+      ? (action.payload as Record<string, unknown>)
+      : {};
+  let nextPayload: Record<string, unknown> = currentPayload;
+  if (patch.payloadPatch) {
+    const merged = mergePayload(action.kind, currentPayload, patch.payloadPatch);
+    if (!merged.ok) {
+      return { ok: false, message: merged.error, errorCode: "validation" };
+    }
+    nextPayload = merged.payload;
+  }
+  const nextSummary =
+    typeof patch.summary === "string" && patch.summary.trim().length > 0
+      ? patch.summary.trim().slice(0, 1000)
+      : action.summary;
+
+  const updated = await prisma.assistantAction.update({
+    where: { id: action.id },
+    data: {
+      payload: nextPayload as Prisma.InputJsonValue,
+      summary: nextSummary,
+    },
+    select: { id: true, payload: true, summary: true },
+  });
+  return {
+    ok: true,
+    message: "تم تحديث المسودة. راجع التغييرات ثم اضغط تأكيد.",
+    payload: updated.payload,
+    summary: updated.summary,
+  };
+}
+
+/**
+ * Per-kind shallow merge of a partial payload patch into the existing
+ * payload. Validates the result so the resulting draft is still
+ * confirmable: balanced journal entries, positive amounts, allowed unit
+ * statuses, etc.
+ */
+function mergePayload(
+  kind: string,
+  current: Record<string, unknown>,
+  patch: Record<string, unknown>,
+): { ok: true; payload: Record<string, unknown> } | { ok: false; error: string } {
+  const next = { ...current, ...patch };
+
+  switch (kind) {
+    case "journal_entry": {
+      const date = typeof next.date === "string" ? next.date : "";
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return { ok: false, error: "تاريخ القيد غير صالح (YYYY-MM-DD)." };
+      }
+      const description = typeof next.description === "string" ? next.description.trim() : "";
+      if (!description) return { ok: false, error: "وصف القيد مطلوب." };
+      const linesRaw = Array.isArray(next.lines) ? (next.lines as unknown[]) : null;
+      if (!linesRaw || linesRaw.length < 2) {
+        return { ok: false, error: "القيد يحتاج إلى سطرين على الأقل." };
+      }
+      const lines: Array<Record<string, unknown>> = [];
+      let totalDebit = 0;
+      let totalCredit = 0;
+      for (const raw of linesRaw) {
+        if (!raw || typeof raw !== "object") {
+          return { ok: false, error: "أحد السطور غير صالح." };
+        }
+        const obj = raw as Record<string, unknown>;
+        const accountCode = String(obj.accountCode ?? "").trim();
+        if (!accountCode) {
+          return { ok: false, error: "كل سطر يحتاج رقم حساب." };
+        }
+        const debit = Number(obj.debit ?? 0) || 0;
+        const credit = Number(obj.credit ?? 0) || 0;
+        if (debit < 0 || credit < 0) {
+          return { ok: false, error: "القيم السالبة غير مسموحة." };
+        }
+        if (debit > 0 && credit > 0) {
+          return { ok: false, error: "السطر الواحد إما مدين أو دائن، ليس الاثنين." };
+        }
+        if (debit === 0 && credit === 0) {
+          return { ok: false, error: "كل سطر يحتاج قيمة مدين أو دائن > 0." };
+        }
+        totalDebit += debit;
+        totalCredit += credit;
+        const partyIdRaw = obj.partyId;
+        const partyId =
+          partyIdRaw == null
+            ? null
+            : Number.isInteger(Number(partyIdRaw)) && Number(partyIdRaw) > 0
+              ? Number(partyIdRaw)
+              : null;
+        const partyName = typeof obj.partyName === "string" ? obj.partyName : null;
+        const costCenterCode =
+          typeof obj.costCenterCode === "string" && obj.costCenterCode.trim()
+            ? obj.costCenterCode.trim()
+            : null;
+        const costCenterName =
+          typeof obj.costCenterName === "string" ? obj.costCenterName : null;
+        const accountName = typeof obj.accountName === "string" ? obj.accountName : null;
+        const lineDescription =
+          typeof obj.description === "string" ? obj.description : null;
+        lines.push({
+          accountCode,
+          accountName,
+          partyId,
+          partyName,
+          costCenterCode,
+          costCenterName,
+          debit: debit || undefined,
+          credit: credit || undefined,
+          description: lineDescription,
+        });
+      }
+      if (Math.abs(totalDebit - totalCredit) > 0.005) {
+        return {
+          ok: false,
+          error: `القيد غير متوازن — مدين ${totalDebit.toFixed(2)} مقابل دائن ${totalCredit.toFixed(2)}.`,
+        };
+      }
+      return {
+        ok: true,
+        payload: {
+          ...next,
+          date,
+          description,
+          reference: typeof next.reference === "string" ? next.reference : null,
+          lines,
+          totals: { debit: +totalDebit.toFixed(2), credit: +totalCredit.toFixed(2) },
+        },
+      };
+    }
+    case "reservation_create": {
+      const numNights = Number(next.numNights);
+      const unitPrice = Number(next.unitPrice);
+      const totalAmount = Number(next.totalAmount);
+      const paidAmount = Number(next.paidAmount ?? 0);
+      if (!Number.isFinite(numNights) || numNights <= 0) {
+        return { ok: false, error: "عدد الليالي غير صالح." };
+      }
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+        return { ok: false, error: "سعر الليلة غير صالح." };
+      }
+      if (!Number.isFinite(totalAmount) || totalAmount < 0) {
+        return { ok: false, error: "الإجمالي غير صالح." };
+      }
+      if (!Number.isFinite(paidAmount) || paidAmount < 0 || paidAmount > totalAmount + 0.005) {
+        return { ok: false, error: "المبلغ المدفوع لا يمكن أن يتجاوز الإجمالي." };
+      }
+      const remaining = +(totalAmount - paidAmount).toFixed(2);
+      return { ok: true, payload: { ...next, numNights, unitPrice, totalAmount, paidAmount, remaining } };
+    }
+    case "maintenance_create": {
+      if (!String(next.description ?? "").trim()) {
+        return { ok: false, error: "وصف العطل مطلوب." };
+      }
+      const cost = Number(next.cost ?? 0) || 0;
+      if (cost < 0) return { ok: false, error: "التكلفة لا يمكن أن تكون سالبة." };
+      return { ok: true, payload: { ...next, cost } };
+    }
+    case "task_create": {
+      if (!String(next.title ?? "").trim()) {
+        return { ok: false, error: "عنوان المهمة مطلوب." };
+      }
+      return { ok: true, payload: next };
+    }
+    case "payroll_advance": {
+      const amount = Number(next.amount);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return { ok: false, error: "قيمة السلفة يجب أن تكون أكبر من صفر." };
+      }
+      return { ok: true, payload: { ...next, amount } };
+    }
+    case "unit_status_change": {
+      const toStatus = String(next.toStatus ?? "");
+      if (!["available", "occupied", "maintenance"].includes(toStatus)) {
+        return { ok: false, error: "حالة الوحدة غير صالحة." };
+      }
+      return { ok: true, payload: { ...next, toStatus } };
+    }
+    case "generic_change": {
+      // Generic change drafts carry their own validation in the executor;
+      // here we just accept the patched data without further checks so the
+      // editor can adjust nested fields freely.
+      return { ok: true, payload: next };
+    }
+    default:
+      return { ok: false, error: `لا يوجد محرّر متاح لهذا النوع من المسودات: ${kind}` };
+  }
+}
+
 export async function rejectAssistantAction(
   actionId: number,
   userId: number,

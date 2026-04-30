@@ -373,6 +373,7 @@ export function AssistantQuickPanel({ conversationId, pathname }: Props) {
               action={item.action}
               onConfirm={() => onAction(item.action.id, "confirm")}
               onReject={() => onAction(item.action.id, "reject")}
+              onUpdated={load}
             />
           ),
         )}

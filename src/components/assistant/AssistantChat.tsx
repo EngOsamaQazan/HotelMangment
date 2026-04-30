@@ -379,6 +379,7 @@ export function AssistantChat({ conversationId }: Props) {
               action={item.action}
               onConfirm={() => onAction(item.action.id, "confirm")}
               onReject={() => onAction(item.action.id, "reject")}
+              onUpdated={load}
             />
           ),
         )}
