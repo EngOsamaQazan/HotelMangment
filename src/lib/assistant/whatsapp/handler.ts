@@ -20,6 +20,7 @@ import {
   parseSessionCommand,
 } from "./formatter";
 import { transcribeWhatsAppAudio } from "./transcription";
+import { describeWhatsAppImage } from "./vision";
 
 /**
  * State machine that handles every inbound WhatsApp message coming from a
@@ -113,6 +114,48 @@ async function transcribeAudioMessage(input: HandleStaffWaInput): Promise<string
 }
 
 /**
+ * Convert an inbound WhatsApp image into a structured Arabic description
+ * the LLM engine can reason about exactly like a written request. The
+ * caption (if any) is forwarded so the model can blend it into the
+ * description (e.g. "هذه فاتورة، اعمل قيد").
+ */
+async function describeImageMessage(input: HandleStaffWaInput): Promise<string | null> {
+  if (!input.mediaId) {
+    await send(input, "وصلتني صورة بدون ملف قابل للتحميل. أعد إرسالها أو اكتب طلبك نصياً.");
+    return null;
+  }
+
+  const result = await describeWhatsAppImage({
+    mediaId: input.mediaId,
+    caption: input.body,
+    mimeType: input.mediaMimeType,
+  });
+  if (!result.ok) {
+    await send(input, imageDescriptionFailureText(result.error));
+    return null;
+  }
+
+  if (input.whatsappMessageId) {
+    try {
+      await prisma.whatsAppMessage.update({
+        where: { id: input.whatsappMessageId },
+        data: {
+          body: `[وصف صورة]\n${result.text}${input.body ? `\n\nتعليق الموظف: ${input.body}` : ""}`,
+          mediaMimeType: input.mediaMimeType ?? undefined,
+        },
+      });
+    } catch (error) {
+      console.warn("[assistant/wa] failed to persist image description", error);
+    }
+  }
+
+  const captionLine = input.body?.trim()
+    ? `\n\nملاحظة الموظف المرفقة مع الصورة: ${input.body.trim()}`
+    : "";
+  return `أرسل الموظف صورة عبر الواتس. هذا تحليلها التلقائي:\n${result.text}${captionLine}`;
+}
+
+/**
  * Send an action draft as an Interactive Button message — the closest
  * native WhatsApp equivalent of the React `ActionDraftCard`. The body
  * carries the formatted journal/reservation/etc. summary; two reply
@@ -181,17 +224,27 @@ export async function handleStaffWaMessage(
     // Unknown interactive payload — fall through to the standard parser.
   }
 
-  // We only care about text-like content for the assistant. Audio is first
-  // transcribed to text, then routed through the same command/LLM path.
-  if (input.type !== "text" && input.type !== "interactive" && input.type !== "audio") {
-    await send(input, "أستقبل النصوص فقط حالياً. أرسل طلبك مكتوباً من فضلك.");
+  // We only care about text-like content for the assistant. Audio is
+  // transcribed first; images are described via Vision; both are then
+  // routed through the same command/LLM path as a regular text turn.
+  const isImageDoc =
+    input.type === "document" && (input.mediaMimeType ?? "").toLowerCase().startsWith("image/");
+  const isImage = input.type === "image" || isImageDoc;
+  const isAudio = input.type === "audio";
+  if (
+    input.type !== "text" &&
+    input.type !== "interactive" &&
+    !isAudio &&
+    !isImage
+  ) {
+    await send(input, "أستقبل النصوص والصور والتسجيلات الصوتية فقط حالياً. أرسل طلبك مكتوباً أو صورة/تسجيل صوتي.");
     return { replied: true, reason: "non_text", captured: input.capture };
   }
-  if (!input.body && input.type !== "audio") {
+  if (!input.body && !isAudio && !isImage) {
     return { replied: false, reason: "empty_body", captured: input.capture };
   }
   const body = (input.body ?? "").trim();
-  if (!body && input.type !== "audio") {
+  if (!body && !isAudio && !isImage) {
     return { replied: false, reason: "empty_body", captured: input.capture };
   }
 
@@ -212,10 +265,17 @@ export async function handleStaffWaMessage(
   // ── 1. Active session? ─────────────────────────────────────────────
   const session = await findActiveSession({ phone: input.phone, sessionMinutes });
   if (session) {
-    const effectiveBody =
-      input.type === "audio" ? await transcribeAudioMessage(input) : body;
+    let effectiveBody: string | null = body;
+    let mediaReason: string | null = null;
+    if (isAudio) {
+      effectiveBody = await transcribeAudioMessage(input);
+      mediaReason = "audio_transcription_failed";
+    } else if (isImage) {
+      effectiveBody = await describeImageMessage(input);
+      mediaReason = "image_description_failed";
+    }
     if (!effectiveBody) {
-      return { replied: true, reason: "audio_transcription_failed", captured: input.capture };
+      return { replied: true, reason: mediaReason ?? "media_failed", captured: input.capture };
     }
     return await handleAuthenticated({
       session,
@@ -408,6 +468,23 @@ function audioTranscriptionFailureText(reason: string): string {
   }
 }
 
+function imageDescriptionFailureText(reason: string): string {
+  switch (reason) {
+    case "missing_key":
+      return "لا أستطيع تحليل الصورة حالياً لأن مفتاح OpenAI غير مضبوط. اكتب طلبك نصياً أو راجع إعدادات المساعد.";
+    case "unsupported_provider":
+      return "تحليل الصور متاح حالياً مع OpenAI فقط. اكتب طلبك نصياً من فضلك.";
+    case "unsupported_format":
+      return "صيغة هذه الصورة غير مدعومة. أرسلها بصيغة JPG أو PNG أو WebP من فضلك.";
+    case "too_large":
+      return "حجم الصورة أكبر من الحد المسموح للتحليل. أرسل صورة أصغر أو وصفاً نصياً للمحتوى.";
+    case "no_vision_access":
+      return "مفتاح OpenAI الحالي غير مفعّل عليه نماذج رؤية (gpt-4o-mini / gpt-4o). فعّلها من إعدادات المشروع على platform.openai.com.";
+    default:
+      return "تعذّر تحليل الصورة الآن. جرّب مرة أخرى أو اكتب طلبك نصياً.";
+  }
+}
+
 function helpText(sessionMinutes: number): string {
   return [
     "أنا مساعدك الذكي عبر الواتس. تستطيع:",
@@ -415,6 +492,8 @@ function helpText(sessionMinutes: number): string {
     "- إنشاء حجز ('احجز للضيف خالد غرفة 305 ليلتين')",
     "- صرف سلفة، طلب صيانة، إنشاء مهمة، تغيير حالة غرفة",
     "- الإجابة على 'كيف أفعل كذا في النظام؟'",
+    "- إرسال *تسجيل صوتي* وأنا أفرّغه وأنفّذه.",
+    "- إرسال *صورة* (هوية/إيصال/فاتورة/ضرر بالغرفة) ومعها تعليق اختياري، وأنا أحلّلها وأقترح الإجراء.",
     "",
     `الجلسة سارية ${sessionMinutes}د من آخر نشاط — عند الانتهاء نرسل رمزاً جديداً.`,
     "اكتب 'خروج' في أي وقت لإنهاء الجلسة فوراً.",
