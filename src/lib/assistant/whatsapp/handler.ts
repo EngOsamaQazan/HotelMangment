@@ -401,6 +401,8 @@ function audioTranscriptionFailureText(reason: string): string {
       return "التسجيل الصوتي كبير جداً للتفريغ. أرسل مقطعاً أقصر أو اكتب طلبك نصياً.";
     case "empty":
       return "لم أستطع استخراج نص واضح من التسجيل. أعد التسجيل بصوت أوضح أو اكتب طلبك نصياً.";
+    case "no_audio_access":
+      return "مفتاح OpenAI الحالي غير مفعّل عليه نماذج تفريغ الصوت (whisper-1 / gpt-4o-transcribe). فعّلها من إعدادات المشروع على platform.openai.com ثم أعد المحاولة. حالياً أكمل بالنص من فضلك.";
     default:
       return "تعذّر تفريغ التسجيل الصوتي الآن. جرّب مرة أخرى أو اكتب طلبك نصياً.";
   }

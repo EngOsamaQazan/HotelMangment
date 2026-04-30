@@ -20,7 +20,16 @@ const TRANSCRIPTION_MODELS = [
 
 export type AudioTranscriptionResult =
   | { ok: true; text: string; model: string }
-  | { ok: false; error: "missing_key" | "unsupported_provider" | "too_large" | "empty" | "failed" };
+  | {
+      ok: false;
+      error:
+        | "missing_key"
+        | "unsupported_provider"
+        | "too_large"
+        | "empty"
+        | "no_audio_access"
+        | "failed";
+    };
 
 export async function transcribeWhatsAppAudio(
   mediaId: string,
@@ -62,6 +71,7 @@ export async function transcribeWhatsAppAudio(
 
   const client = new OpenAI({ apiKey });
   let lastError: unknown = null;
+  let allEntitlement = true;
   for (const model of TRANSCRIPTION_MODELS) {
     try {
       const file = new File([buffer], `whatsapp-audio.${extensionForMime(mimeType)}`, {
@@ -77,7 +87,9 @@ export async function transcribeWhatsAppAudio(
       return { ok: true, text, model };
     } catch (error) {
       lastError = error;
-      if (!shouldFallbackToNextModel(error)) {
+      const isEntitlement = isEntitlementError(error);
+      if (!isEntitlement) {
+        allEntitlement = false;
         console.error(`[assistant/wa] audio transcription failed (${model})`, error);
         return { ok: false, error: "failed" };
       }
@@ -85,15 +97,15 @@ export async function transcribeWhatsAppAudio(
     }
   }
   console.error("[assistant/wa] all transcription models failed", lastError);
-  return { ok: false, error: "failed" };
+  return { ok: false, error: allEntitlement ? "no_audio_access" : "failed" };
 }
 
 /**
- * Only retry with the next model when the current one is unreachable for
- * entitlement reasons (403 not entitled, 404 unknown model). Network/auth
- * errors should surface immediately so we don't waste retries.
+ * True when the error reflects "this OpenAI project key isn't entitled to
+ * this audio model" (403 / 404 / model_not_found). We retry with the next
+ * model in that case; auth/network errors must surface immediately.
  */
-function shouldFallbackToNextModel(error: unknown): boolean {
+function isEntitlementError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const status = (error as { status?: number }).status;
   if (status === 403 || status === 404) return true;
