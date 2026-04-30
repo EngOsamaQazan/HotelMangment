@@ -17,7 +17,13 @@ import {
   Link2,
   Save,
 } from "lucide-react";
-import { cn, formatDate, statusLabels, unitTypeLabels } from "@/lib/utils";
+import {
+  cn,
+  formatDate,
+  statusLabels,
+  unitTypeLabels,
+  unitCategorySectionTitles,
+} from "@/lib/utils";
 import { BedIcon } from "@/components/unit-types/shared";
 import { usePermissions } from "@/lib/permissions/client";
 import { UnitPhotosPanel } from "@/components/rooms/UnitPhotosPanel";
@@ -200,8 +206,40 @@ export default function RoomsPage() {
     ? units.filter((u) => u.status === statusFilter)
     : units;
 
-  const rooms = filteredUnits.filter((u) => u.type === "room");
-  const apartments = filteredUnits.filter((u) => u.type === "apartment");
+  // Group physical units by their UnitType.category. We deliberately read
+  // from the canonical 4-value `unit.unitType.category` (apartment |
+  // hotel_room | suite | studio) instead of the legacy 2-value `unit.type`,
+  // so studios (which would otherwise collapse into "غرف فندقية") get
+  // their own section. `suite` is folded into the hotel-room section
+  // because the hotel only has a single VIP suite — promoting it into a
+  // dedicated section would feel half-empty.
+  type SectionKey = "hotel_room" | "studio" | "apartment";
+  const SECTION_ORDER: SectionKey[] = ["hotel_room", "studio", "apartment"];
+  const SECTION_ICON: Record<SectionKey, typeof BedDouble> = {
+    hotel_room: BedDouble,
+    studio: Home,
+    apartment: Home,
+  };
+  const SKELETON_COUNT: Record<SectionKey, number> = {
+    hotel_room: 4,
+    studio: 3,
+    apartment: 3,
+  };
+
+  function sectionFor(unit: Unit): SectionKey {
+    const category = unit.unitType?.category;
+    if (category === "studio") return "studio";
+    if (category === "apartment") return "apartment";
+    // hotel_room, suite, missing-category, or anything legacy → hotel_room
+    return "hotel_room";
+  }
+
+  const grouped: Record<SectionKey, Unit[]> = {
+    hotel_room: [],
+    studio: [],
+    apartment: [],
+  };
+  for (const u of filteredUnits) grouped[sectionFor(u)].push(u);
 
   if (error) {
     return (
@@ -279,63 +317,56 @@ export default function RoomsPage() {
         )}
       </div>
 
-      {/* Rooms Section */}
-      <section>
-        <div className="flex items-center gap-2 mb-4">
-          <BedDouble size={22} className="text-primary" />
-          <h2 className="text-lg sm:text-xl font-bold text-gray-800">
-            الغرف الفندقية (101-109)
-          </h2>
-        </div>
-        {!loading && rooms.length === 0 ? (
-          <div className="bg-card-bg rounded-xl shadow-sm p-6 text-center text-sm text-gray-500">
-            لا توجد غرف مطابقة للفلتر الحالي
-          </div>
-        ) : (
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] gap-3 sm:gap-4">
-            {loading
-              ? Array.from({ length: 4 }, (_, i) => (
-                  <UnitCardSkeleton key={i} />
-                ))
-              : rooms.map((unit) => (
-                  <UnitCard
-                    key={unit.id}
-                    unit={unit}
-                    onClick={() => setSelectedUnit(unit)}
-                  />
-                ))}
-          </div>
-        )}
-      </section>
+      {SECTION_ORDER.map((key) => {
+        const sectionUnits = grouped[key];
+        // While loading we don't yet know counts — render every section
+        // with a skeleton row. After load, hide sections that are empty
+        // *because of the active status filter* but show the empty-state
+        // message when the section legitimately has no units at all.
+        const totalForCategory = units.filter(
+          (u) => sectionFor(u) === key,
+        ).length;
+        if (!loading && totalForCategory === 0) return null;
 
-      {/* Apartments Section */}
-      <section>
-        <div className="flex items-center gap-2 mb-4">
-          <Home size={22} className="text-primary" />
-          <h2 className="text-lg sm:text-xl font-bold text-gray-800">
-            الشقق المفروشة (01-06)
-          </h2>
-        </div>
-        {!loading && apartments.length === 0 ? (
-          <div className="bg-card-bg rounded-xl shadow-sm p-6 text-center text-sm text-gray-500">
-            لا توجد شقق مطابقة للفلتر الحالي
-          </div>
-        ) : (
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] gap-3 sm:gap-4">
-            {loading
-              ? Array.from({ length: 3 }, (_, i) => (
-                  <UnitCardSkeleton key={i} />
-                ))
-              : apartments.map((unit) => (
-                  <UnitCard
-                    key={unit.id}
-                    unit={unit}
-                    onClick={() => setSelectedUnit(unit)}
-                  />
-                ))}
-          </div>
-        )}
-      </section>
+        const Icon = SECTION_ICON[key];
+        const title = unitCategorySectionTitles[key] ?? key;
+        const skeletonCount = SKELETON_COUNT[key];
+
+        return (
+          <section key={key}>
+            <div className="flex items-center gap-2 mb-4">
+              <Icon size={22} className="text-primary" />
+              <h2 className="text-lg sm:text-xl font-bold text-gray-800">
+                {title}
+                {!loading && (
+                  <span className="text-sm font-normal text-gray-400 mr-2">
+                    ({sectionUnits.length})
+                  </span>
+                )}
+              </h2>
+            </div>
+            {!loading && sectionUnits.length === 0 ? (
+              <div className="bg-card-bg rounded-xl shadow-sm p-6 text-center text-sm text-gray-500">
+                لا توجد وحدات مطابقة للفلتر الحالي
+              </div>
+            ) : (
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] gap-3 sm:gap-4">
+                {loading
+                  ? Array.from({ length: skeletonCount }, (_, i) => (
+                      <UnitCardSkeleton key={i} />
+                    ))
+                  : sectionUnits.map((unit) => (
+                      <UnitCard
+                        key={unit.id}
+                        unit={unit}
+                        onClick={() => setSelectedUnit(unit)}
+                      />
+                    ))}
+              </div>
+            )}
+          </section>
+        );
+      })}
 
       {/* Unit Detail Modal */}
       {selectedUnit && (

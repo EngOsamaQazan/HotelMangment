@@ -122,9 +122,41 @@ export const stayTypeLabels: Record<string, string> = {
   monthly: "شهري",
 };
 
+/**
+ * Legacy two-value classification ("room" | "apartment") used by older
+ * surfaces (contracts, reservation detail) that pre-date the 4-category
+ * `UnitType.category` model. Kept for backward compat; new code should
+ * prefer `unitCategoryLabels` below.
+ */
 export const unitTypeLabels: Record<string, string> = {
   room: "غرفة فندقية",
   apartment: "شقة مفروشة",
+};
+
+/**
+ * Singular Arabic label for each `UnitType.category` value. Used wherever
+ * the operator picks a single category — most notably the "نوع الوحدة"
+ * filter on the new-reservation form. The order of entries mirrors the
+ * order we want to surface in dropdowns.
+ */
+export const unitCategoryLabels: Record<string, string> = {
+  hotel_room: "غرفة فندقية",
+  studio: "ستوديو مفروش",
+  apartment: "شقة مفروشة",
+  suite: "جناح فندقي",
+};
+
+/**
+ * Plural-prefixed Arabic titles ("الـ…") for category-grouped section
+ * headings on the rooms board. Studios are surfaced as their own group
+ * here even though, for legacy pricing purposes, they collapse into the
+ * "room" tier (see `legacyTypeFromCategory`).
+ */
+export const unitCategorySectionTitles: Record<string, string> = {
+  hotel_room: "الغرف الفندقية",
+  studio: "الستوديوهات المفروشة",
+  apartment: "الشقق المفروشة",
+  suite: "الأجنحة الفندقية",
 };
 
 export const statusLabels: Record<string, string> = {

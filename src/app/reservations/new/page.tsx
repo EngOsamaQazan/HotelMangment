@@ -18,7 +18,7 @@ import { ForbiddenCard } from "@/components/ForbiddenCard";
 import {
   cn,
   stayTypeLabels,
-  unitTypeLabels,
+  unitCategoryLabels,
 } from "@/lib/utils";
 import IdScanner from "@/components/IdScanner";
 import { NumberInput } from "@/components/ui/NumberInput";
@@ -110,7 +110,11 @@ export default function NewReservationPage() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [seasonalPrice, setSeasonalPrice] = useState<SeasonalPrice | null>(null);
 
-  const [unitType, setUnitType] = useState<string>("room");
+  // `unitType` here holds a `UnitType.category` value (hotel_room | studio
+  // | apartment | suite). We default to "hotel_room" since that's the
+  // largest inventory bucket. The legacy "room"/"apartment" string used
+  // pre-redesign is derived where needed (pricing key + URL params).
+  const [unitType, setUnitType] = useState<string>("hotel_room");
   const [unitId, setUnitId] = useState<string>("");
   const [stayType, setStayType] = useState<string>("daily");
   const [guestName, setGuestName] = useState(prefillGuestName);
@@ -183,9 +187,14 @@ export default function NewReservationPage() {
   //   - it has no active/upcoming reservation overlapping the requested range.
   // We no longer hard-filter on `status === 'available'`: a currently-occupied
   // unit may be free on a future date, which is exactly what we want to allow.
+  //
+  // We match on the canonical `unitTypeRef.category` so the four-way
+  // category dropdown (hotel_room / studio / apartment / suite) filters
+  // correctly. Units missing a UnitType assignment are hidden — they
+  // shouldn't be bookable in that state anyway.
   const filteredUnits = units.filter(
     (u) =>
-      u.unitType === unitType &&
+      u.unitTypeRef?.category === unitType &&
       u.status !== "maintenance" &&
       !unavailableUnitIds.has(u.id),
   );
@@ -242,18 +251,22 @@ export default function NewReservationPage() {
 
   useEffect(() => {
     if (!seasonalPrice) return;
-    const key =
-      unitType === "room"
-        ? stayType === "monthly"
-          ? "roomMonthly"
-          : stayType === "weekly"
-          ? "roomWeekly"
-          : "roomDaily"
-        : stayType === "monthly"
+    // Seasonal pricing still has only two tiers (room / apt). Collapse the
+    // four-way category dropdown the same way `legacyTypeFromCategory`
+    // does: only `apartment` falls into the apt tier; hotel_room, suite,
+    // and studio share the room-tier pricing.
+    const isApartmentTier = unitType === "apartment";
+    const key = isApartmentTier
+      ? stayType === "monthly"
         ? "aptMonthly"
         : stayType === "weekly"
         ? "aptWeekly"
-        : "aptDaily";
+        : "aptDaily"
+      : stayType === "monthly"
+      ? "roomMonthly"
+      : stayType === "weekly"
+      ? "roomWeekly"
+      : "roomDaily";
     const price = seasonalPrice[key as keyof SeasonalPrice];
     if (price) setUnitPrice(String(price));
   }, [seasonalPrice, unitType, stayType]);
@@ -523,7 +536,7 @@ export default function NewReservationPage() {
                 onChange={(e) => setUnitType(e.target.value)}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm"
               >
-                {Object.entries(unitTypeLabels).map(([val, label]) => (
+                {Object.entries(unitCategoryLabels).map(([val, label]) => (
                   <option key={val} value={val}>{label}</option>
                 ))}
               </select>
