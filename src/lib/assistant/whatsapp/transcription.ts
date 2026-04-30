@@ -5,10 +5,21 @@ import { prisma } from "@/lib/prisma";
 import { fetchMediaStream } from "@/lib/whatsapp/client";
 
 const MAX_AUDIO_BYTES = 16 * 1024 * 1024;
-const TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe";
+/**
+ * Models tried in order. `whisper-1` is the GA endpoint that every OpenAI
+ * project gets by default; the newer `gpt-4o-*-transcribe` models are
+ * cheaper and slightly more accurate but require explicit project access,
+ * so we attempt them first and gracefully fall back when the project key
+ * isn't entitled.
+ */
+const TRANSCRIPTION_MODELS = [
+  "gpt-4o-mini-transcribe",
+  "gpt-4o-transcribe",
+  "whisper-1",
+] as const;
 
 export type AudioTranscriptionResult =
-  | { ok: true; text: string }
+  | { ok: true; text: string; model: string }
   | { ok: false; error: "missing_key" | "unsupported_provider" | "too_large" | "empty" | "failed" };
 
 export async function transcribeWhatsAppAudio(
@@ -30,6 +41,8 @@ export async function transcribeWhatsAppAudio(
   const apiKey = enc ? decryptSecret(enc) : null;
   if (!apiKey) return { ok: false, error: "missing_key" };
 
+  let buffer: ArrayBuffer;
+  let mimeType: string;
   try {
     const { response, info } = await fetchMediaStream(mediaId);
     const size = info.file_size ?? Number(response.headers.get("content-length") ?? 0);
@@ -37,28 +50,59 @@ export async function transcribeWhatsAppAudio(
       return { ok: false, error: "too_large" };
     }
 
-    const buffer = await response.arrayBuffer();
+    buffer = await response.arrayBuffer();
     if (buffer.byteLength === 0) return { ok: false, error: "empty" };
     if (buffer.byteLength > MAX_AUDIO_BYTES) return { ok: false, error: "too_large" };
 
-    const mimeType = info.mime_type || response.headers.get("content-type") || "audio/ogg";
-    const file = new File([buffer], `whatsapp-audio.${extensionForMime(mimeType)}`, {
-      type: mimeType,
-    });
-    const client = new OpenAI({ apiKey });
-    const transcript = await client.audio.transcriptions.create({
-      file,
-      model: TRANSCRIPTION_MODEL,
-      language: "ar",
-    });
-
-    const text = transcript.text.trim();
-    if (!text) return { ok: false, error: "empty" };
-    return { ok: true, text };
+    mimeType = info.mime_type || response.headers.get("content-type") || "audio/ogg";
   } catch (error) {
-    console.error("[assistant/wa] audio transcription failed", error);
+    console.error("[assistant/wa] audio download failed", error);
     return { ok: false, error: "failed" };
   }
+
+  const client = new OpenAI({ apiKey });
+  let lastError: unknown = null;
+  for (const model of TRANSCRIPTION_MODELS) {
+    try {
+      const file = new File([buffer], `whatsapp-audio.${extensionForMime(mimeType)}`, {
+        type: mimeType,
+      });
+      const transcript = await client.audio.transcriptions.create({
+        file,
+        model,
+        language: "ar",
+      });
+      const text = transcript.text.trim();
+      if (!text) return { ok: false, error: "empty" };
+      return { ok: true, text, model };
+    } catch (error) {
+      lastError = error;
+      if (!shouldFallbackToNextModel(error)) {
+        console.error(`[assistant/wa] audio transcription failed (${model})`, error);
+        return { ok: false, error: "failed" };
+      }
+      console.warn(`[assistant/wa] transcription model "${model}" unavailable, falling back`, error);
+    }
+  }
+  console.error("[assistant/wa] all transcription models failed", lastError);
+  return { ok: false, error: "failed" };
+}
+
+/**
+ * Only retry with the next model when the current one is unreachable for
+ * entitlement reasons (403 not entitled, 404 unknown model). Network/auth
+ * errors should surface immediately so we don't waste retries.
+ */
+function shouldFallbackToNextModel(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const status = (error as { status?: number }).status;
+  if (status === 403 || status === 404) return true;
+  const message = (error as { message?: string }).message?.toLowerCase() ?? "";
+  return (
+    message.includes("does not have access to model") ||
+    message.includes("model_not_found") ||
+    message.includes("unknown model")
+  );
 }
 
 function extensionForMime(mimeType: string): string {
