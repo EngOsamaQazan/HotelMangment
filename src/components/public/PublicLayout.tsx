@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { ReactNode } from "react";
+import { getAdminHost, isHostSplitEnabled } from "@/lib/hosts";
 
 /** Shared chrome for the public-facing marketing & legal pages.
  *  Intentionally simple: no sidebar, no auth, no client JS — so it renders
@@ -118,6 +119,12 @@ export function PublicLayout({
             <Link href="/terms" className="hover:text-gold">
               شروط الاستخدام
             </Link>
+            <a
+              href={isHostSplitEnabled() ? `https://${getAdminHost()}/login` : "/login"}
+              className="text-white/40 hover:text-gold transition-colors"
+            >
+              دخول الموظفين
+            </a>
           </div>
         </div>
         <div className="border-t border-white/10 text-center py-3 text-xs text-white/60">

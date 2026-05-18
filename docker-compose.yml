@@ -1,0 +1,53 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fakher_user
+      POSTGRES_PASSWORD: fakher_pass
+      POSTGRES_DB: fakher_hotel_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fakher_user -d fakher_hotel_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file: .env.local
+    environment:
+      DATABASE_URL: postgresql://fakher_user:fakher_pass@db:5432/fakher_hotel_dev?schema=public
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  realtime:
+    image: node:20-alpine
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - "3001:3001"
+    env_file: .env.local
+    environment:
+      DATABASE_URL: postgresql://fakher_user:fakher_pass@db:5432/fakher_hotel_dev?schema=public
+      REALTIME_PORT: 3001
+      REALTIME_HOST: 0.0.0.0
+    volumes:
+      - ./realtime:/app
+    command: sh -c "npm install --production && node src/server.js"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  uploads:

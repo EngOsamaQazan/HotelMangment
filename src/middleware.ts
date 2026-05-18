@@ -47,6 +47,8 @@ const PUBLIC_PREFIXES = [
   // Public photo endpoints for UnitType / UnitPhoto galleries.
   "/api/files/unit-photo",
   "/api/files/unit-type-photo",
+  // Public content images (room gallery, brand photos) from uploads/.
+  "/api/files/content",
   // Meta WhatsApp Webhook: verified by hub.challenge (GET) and HMAC (POST).
   "/api/whatsapp/webhook",
 ];
@@ -282,14 +284,16 @@ export async function middleware(req: NextRequest) {
 
   // ─── 2. Authenticated but on the wrong host ─────────────────────────────
   //
-  // Staff session browsing the public host root → admin dashboard.
   // Guest session browsing the admin host root → /account on public host.
+  // Staff on the public host root → /landing (staff can browse the guest site).
   if (splitEnabled && pathname === "/") {
-    if (hostKind === "public" && audience === "staff") {
-      return buildCrossHostRedirect(req, getAdminHost(), "/");
-    }
     if (hostKind === "admin" && audience === "guest") {
       return buildCrossHostRedirect(req, getPublicHost(), "/account");
+    }
+    if (hostKind === "public") {
+      const target = req.nextUrl.clone();
+      target.pathname = audience === "guest" ? "/account" : "/landing";
+      return NextResponse.redirect(target);
     }
   }
 

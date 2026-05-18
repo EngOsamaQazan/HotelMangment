@@ -15,7 +15,7 @@ import { classifyHost, getAdminHost, getPublicHost } from "@/lib/hosts";
  *   • mafhotel.com / www.mafhotel.com
  *       – anonymous  → /landing
  *       – guest      → /account
- *       – staff      → `https://admin.mafhotel.com/`
+ *       – staff      → /landing (staff can browse the guest site freely)
  *
  * The middleware already performs this routing, but we duplicate it here as a
  * server-side safety net: even if the middleware is bypassed (stale cookie,
@@ -37,9 +37,9 @@ export default async function RootPage() {
     redirect("/account");
   }
 
-  // Staff session. On the public host → bounce them to the admin subdomain.
+  // Staff on the public host → show landing page (don't force-redirect to admin).
   if (hostKind === "public") {
-    redirect(`https://${getAdminHost()}/`);
+    redirect("/landing");
   }
 
   return <DashboardHome />;

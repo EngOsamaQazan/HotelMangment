@@ -140,7 +140,7 @@ export function hotelJsonLd(args?: {
     alternateName: SITE.nameEn,
     description: SITE.descriptionAr,
     url: SITE_URL,
-    image: [absUrl("/logo.png"), absUrl("/brand-1.jpeg"), absUrl("/brand-2.jpeg")],
+    image: [absUrl("/logo.png"), absUrl("/api/files/content/brand/brand-1.jpeg"), absUrl("/api/files/content/brand/brand-2.jpeg")],
     logo: absUrl("/logo.png"),
     telephone: CONTACT.phonePrimary,
     email: CONTACT.email,

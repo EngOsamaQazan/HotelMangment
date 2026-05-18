@@ -235,7 +235,7 @@ function BookInner() {
       <section className="relative overflow-hidden">
         <div className="absolute inset-0">
           <Image
-            src="/brand-1.jpeg"
+            src="/api/files/content/brand/brand-1.jpeg"
             alt=""
             fill
             priority

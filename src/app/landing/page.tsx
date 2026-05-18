@@ -115,41 +115,41 @@ const FAQS: Array<{ question: string; answer: string }> = [
  *  of feeling like a dump of 35 thumbnails. `span: 2` promotes a few tiles
  *  to hero cells on md+ for visual rhythm. */
 const GALLERY: RoomImage[] = [
-  { src: "/rooms/30.jpg", caption: "غرفة مزدوجة أنيقة بتفاصيل دافئة", span: 2 },
-  { src: "/rooms/01.jpg", caption: "مطبخ حديث متكامل داخل الغرفة" },
-  { src: "/rooms/10.jpg", caption: "غرفة واسعة مع شاشة ومنطقة جلوس" },
-  { src: "/rooms/12.jpg", caption: "غرفة عائلية بأربعة أسرّة" },
-  { src: "/rooms/02.jpg", caption: "غرفة بتشطيبات خشبية ومرآة توالِت" },
-  { src: "/rooms/25.jpg", caption: "ركن مطبخ عملي بخزائن داكنة" },
-  { src: "/rooms/05.jpg", caption: "سريران مفردان بملاءات بيضاء" },
-  { src: "/rooms/33.jpg", caption: "غرفة ثلاثية بإطلالة على النوافذ", span: 2 },
-  { src: "/rooms/15.jpg", caption: "مطبخ متكامل مع كاونتر أبيض" },
-  { src: "/rooms/22.jpg", caption: "غرفة بسريرين وشاشة كبيرة" },
-  { src: "/rooms/17.jpg", caption: "تفاصيل غرفة النوم مع الإضاءة الجانبية" },
-  { src: "/rooms/28.jpg", caption: "غرفة بثلاثة أسرّة بمساحة مريحة" },
-  { src: "/rooms/26.jpg", caption: "مطبخ حديث متكامل بتجهيزات شاملة" },
-  { src: "/rooms/20.jpg", caption: "منطقة نوم واسعة مع تلفاز" },
-  { src: "/rooms/35.jpg", caption: "جناح بخزانة ملابس ومنطقة توالِت" },
-  { src: "/rooms/14.jpg", caption: "غرفة عائلية من زاوية مختلفة" },
-  { src: "/rooms/03.jpg", caption: "سريران مفردان بتنسيق متناظر" },
-  { src: "/rooms/08.jpg", caption: "تفاصيل حائط التلفاز" },
-  { src: "/rooms/11.jpg", caption: "غرفة بسريرين وستائر خفيفة" },
-  { src: "/rooms/23.jpg", caption: "منظر قريب للأسرّة والمفروشات" },
-  { src: "/rooms/04.jpg", caption: "غرفة نوم مضيئة بإطلالة خارجية" },
-  { src: "/rooms/06.jpg", caption: "غرفة هادئة بألوان محايدة" },
-  { src: "/rooms/07.jpg", caption: "مساحة نوم بترتيب فندقي" },
-  { src: "/rooms/09.jpg", caption: "تفاصيل الوسائد والمفروشات" },
-  { src: "/rooms/13.jpg", caption: "غرفة عائلية بمساحة إضافية" },
-  { src: "/rooms/16.jpg", caption: "زاوية جلوس داخل الغرفة" },
-  { src: "/rooms/18.jpg", caption: "تفاصيل الحائط والديكور" },
-  { src: "/rooms/19.jpg", caption: "غرفة مزدوجة بإطلالة جانبية" },
-  { src: "/rooms/21.jpg", caption: "منطقة نوم بترتيب مريح" },
-  { src: "/rooms/24.jpg", caption: "تفاصيل الأثاث والمنسوجات" },
-  { src: "/rooms/27.jpg", caption: "غرفة بتفاصيل دافئة" },
-  { src: "/rooms/29.jpg", caption: "مساحة نوم منظمة" },
-  { src: "/rooms/31.jpg", caption: "زاوية غرفة بإضاءة طبيعية" },
-  { src: "/rooms/32.jpg", caption: "ديكور غرفة فاخرة" },
-  { src: "/rooms/34.jpg", caption: "غرفة مجهّزة لإقامة طويلة" },
+  { src: "/api/files/content/rooms/30.jpg", caption: "غرفة مزدوجة أنيقة بتفاصيل دافئة", span: 2 },
+  { src: "/api/files/content/rooms/01.jpg", caption: "مطبخ حديث متكامل داخل الغرفة" },
+  { src: "/api/files/content/rooms/10.jpg", caption: "غرفة واسعة مع شاشة ومنطقة جلوس" },
+  { src: "/api/files/content/rooms/12.jpg", caption: "غرفة عائلية بأربعة أسرّة" },
+  { src: "/api/files/content/rooms/02.jpg", caption: "غرفة بتشطيبات خشبية ومرآة توالِت" },
+  { src: "/api/files/content/rooms/25.jpg", caption: "ركن مطبخ عملي بخزائن داكنة" },
+  { src: "/api/files/content/rooms/05.jpg", caption: "سريران مفردان بملاءات بيضاء" },
+  { src: "/api/files/content/rooms/33.jpg", caption: "غرفة ثلاثية بإطلالة على النوافذ", span: 2 },
+  { src: "/api/files/content/rooms/15.jpg", caption: "مطبخ متكامل مع كاونتر أبيض" },
+  { src: "/api/files/content/rooms/22.jpg", caption: "غرفة بسريرين وشاشة كبيرة" },
+  { src: "/api/files/content/rooms/17.jpg", caption: "تفاصيل غرفة النوم مع الإضاءة الجانبية" },
+  { src: "/api/files/content/rooms/28.jpg", caption: "غرفة بثلاثة أسرّة بمساحة مريحة" },
+  { src: "/api/files/content/rooms/26.jpg", caption: "مطبخ حديث متكامل بتجهيزات شاملة" },
+  { src: "/api/files/content/rooms/20.jpg", caption: "منطقة نوم واسعة مع تلفاز" },
+  { src: "/api/files/content/rooms/35.jpg", caption: "جناح بخزانة ملابس ومنطقة توالِت" },
+  { src: "/api/files/content/rooms/14.jpg", caption: "غرفة عائلية من زاوية مختلفة" },
+  { src: "/api/files/content/rooms/03.jpg", caption: "سريران مفردان بتنسيق متناظر" },
+  { src: "/api/files/content/rooms/08.jpg", caption: "تفاصيل حائط التلفاز" },
+  { src: "/api/files/content/rooms/11.jpg", caption: "غرفة بسريرين وستائر خفيفة" },
+  { src: "/api/files/content/rooms/23.jpg", caption: "منظر قريب للأسرّة والمفروشات" },
+  { src: "/api/files/content/rooms/04.jpg", caption: "غرفة نوم مضيئة بإطلالة خارجية" },
+  { src: "/api/files/content/rooms/06.jpg", caption: "غرفة هادئة بألوان محايدة" },
+  { src: "/api/files/content/rooms/07.jpg", caption: "مساحة نوم بترتيب فندقي" },
+  { src: "/api/files/content/rooms/09.jpg", caption: "تفاصيل الوسائد والمفروشات" },
+  { src: "/api/files/content/rooms/13.jpg", caption: "غرفة عائلية بمساحة إضافية" },
+  { src: "/api/files/content/rooms/16.jpg", caption: "زاوية جلوس داخل الغرفة" },
+  { src: "/api/files/content/rooms/18.jpg", caption: "تفاصيل الحائط والديكور" },
+  { src: "/api/files/content/rooms/19.jpg", caption: "غرفة مزدوجة بإطلالة جانبية" },
+  { src: "/api/files/content/rooms/21.jpg", caption: "منطقة نوم بترتيب مريح" },
+  { src: "/api/files/content/rooms/24.jpg", caption: "تفاصيل الأثاث والمنسوجات" },
+  { src: "/api/files/content/rooms/27.jpg", caption: "غرفة بتفاصيل دافئة" },
+  { src: "/api/files/content/rooms/29.jpg", caption: "مساحة نوم منظمة" },
+  { src: "/api/files/content/rooms/31.jpg", caption: "زاوية غرفة بإضاءة طبيعية" },
+  { src: "/api/files/content/rooms/32.jpg", caption: "ديكور غرفة فاخرة" },
+  { src: "/api/files/content/rooms/34.jpg", caption: "غرفة مجهّزة لإقامة طويلة" },
 ];
 
 export default function LandingPage() {
@@ -174,7 +174,7 @@ export default function LandingPage() {
       {/* ---------- HERO ---------- */}
       <section className="relative h-[92vh] min-h-[560px] w-full overflow-hidden">
         <Image
-          src="/rooms/30.jpg"
+          src="/api/files/content/rooms/30.jpg"
           alt="غرفة فاخرة في فندق المفرق"
           fill
           priority
@@ -329,7 +329,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-10 items-center">
           <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-gold/30 order-2 md:order-1">
             <Image
-              src="/rooms/12.jpg"
+              src="/api/files/content/rooms/12.jpg"
               alt="غرفة عائلية يمكن تكوينها بدمج غرفتين"
               fill
               sizes="(max-width: 768px) 100vw, 50vw"
@@ -437,7 +437,7 @@ export default function LandingPage() {
       {/* ---------- CTA ---------- */}
       <section className="relative py-16 md:py-24 px-4 sm:px-6 overflow-hidden">
         <Image
-          src="/rooms/02.jpg"
+          src="/api/files/content/rooms/02.jpg"
           alt=""
           fill
           sizes="100vw"

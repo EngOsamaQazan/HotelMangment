@@ -58,6 +58,8 @@ const ALLOWLIST: string[] = [
   "/api/guest-auth",
   "/api/guest-me",
   "/api/book",
+  // Public content images (room gallery, brand photos) served from uploads/.
+  "/api/files/content",
 ];
 
 interface Finding {
