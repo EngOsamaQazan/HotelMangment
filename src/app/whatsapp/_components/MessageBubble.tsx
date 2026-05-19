@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useRef, useState } from "react";
 import {
   AlertTriangle,
   Check,
@@ -22,6 +21,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Message } from "../_types";
 import { humanizeWaError, isReengagementError, readJsonSafe } from "../_utils";
+import { FloatingLayer, placeFloating } from "./FloatingLayer";
 
 interface Props {
   m: Message;
@@ -422,39 +422,9 @@ function BubbleMenu({
   const [menuPosition, setMenuPosition] = useState<{
     top: number;
     left: number;
+    width?: number;
   } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onPointerDown(e: PointerEvent) {
-      const target = e.target as Node;
-      if (
-        buttonRef.current?.contains(target) ||
-        menuRef.current?.contains(target)
-      ) {
-        return;
-      }
-      setOpen(false);
-    }
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    function onViewportMove() {
-      setOpen(false);
-    }
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    window.addEventListener("resize", onViewportMove);
-    window.addEventListener("scroll", onViewportMove, true);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("resize", onViewportMove);
-      window.removeEventListener("scroll", onViewportMove, true);
-    };
-  }, [open]);
 
   if (!canEdit && !canDelete) return null;
 
@@ -463,65 +433,16 @@ function BubbleMenu({
     const rect = e.currentTarget.getBoundingClientRect();
     const width = 176;
     const rows = Number(canEdit && !!onEdit) + Number(canDelete && !!onDelete);
-    const estimatedHeight = rows * 44 + 12;
-    const margin = 8;
-    const top =
-      rect.bottom + margin + estimatedHeight > window.innerHeight
-        ? Math.max(margin, rect.top - estimatedHeight - margin)
-        : rect.bottom + margin;
-    const preferredLeft =
-      align === "end" ? rect.right - width : rect.left;
-    const left = Math.min(
-      window.innerWidth - width - margin,
-      Math.max(margin, preferredLeft),
+    setMenuPosition(
+      placeFloating({
+        anchor: rect,
+        width,
+        estimatedHeight: rows * 44 + 12,
+        align,
+      }),
     );
-
-    setMenuPosition({ top, left });
     setOpen((v) => !v);
   }
-
-  const menu =
-    open && menuPosition
-      ? createPortal(
-          <div
-            ref={menuRef}
-            className="fixed z-[130] bg-white rounded-xl shadow-2xl border border-gray-100 py-1 min-w-44 overflow-hidden"
-            style={{ top: menuPosition.top, left: menuPosition.left }}
-            role="menu"
-            aria-label="خيارات الرسالة"
-          >
-            {canEdit && onEdit && (
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  onEdit();
-                }}
-                className="w-full min-h-11 flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gold-soft text-start"
-                role="menuitem"
-              >
-                <Pencil size={14} className="text-primary" />
-                تعديل
-              </button>
-            )}
-            {canDelete && onDelete && (
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  onDelete();
-                }}
-                className="w-full min-h-11 flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 text-start"
-                role="menuitem"
-              >
-                <Trash2 size={14} />
-                حذف
-              </button>
-            )}
-          </div>,
-          document.body,
-        )
-      : null;
 
   return (
     <div
@@ -547,7 +468,43 @@ function BubbleMenu({
       >
         <MoreVertical size={14} />
       </button>
-      {menu}
+      <FloatingLayer
+        open={open}
+        position={menuPosition}
+        anchorRef={buttonRef}
+        onClose={() => setOpen(false)}
+        className="fixed z-[130] bg-white rounded-xl shadow-2xl border border-gray-100 py-1 min-w-44 overflow-hidden"
+        ariaLabel="خيارات الرسالة"
+      >
+        {canEdit && onEdit && (
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onEdit();
+            }}
+            className="w-full min-h-11 flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gold-soft text-start"
+            role="menuitem"
+          >
+            <Pencil size={14} className="text-primary" />
+            تعديل
+          </button>
+        )}
+        {canDelete && onDelete && (
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onDelete();
+            }}
+            className="w-full min-h-11 flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 text-start"
+            role="menuitem"
+          >
+            <Trash2 size={14} />
+            حذف
+          </button>
+        )}
+      </FloatingLayer>
     </div>
   );
 }

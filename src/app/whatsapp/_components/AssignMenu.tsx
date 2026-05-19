@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useHasPermission } from "@/lib/permissions/client";
 import { useIsMobile } from "../_hooks/useMediaQuery";
 import { readJsonSafe } from "../_utils";
+import { FloatingLayer, placeFloating } from "./FloatingLayer";
 
 interface ChatUser {
   id: number;
@@ -43,16 +44,12 @@ export function AssignMenu({
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState("");
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open || isMobile) return; // bottom-sheet dismisses via backdrop tap
-    const onClick = (e: MouseEvent) => {
-      if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [open, isMobile]);
+  const [menuPosition, setMenuPosition] = useState<{
+    top: number;
+    left: number;
+    width?: number;
+  } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -93,7 +90,8 @@ export function AssignMenu({
       });
       await readJsonSafe(res, "تعذّر تنفيذ العملية");
       onChange();
-      setOpen(false);
+    setOpen(false);
+    setMenuPosition(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "فشل");
     } finally {
@@ -103,6 +101,21 @@ export function AssignMenu({
 
   const basePath = `/api/whatsapp/conversations/${encodeURIComponent(contactPhone)}`;
   const isAssigneeMe = assignedToUserId === currentUserId;
+
+  function toggleMenu() {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (rect && !isMobile) {
+      setMenuPosition(
+        placeFloating({
+          anchor: rect,
+          width: 256,
+          estimatedHeight: canAssign ? 360 : 124,
+          align: "end",
+        }),
+      );
+    }
+    setOpen((v) => !v);
+  }
 
   const panel = (
     <>
@@ -201,9 +214,10 @@ export function AssignMenu({
   );
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="relative">
       <button
-        onClick={() => setOpen((v) => !v)}
+        ref={buttonRef}
+        onClick={toggleMenu}
         disabled={busy}
         className="tap-44 flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 whitespace-nowrap"
         aria-haspopup="menu"
@@ -217,14 +231,16 @@ export function AssignMenu({
         <span>إسناد المحادثة</span>
       </button>
 
-      {open && !isMobile && (
-        <div
-          role="menu"
-          className="absolute end-0 mt-2 w-64 max-w-[calc(100vw-1rem)] bg-white rounded-xl shadow-xl border border-gray-100 z-40 overflow-hidden"
-        >
-          {panel}
-        </div>
-      )}
+      <FloatingLayer
+        open={open && !isMobile}
+        position={menuPosition}
+        anchorRef={buttonRef}
+        onClose={() => setOpen(false)}
+        className="fixed z-[130] max-w-[calc(100vw-1rem)] bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden"
+        ariaLabel="إسناد المحادثة"
+      >
+        {panel}
+      </FloatingLayer>
 
       {open && isMobile && (
         <>

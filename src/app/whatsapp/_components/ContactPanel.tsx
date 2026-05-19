@@ -40,8 +40,8 @@ type Tab = "profile" | "notes" | "timeline";
  *
  * Two layout variants:
  *   • inline  : legacy inline drawer inside the thread section.
- *   • overlay : independent drawer with backdrop. It behaves as a bottom
- *               sheet on phones and a left-side drawer on wider screens.
+ *   • overlay : independent dialog with backdrop. It behaves as a bottom
+ *               sheet on phones and a centered work panel on wider screens.
  */
 export function ContactPanel({
   phone,
@@ -195,7 +195,7 @@ export function ContactPanel({
     return (
       <>
         <div
-          className={cn("fixed inset-0 z-40 bg-black/30", className)}
+          className={cn("fixed inset-0 z-[90] bg-black/45", className)}
           onClick={onClose}
           aria-hidden
         />
@@ -204,10 +204,10 @@ export function ContactPanel({
           aria-modal="true"
           aria-label="تفاصيل جهة الاتصال"
           className={cn(
-            "fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-2xl shadow-2xl flex flex-col",
+            "fixed inset-x-0 bottom-0 z-[100] bg-white rounded-t-2xl shadow-2xl flex flex-col",
             "max-h-[92dvh] min-h-[50dvh]",
-            "sm:inset-y-4 sm:left-4 sm:right-auto sm:bottom-auto sm:w-[min(28rem,calc(100vw-2rem))]",
-            "sm:h-[calc(100dvh-2rem)] sm:min-h-0 sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:border sm:border-gray-100",
+            "sm:inset-y-6 sm:left-1/2 sm:right-auto sm:bottom-auto sm:w-[min(32rem,calc(100vw-3rem))] sm:-translate-x-1/2",
+            "sm:h-[calc(100dvh-3rem)] sm:min-h-0 sm:max-h-[calc(100dvh-3rem)] sm:rounded-2xl sm:border sm:border-gray-100",
             className,
           )}
         >

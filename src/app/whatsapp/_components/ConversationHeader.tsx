@@ -18,6 +18,7 @@ import { useHasPermission } from "@/lib/permissions/client";
 import type { ConversationSummary } from "../_types";
 import { conversationDisplayName, initials, readJsonSafe } from "../_utils";
 import { AssignMenu } from "./AssignMenu";
+import { FloatingLayer, placeFloating } from "./FloatingLayer";
 
 interface Props {
   conversation: ConversationSummary;
@@ -57,7 +58,14 @@ export function ConversationHeader({
   const canManage = useHasPermission("whatsapp:manage_status");
   const [busy, setBusy] = useState<string | null>(null);
   const [overflowOpen, setOverflowOpen] = useState(false);
+  const [priorityOpen, setPriorityOpen] = useState(false);
+  const [priorityPosition, setPriorityPosition] = useState<{
+    top: number;
+    left: number;
+    width?: number;
+  } | null>(null);
   const overflowRef = useRef<HTMLDivElement>(null);
+  const priorityRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!overflowOpen) return;
@@ -90,6 +98,7 @@ export function ConversationHeader({
       await readJsonSafe(res, "تعذّر تنفيذ العملية");
       onChange();
       setOverflowOpen(false);
+      setPriorityOpen(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "فشل");
     } finally {
@@ -99,6 +108,21 @@ export function ConversationHeader({
 
   const prio = PRIORITY_LABELS[conversation.priority] ?? PRIORITY_LABELS.normal;
   const status = STATUS_LABELS[conversation.status] ?? STATUS_LABELS.open;
+
+  function togglePriority() {
+    const rect = priorityRef.current?.getBoundingClientRect();
+    if (rect) {
+      setPriorityPosition(
+        placeFloating({
+          anchor: rect,
+          width: 160,
+          estimatedHeight: 184,
+          align: "end",
+        }),
+      );
+    }
+    setPriorityOpen((v) => !v);
+  }
 
   return (
     <header className="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-gray-100">
@@ -296,13 +320,27 @@ export function ConversationHeader({
         />
 
         {canManage && (
-          <details className="relative group">
-            <summary className="tap-44 list-none cursor-pointer flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 whitespace-nowrap">
+          <div className="relative">
+            <button
+              ref={priorityRef}
+              type="button"
+              onClick={togglePriority}
+              className="tap-44 list-none cursor-pointer flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 whitespace-nowrap"
+              aria-haspopup="menu"
+              aria-expanded={priorityOpen}
+            >
               <Flag size={12} />
               الأولوية
               <ChevronDown size={10} />
-            </summary>
-            <div className="absolute end-0 mt-1 z-40 bg-white rounded-xl border border-gray-100 shadow-lg p-1 w-40">
+            </button>
+            <FloatingLayer
+              open={priorityOpen}
+              position={priorityPosition}
+              anchorRef={priorityRef}
+              onClose={() => setPriorityOpen(false)}
+              className="fixed z-[130] bg-white rounded-xl border border-gray-100 shadow-2xl p-1"
+              ariaLabel="تغيير أولوية المحادثة"
+            >
               {(["low", "normal", "high", "urgent"] as const).map((p) => (
                 <button
                   key={p}
@@ -316,8 +354,8 @@ export function ConversationHeader({
                   {PRIORITY_LABELS[p].label}
                 </button>
               ))}
-            </div>
-          </details>
+            </FloatingLayer>
+          </div>
         )}
 
         {canManage && conversation.status === "open" && (

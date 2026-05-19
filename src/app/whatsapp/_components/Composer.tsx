@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Can } from "@/components/Can";
+import { FloatingLayer, placeFloating } from "./FloatingLayer";
 
 type MediaKind = "image" | "video" | "document" | "audio";
 
@@ -352,53 +353,75 @@ function AttachmentMenu({
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{
+    top: number;
+    left: number;
+    width?: number;
+  } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  function toggleMenu() {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (rect) {
+      setMenuPosition(
+        placeFloating({
+          anchor: rect,
+          width: 176,
+          estimatedHeight: 142,
+          align: "start",
+        }),
+      );
+    }
+    setOpen((v) => !v);
+  }
+
   return (
     <div className="relative shrink-0">
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggleMenu}
         disabled={disabled}
         className="tap-44 h-11 w-11 rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-40 flex items-center justify-center text-gray-600"
         aria-label="إرفاق ملف"
+        aria-haspopup="menu"
         aria-expanded={open}
       >
         <Paperclip size={18} />
       </button>
-      {open && (
-        <>
-          <div
-            onClick={() => setOpen(false)}
-            className="fixed inset-0 z-[40]"
-            aria-hidden
-          />
-          <div className="absolute bottom-full mb-2 start-0 z-[41] bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[170px]">
-            <AttachBtn
-              label="صورة"
-              icon={<ImageIcon size={16} />}
-              onClick={() => {
-                setOpen(false);
-                onPick("image");
-              }}
-            />
-            <AttachBtn
-              label="فيديو"
-              icon={<FileText size={16} />}
-              onClick={() => {
-                setOpen(false);
-                onPick("video");
-              }}
-            />
-            <AttachBtn
-              label="مستند"
-              icon={<FileText size={16} />}
-              onClick={() => {
-                setOpen(false);
-                onPick("document");
-              }}
-            />
-          </div>
-        </>
-      )}
+      <FloatingLayer
+        open={open}
+        position={menuPosition}
+        anchorRef={buttonRef}
+        onClose={() => setOpen(false)}
+        className="fixed z-[130] bg-white rounded-xl shadow-2xl border border-gray-100 py-1 overflow-hidden"
+        ariaLabel="خيارات المرفقات"
+      >
+        <AttachBtn
+          label="صورة"
+          icon={<ImageIcon size={16} />}
+          onClick={() => {
+            setOpen(false);
+            onPick("image");
+          }}
+        />
+        <AttachBtn
+          label="فيديو"
+          icon={<FileText size={16} />}
+          onClick={() => {
+            setOpen(false);
+            onPick("video");
+          }}
+        />
+        <AttachBtn
+          label="مستند"
+          icon={<FileText size={16} />}
+          onClick={() => {
+            setOpen(false);
+            onPick("document");
+          }}
+        />
+      </FloatingLayer>
     </div>
   );
 }
@@ -416,7 +439,8 @@ function AttachBtn({
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gold-soft"
+      className="w-full min-h-11 flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gold-soft"
+      role="menuitem"
     >
       <span className="text-primary">{icon}</span>
       {label}
