@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertTriangle,
   Check,
@@ -418,35 +419,125 @@ function BubbleMenu({
   onDelete?: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    function onDoc(e: MouseEvent) {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    function onPointerDown(e: PointerEvent) {
+      const target = e.target as Node;
+      if (
+        buttonRef.current?.contains(target) ||
+        menuRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setOpen(false);
     }
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    function onViewportMove() {
+      setOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", onViewportMove);
+    window.addEventListener("scroll", onViewportMove, true);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", onViewportMove);
+      window.removeEventListener("scroll", onViewportMove, true);
+    };
   }, [open]);
 
   if (!canEdit && !canDelete) return null;
 
+  function toggleMenu(e: React.MouseEvent<HTMLButtonElement>) {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const width = 176;
+    const rows = Number(canEdit && !!onEdit) + Number(canDelete && !!onDelete);
+    const estimatedHeight = rows * 44 + 12;
+    const margin = 8;
+    const top =
+      rect.bottom + margin + estimatedHeight > window.innerHeight
+        ? Math.max(margin, rect.top - estimatedHeight - margin)
+        : rect.bottom + margin;
+    const preferredLeft =
+      align === "end" ? rect.right - width : rect.left;
+    const left = Math.min(
+      window.innerWidth - width - margin,
+      Math.max(margin, preferredLeft),
+    );
+
+    setMenuPosition({ top, left });
+    setOpen((v) => !v);
+  }
+
+  const menu =
+    open && menuPosition
+      ? createPortal(
+          <div
+            ref={menuRef}
+            className="fixed z-[130] bg-white rounded-xl shadow-2xl border border-gray-100 py-1 min-w-44 overflow-hidden"
+            style={{ top: menuPosition.top, left: menuPosition.left }}
+            role="menu"
+            aria-label="خيارات الرسالة"
+          >
+            {canEdit && onEdit && (
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onEdit();
+                }}
+                className="w-full min-h-11 flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gold-soft text-start"
+                role="menuitem"
+              >
+                <Pencil size={14} className="text-primary" />
+                تعديل
+              </button>
+            )}
+            {canDelete && onDelete && (
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onDelete();
+                }}
+                className="w-full min-h-11 flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 text-start"
+                role="menuitem"
+              >
+                <Trash2 size={14} />
+                حذف
+              </button>
+            )}
+          </div>,
+          document.body,
+        )
+      : null;
+
   return (
     <div
-      ref={ref}
       className={cn(
         "absolute top-1 z-[5]",
         align === "end" ? "end-1" : "start-1",
       )}
     >
       <button
+        ref={buttonRef}
         type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen((v) => !v);
-        }}
+        onClick={toggleMenu}
         disabled={busy}
         aria-label="خيارات الرسالة"
+        aria-haspopup="menu"
+        aria-expanded={open}
         className={cn(
           "w-7 h-7 rounded-full flex items-center justify-center transition-opacity",
           variant === "solid"
@@ -456,42 +547,7 @@ function BubbleMenu({
       >
         <MoreVertical size={14} />
       </button>
-      {open && (
-        <div
-          className={cn(
-            "absolute mt-1 z-[6] bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[160px]",
-            align === "end" ? "end-0" : "start-0",
-          )}
-          role="menu"
-        >
-          {canEdit && onEdit && (
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                onEdit();
-              }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gold-soft text-start"
-            >
-              <Pencil size={14} className="text-primary" />
-              تعديل
-            </button>
-          )}
-          {canDelete && onDelete && (
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                onDelete();
-              }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 text-start"
-            >
-              <Trash2 size={14} />
-              حذف
-            </button>
-          )}
-        </div>
-      )}
+      {menu}
     </div>
   );
 }
