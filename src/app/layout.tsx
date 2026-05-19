@@ -6,6 +6,7 @@ import { AuthProvider } from "@/components/AuthProvider";
 import { BFCacheBuster } from "@/components/BFCacheBuster";
 import { PermissionsProvider } from "@/lib/permissions/client";
 import { RealtimeProvider } from "@/lib/realtime/client";
+import { GoogleTag } from "@/components/marketing/GoogleTag";
 import { Toaster } from "sonner";
 import {
   SITE,
@@ -177,6 +178,7 @@ export default function RootLayout({
         <meta name="contact" content={CONTACT.email} />
       </head>
       <body className="font-[family-name:var(--font-tajawal)] antialiased">
+        <GoogleTag />
         <AuthProvider>
           <PermissionsProvider>
             <RealtimeProvider>

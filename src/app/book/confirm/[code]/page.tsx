@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { GuestShell } from "@/components/public/GuestShell";
+import { BookingConversionTracker } from "@/components/marketing/BookingConversionTracker";
 import {
   CheckCircle2,
   CalendarRange,
@@ -148,6 +149,11 @@ export default function ConfirmationPage() {
 
       {!loading && !error && voucher && (
         <div className="max-w-3xl mx-auto">
+          <BookingConversionTracker
+            confirmationCode={voucher.confirmationCode}
+            totalAmount={voucher.totalAmount}
+            currency="JOD"
+          />
           <div className="text-center mb-6">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full mb-3">
               <CheckCircle2 size={36} />
