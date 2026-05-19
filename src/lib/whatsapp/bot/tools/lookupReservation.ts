@@ -107,11 +107,11 @@ export const lookupReservationSchema: ToolJsonSchema = {
     type: "object",
     properties: {
       confirmationCode: {
-        type: "string",
-        description: "The 6-character code printed on the voucher; omit to look up by phone.",
+        type: ["string", "null"],
+        description: "The 6-character code printed on the voucher; pass null to look up by phone.",
       },
     },
-    required: [],
+    required: ["confirmationCode"],
     additionalProperties: false,
   },
 };

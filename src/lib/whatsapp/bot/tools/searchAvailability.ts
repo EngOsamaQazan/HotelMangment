@@ -162,12 +162,12 @@ export const searchAvailabilitySchema: ToolJsonSchema = {
         description: "Total number of guests (adults + children).",
       },
       preferredCategory: {
-        type: "string",
-        enum: ["apartment", "hotel_room", "suite", "studio"],
-        description: "Optional category filter when the guest expressed a preference.",
+        type: ["string", "null"],
+        enum: ["apartment", "hotel_room", "suite", "studio", null],
+        description: "Optional category filter when the guest expressed a preference. Pass null if none.",
       },
     },
-    required: ["checkIn", "checkOut", "guests"],
+    required: ["checkIn", "checkOut", "guests", "preferredCategory"],
     additionalProperties: false,
   },
 };

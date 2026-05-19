@@ -175,12 +175,12 @@ export const createHoldSchema: ToolJsonSchema = {
       checkOut: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
       guests: { type: "integer", minimum: 1, maximum: 20 },
       guestName: {
-        type: "string",
+        type: ["string", "null"],
         description:
-          "Override the guest's name on the reservation. Omit unless the guest explicitly told you to use a different name.",
+          "Override the guest's name on the reservation. Pass null unless the guest explicitly told you to use a different name.",
       },
     },
-    required: ["kind", "id", "checkIn", "checkOut", "guests"],
+    required: ["kind", "id", "checkIn", "checkOut", "guests", "guestName"],
     additionalProperties: false,
   },
 };
