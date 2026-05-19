@@ -114,6 +114,13 @@ export async function executeAssistantAction(
     if (e instanceof AccountingError) {
       return { ok: false, message: e.message, errorCode: "validation" };
     }
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      const target = Array.isArray(e.meta?.target) ? e.meta.target.join(", ") : "";
+      const message = target.includes("entry_number")
+        ? "حدث تعارض في رقم القيد. تم تحديث آلية الترقيم، أعد إنشاء المسودة وحاول مرة ثانية."
+        : "تعذّر التنفيذ بسبب قيمة مكررة في قاعدة البيانات.";
+      return { ok: false, message, errorCode: "validation" };
+    }
     console.error("[assistant/executor]", e);
     return { ok: false, message: msg, errorCode: "internal" };
   }

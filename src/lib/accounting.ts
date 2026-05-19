@@ -123,7 +123,26 @@ async function nextEntryNumber(tx: Tx, year: number): Promise<string> {
     update: { value: { increment: 1 } },
     create: { key, value: 1 },
   });
-  return `JE-${year}-${String(counter.value).padStart(6, "0")}`;
+
+  const prefix = `JE-${year}-`;
+  const latest = await tx.journalEntry.findFirst({
+    where: { entryNumber: { startsWith: prefix } },
+    orderBy: { entryNumber: "desc" },
+    select: { entryNumber: true },
+  });
+  const latestValue = latest ? Number(latest.entryNumber.slice(prefix.length)) : 0;
+  const value = Number.isFinite(latestValue)
+    ? Math.max(counter.value, latestValue + 1)
+    : counter.value;
+
+  if (value !== counter.value) {
+    await tx.accountingCounter.update({
+      where: { key },
+      data: { value },
+    });
+  }
+
+  return `${prefix}${String(value).padStart(6, "0")}`;
 }
 
 export async function postEntry(
