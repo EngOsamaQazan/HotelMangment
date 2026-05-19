@@ -9,11 +9,14 @@ import {
   type ToolContext,
   type ToolName,
 } from "./tools";
-import { ensureBotConversation, ensureGuestAccountForPhone, normalizePhone } from "./identity";
+import { ensureBotConversation, ensureGuestAccountForPhone, normalizePhone, readSlots } from "./identity";
 import { buildSystemPrompt, sanitizeUserText, wrapUserText } from "./prompt";
+import type { NegotiationConfig } from "./prompt";
 import { runFallbackTurn } from "./fallback";
 import { sendHumanlikeText } from "./humanize";
 import { maybeApplyOptOut } from "./compliance";
+import { detectPhoneOrigin } from "../phone-language";
+import { inferGender } from "../gender-detect";
 
 /**
  * The brain. One call to `runBotTurn` consumes one inbound WhatsApp message
@@ -62,9 +65,11 @@ export async function runBotTurn(input: RunBotTurnInput): Promise<RunBotTurnResu
   if (!phone) return { mode: "skipped", botConvId: null, replied: false };
 
   // ── 1. Identity provisioning ────────────────────────────────────────
+  const phoneOrigin = detectPhoneOrigin(phone);
   const { guestAccount } = await ensureGuestAccountForPhone({
     phone,
     profileName: input.contactName,
+    preferredLang: phoneOrigin.language,
   });
   const botConv = await ensureBotConversation({
     phone,
@@ -220,6 +225,23 @@ async function runLlmDialog(args: RunLlmDialogArgs): Promise<boolean> {
   const maxHops = cfg.botMaxToolHops || MAX_TOOL_HOPS_DEFAULT;
   const maxTurns = cfg.botMaxTurns || MAX_HISTORY_TURNS_DEFAULT;
 
+  // Detect language from the guest's phone number country code.
+  const origin = detectPhoneOrigin(ctx.contactPhone);
+  const slotLang = (readSlots(ctx.botConv).language as string) || null;
+  const language = slotLang ?? origin.language;
+
+  // Infer gender from WhatsApp profile name for culturally appropriate greetings.
+  const guestGender = inferGender(ctx.guestAccount?.fullName ?? ctx.contactName);
+
+  // Negotiation config from DB.
+  const negotiation: NegotiationConfig = {
+    enabled: cfg.botNegotiationEnabled,
+    maxDiscountPct: Math.min(cfg.botMaxDiscountPct, 50),
+    minNights: cfg.botNegotiationMinNights,
+    perNightPct: cfg.botNegotiationPerNightPct,
+    perGuestPct: cfg.botNegotiationPerGuestPct,
+  };
+
   // Build the prompt + replay the dialog so the model has context.
   const system = buildSystemPrompt({
     cfg: {
@@ -230,6 +252,10 @@ async function runLlmDialog(args: RunLlmDialogArgs): Promise<boolean> {
     },
     botConv: ctx.botConv,
     guestName: ctx.guestAccount?.fullName ?? ctx.contactName,
+    language: language as typeof origin.language,
+    guestCountry: origin.countryName,
+    guestGender,
+    negotiation,
   });
 
   const messages = await buildMessageHistory(ctx.botConv, maxTurns);

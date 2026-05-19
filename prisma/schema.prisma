@@ -1565,6 +1565,21 @@ model WhatsAppConfig {
   /// Public origin used when constructing Stripe success/cancel URLs.
   botPublicBaseUrl          String?   @map("bot_public_base_url")
 
+  // ---- Negotiation / haggling behaviour ----
+  /// When true the bot can offer discounts during price negotiation.
+  botNegotiationEnabled     Boolean   @default(false) @map("bot_negotiation_enabled")
+  /// Maximum discount percentage the bot may offer (0–50). The bot starts
+  /// at the full getQuote price and can go down up to this cap.
+  botMaxDiscountPct         Int       @default(10) @map("bot_max_discount_pct")
+  /// Minimum stay nights required before any negotiation discount kicks in.
+  /// Shorter stays always get the standard price.
+  botNegotiationMinNights   Int       @default(1) @map("bot_negotiation_min_nights")
+  /// Extra discount percentage added per night beyond `botNegotiationMinNights`
+  /// (cumulative, capped by `botMaxDiscountPct`). E.g. 2 means +2% per extra night.
+  botNegotiationPerNightPct Int       @default(2) @map("bot_negotiation_per_night_pct")
+  /// Extra discount percentage added per guest beyond 1 (cumulative, capped).
+  botNegotiationPerGuestPct Int       @default(1) @map("bot_negotiation_per_guest_pct")
+
   // ---- Staff AI Assistant (separate budget, same provider/key) ----
   /// Master switch for the internal staff assistant at /assistant.
   /// Defaults to true so the assistant lights up automatically the moment

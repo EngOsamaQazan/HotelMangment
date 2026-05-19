@@ -53,8 +53,8 @@ export interface EnsureGuestAccountInput {
   phone: string;
   /** WhatsApp profile name from `contacts[].profile.name`. May be null. */
   profileName?: string | null;
-  /** Preferred language inferred from the dialog ("ar" | "en"). */
-  preferredLang?: "ar" | "en";
+  /** Preferred language detected from phone country code or dialog. */
+  preferredLang?: string;
 }
 
 /**
@@ -163,7 +163,7 @@ export interface BotSlots {
   guests?: number;
   preferredCategory?: string;  // "apartment" | "hotel_room" | …
   guestName?: string;
-  language?: "ar" | "en";
+  language?: string;
   /** Last unit-type ids we showed the guest (avoids pestering with the same options). */
   lastShownOptions?: number[];
   /** Free-form notes the LLM wants to remember (allergies, requests). */

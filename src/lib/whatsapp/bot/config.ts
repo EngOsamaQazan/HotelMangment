@@ -44,6 +44,13 @@ export interface BotPublicConfig {
   hasBotStripeSecret: boolean;
   hasBotStripeWebhookSecret: boolean;
   botPublicBaseUrl: string | null;
+
+  // Negotiation / haggling
+  botNegotiationEnabled: boolean;
+  botMaxDiscountPct: number;
+  botNegotiationMinNights: number;
+  botNegotiationPerNightPct: number;
+  botNegotiationPerGuestPct: number;
 }
 
 export async function loadBotConfig(): Promise<BotPublicConfig> {
@@ -85,6 +92,11 @@ export async function loadBotConfig(): Promise<BotPublicConfig> {
     hasBotStripeSecret: !!row.botStripeSecretKeyEnc,
     hasBotStripeWebhookSecret: !!row.botStripeWebhookSecretEnc,
     botPublicBaseUrl: row.botPublicBaseUrl,
+    botNegotiationEnabled: row.botNegotiationEnabled,
+    botMaxDiscountPct: row.botMaxDiscountPct ?? 10,
+    botNegotiationMinNights: row.botNegotiationMinNights ?? 1,
+    botNegotiationPerNightPct: row.botNegotiationPerNightPct ?? 2,
+    botNegotiationPerGuestPct: row.botNegotiationPerGuestPct ?? 1,
   };
 }
 
@@ -114,6 +126,11 @@ export interface UpdateBotConfigInput {
   botStripeSecretKey?: string;
   botStripeWebhookSecret?: string;
   botPublicBaseUrl?: string | null;
+  botNegotiationEnabled?: boolean;
+  botMaxDiscountPct?: number;
+  botNegotiationMinNights?: number;
+  botNegotiationPerNightPct?: number;
+  botNegotiationPerGuestPct?: number;
 }
 
 export async function updateBotConfig(patch: UpdateBotConfigInput): Promise<BotPublicConfig> {
@@ -163,6 +180,18 @@ export async function updateBotConfig(patch: UpdateBotConfigInput): Promise<BotP
       typeof patch.botPublicBaseUrl === "string" && patch.botPublicBaseUrl.trim()
         ? patch.botPublicBaseUrl.trim().replace(/\/+$/, "")
         : null;
+
+  // Negotiation
+  if (patch.botNegotiationEnabled !== undefined)
+    data.botNegotiationEnabled = !!patch.botNegotiationEnabled;
+  if (patch.botMaxDiscountPct !== undefined)
+    data.botMaxDiscountPct = clampInt(patch.botMaxDiscountPct, 0, 50);
+  if (patch.botNegotiationMinNights !== undefined)
+    data.botNegotiationMinNights = clampInt(patch.botNegotiationMinNights, 1, 30);
+  if (patch.botNegotiationPerNightPct !== undefined)
+    data.botNegotiationPerNightPct = clampInt(patch.botNegotiationPerNightPct, 0, 10);
+  if (patch.botNegotiationPerGuestPct !== undefined)
+    data.botNegotiationPerGuestPct = clampInt(patch.botNegotiationPerGuestPct, 0, 10);
 
   // Secrets — empty strings preserve the stored value.
   if (typeof patch.botLlmApiKey === "string" && patch.botLlmApiKey.trim()) {
