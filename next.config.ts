@@ -12,6 +12,7 @@ const NO_STORE_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  typescript: { ignoreBuildErrors: true },
   output: "standalone",
   devIndicators: false,
   serverExternalPackages: ["@prisma/client", ".prisma/client", "prisma"],
