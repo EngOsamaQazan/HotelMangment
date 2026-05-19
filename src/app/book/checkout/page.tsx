@@ -700,14 +700,18 @@ function InfoRow({
 }
 
 function Countdown({ expiresAt }: { expiresAt: Date }) {
-  const [remaining, setRemaining] = useState(
-    Math.max(0, expiresAt.getTime() - Date.now()),
-  );
+  const [remaining, setRemaining] = useState(0);
   useEffect(() => {
+    const firstTick = window.setTimeout(() => {
+      setRemaining(Math.max(0, expiresAt.getTime() - Date.now()));
+    }, 0);
     const i = setInterval(() => {
       setRemaining(Math.max(0, expiresAt.getTime() - Date.now()));
     }, 1000);
-    return () => clearInterval(i);
+    return () => {
+      window.clearTimeout(firstTick);
+      clearInterval(i);
+    };
   }, [expiresAt]);
   const mm = Math.floor(remaining / 60_000);
   const ss = Math.floor((remaining % 60_000) / 1000);

@@ -654,7 +654,7 @@ function PriceSummaryCard({
         احجز الآن
       </button>
       <p className="mt-3 text-[11px] text-gray-500 text-center leading-relaxed">
-        بنقرك على "احجز الآن" أنت توافق على
+        بنقرك على &quot;احجز الآن&quot; أنت توافق على
         <Link href="/terms" className="text-primary hover:underline mx-1">
           شروط الحجز
         </Link>

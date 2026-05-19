@@ -16,32 +16,7 @@ export function useTabAttention() {
   const flashTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const dotFaviconRef = useRef<string | null>(null);
 
-  // Stop + restore when the tab becomes visible.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const onVis = () => {
-      if (document.visibilityState === "visible") clear();
-    };
-    document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
-  }, []);
-
-  const clear = useCallback(() => {
-    if (flashTimerRef.current) {
-      clearInterval(flashTimerRef.current);
-      flashTimerRef.current = null;
-    }
-    if (originalTitleRef.current !== null) {
-      document.title = originalTitleRef.current;
-      originalTitleRef.current = null;
-    }
-    if (originalFaviconRef.current !== null) {
-      setFaviconHref(originalFaviconRef.current);
-      originalFaviconRef.current = null;
-    }
-  }, []);
-
-  const setFaviconHref = (href: string) => {
+  const setFaviconHref = useCallback((href: string) => {
     const link =
       document.querySelector<HTMLLinkElement>('link[rel~="icon"]') ??
       (() => {
@@ -51,9 +26,9 @@ export function useTabAttention() {
         return l;
       })();
     link.href = href;
-  };
+  }, []);
 
-  const buildDotFavicon = (): string => {
+  const buildDotFavicon = useCallback((): string => {
     if (dotFaviconRef.current) return dotFaviconRef.current;
     const c = document.createElement("canvas");
     c.width = 64;
@@ -72,7 +47,32 @@ export function useTabAttention() {
     const data = c.toDataURL("image/png");
     dotFaviconRef.current = data;
     return data;
-  };
+  }, []);
+
+  const clear = useCallback(() => {
+    if (flashTimerRef.current) {
+      clearInterval(flashTimerRef.current);
+      flashTimerRef.current = null;
+    }
+    if (originalTitleRef.current !== null) {
+      document.title = originalTitleRef.current;
+      originalTitleRef.current = null;
+    }
+    if (originalFaviconRef.current !== null) {
+      setFaviconHref(originalFaviconRef.current);
+      originalFaviconRef.current = null;
+    }
+  }, [setFaviconHref]);
+
+  // Stop + restore when the tab becomes visible.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onVis = () => {
+      if (document.visibilityState === "visible") clear();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [clear]);
 
   /** Start flashing. Ignored if the tab is already visible. */
   const flash = useCallback(
@@ -96,7 +96,7 @@ export function useTabAttention() {
           : (originalTitleRef.current ?? "");
       }, 1000);
     },
-    [],
+    [buildDotFavicon, setFaviconHref],
   );
 
   useEffect(() => () => clear(), [clear]);

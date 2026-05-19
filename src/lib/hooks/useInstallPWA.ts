@@ -23,6 +23,20 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 }
 
+function getInstalledState() {
+  if (typeof window === "undefined") return false;
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+  );
+}
+
+function getIOSState() {
+  if (typeof window === "undefined") return false;
+  const ua = window.navigator.userAgent;
+  return /iPad|iPhone|iPod/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
+}
+
 export interface InstallPWAState {
   /** الحدث جاهز → يمكن استدعاء `install()` مباشرة (Android/Chrome/Edge). */
   canInstall: boolean;
@@ -36,27 +50,13 @@ export interface InstallPWAState {
 export function useInstallPWA(): InstallPWAState {
   const [deferred, setDeferred] =
     useState<BeforeInstallPromptEvent | null>(null);
-  const [isInstalled, setIsInstalled] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(getInstalledState);
+  const [isIOS] = useState(getIOSState);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // 1) Detect already-installed state.
-    const media = window.matchMedia("(display-mode: standalone)");
-    const isStandalone =
-      media.matches ||
-      (window.navigator as Navigator & { standalone?: boolean }).standalone ===
-        true;
-    setIsInstalled(isStandalone);
-
-    // 2) iOS/Safari never fires `beforeinstallprompt` — detect via UA so we
-    //    can show the manual instructions card instead of a disabled button.
-    const ua = window.navigator.userAgent;
-    const iOS = /iPad|iPhone|iPod/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
-    setIsIOS(iOS);
-
-    // 3) Capture the prompt event for later programmatic use.
+    // Capture the prompt event for later programmatic use.
     function onBeforeInstall(e: Event) {
       e.preventDefault();
       setDeferred(e as BeforeInstallPromptEvent);

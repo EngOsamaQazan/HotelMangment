@@ -47,7 +47,10 @@ export function useWhatsAppRealtime(opts: UseWhatsAppRealtimeOptions) {
   useWhatsAppConversationRoom(opts.conversationId ?? null);
 
   const cbRef = useRef(opts);
-  cbRef.current = opts;
+
+  useEffect(() => {
+    cbRef.current = opts;
+  }, [opts]);
 
   useEffect(() => {
     if (!socket) return;

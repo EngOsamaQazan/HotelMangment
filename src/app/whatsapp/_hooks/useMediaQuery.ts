@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 /**
  * Tiny SSR-safe `matchMedia` hook. The initial render uses `initial` (default
@@ -11,23 +11,26 @@ import { useEffect, useState } from "react";
  *   const isMobile = useMediaQuery("(max-width: 767px)");
  */
 export function useMediaQuery(query: string, initial = false): boolean {
-  const [matches, setMatches] = useState<boolean>(initial);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const mql = window.matchMedia(query);
-    setMatches(mql.matches);
-    const onChange = (e: MediaQueryListEvent) => setMatches(e.matches);
-    // Safari < 14 lacks addEventListener on MediaQueryList.
-    if (typeof mql.addEventListener === "function") {
-      mql.addEventListener("change", onChange);
-      return () => mql.removeEventListener("change", onChange);
-    }
-    mql.addListener(onChange);
-    return () => mql.removeListener(onChange);
-  }, [query]);
-
-  return matches;
+  return useSyncExternalStore(
+    (onStoreChange) => {
+      if (typeof window === "undefined" || !window.matchMedia) {
+        return () => {};
+      }
+      const mql = window.matchMedia(query);
+      // Safari < 14 lacks addEventListener on MediaQueryList.
+      if (typeof mql.addEventListener === "function") {
+        mql.addEventListener("change", onStoreChange);
+        return () => mql.removeEventListener("change", onStoreChange);
+      }
+      mql.addListener(onStoreChange);
+      return () => mql.removeListener(onStoreChange);
+    },
+    () =>
+      typeof window !== "undefined" && window.matchMedia
+        ? window.matchMedia(query).matches
+        : initial,
+    () => initial,
+  );
 }
 
 /** Convenience: true when viewport width < Tailwind `md` (768px). */

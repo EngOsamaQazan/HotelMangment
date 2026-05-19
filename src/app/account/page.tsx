@@ -34,7 +34,6 @@ export default function AccountPage() {
 
   useEffect(() => {
     let cancelled = false;
-    setIsLoading(true);
     fetch("/api/guest-me/reservations")
       .then((r) => r.json())
       .then((json) => {
