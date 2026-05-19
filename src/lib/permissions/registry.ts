@@ -753,6 +753,22 @@ export const RESOURCES: ResourceDef[] = [
     description:
       "بيانات دخول Booking.com، تعيين الغرف، جدولة ومتابعة مهام المزامنة (عبر Playwright).",
   },
+  {
+    key: "settings.audit_log",
+    label: "سجل المراجعة",
+    category: "admin",
+    actions: ["view"],
+    routes: [
+      "/settings/audit-log",
+      "/api/audit-logs",
+    ],
+    extraActions: [
+      { key: "export", label: "تصدير السجل" },
+    ],
+    sortOrder: 360,
+    description:
+      "سجل مراجعة شامل لجميع العمليات على النظام — متوافق مع ISO 27001.",
+  },
 ];
 
 // ────────────────────────────────────────────────────────────────────────

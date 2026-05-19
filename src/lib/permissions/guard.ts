@@ -12,9 +12,11 @@
 
 import "server-only";
 import { getServerSession, type Session } from "next-auth";
+import { headers } from "next/headers";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { RESOURCES, ACTION_LABELS } from "@/lib/permissions/registry";
+import { auditStore, type AuditContext } from "@/lib/audit-context";
 
 /** HTTP error that Route Handlers can throw/return to the client. */
 export class HttpError extends Error {
@@ -192,6 +194,31 @@ export async function requirePermission(
   const session = await getSessionOrThrow();
   const userId = Number((session.user as { id?: string | number }).id);
   if (!Number.isFinite(userId)) throw new UnauthorizedError();
+
+  // Populate audit context so Prisma extension can log writes automatically.
+  if (!auditStore.getStore()) {
+    try {
+      const h = await headers();
+      const ctx: AuditContext = {
+        userId,
+        userEmail: session.user?.email ?? null,
+        userName: session.user?.name ?? null,
+        audience: (session.user as { audience?: string }).audience === "guest" ? "guest" : "staff",
+        ipAddress:
+          h.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+          h.get("x-real-ip") ??
+          null,
+        userAgent: h.get("user-agent") ?? null,
+        httpMethod: h.get("x-invoke-method") ?? h.get(":method") ?? null,
+        path: h.get("x-invoke-path") ?? h.get("x-matched-path") ?? null,
+        startedAt: performance.now(),
+      };
+      auditStore.enterWith(ctx);
+    } catch {
+      // headers() may throw in some edge runtime contexts — non-fatal.
+    }
+  }
+
   if (!keys.length) return session;
 
   const ok = await hasPermission(userId, ...keys);

@@ -2290,3 +2290,44 @@ model AssistantLesson {
   @@index([status, usageCount])
   @@map("assistant_lessons")
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// Audit Log — ISO 27001 / ISO 27002 compliant immutable event trail
+// ═══════════════════════════════════════════════════════════════════════
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  timestamp DateTime @default(now())
+
+  // ── Who ──
+  userId    Int?     @map("user_id")
+  userEmail String?  @map("user_email")
+  userName  String?  @map("user_name")
+  audience  String   @default("system") // staff | guest | system
+
+  // ── What ──
+  action    String   // CREATE | UPDATE | DELETE | LOGIN | LOGIN_FAILED | LOGOUT | EXPORT | VOID | APPROVE | VIEW_SENSITIVE
+  resource  String   // Prisma model or resource key
+  resourceId String? @map("resource_id")
+
+  // ── Detail ──
+  summary     String?  @db.Text
+  oldValues   Json?    @map("old_values")
+  newValues   Json?    @map("new_values")
+  metadata    Json?
+
+  // ── Request context ──
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  httpMethod String?  @map("http_method")
+  path       String?
+  statusCode Int?     @map("status_code")
+  durationMs Int?     @map("duration_ms")
+
+  @@index([timestamp])
+  @@index([userId, timestamp])
+  @@index([resource, timestamp])
+  @@index([action, timestamp])
+  @@index([resource, resourceId])
+  @@map("audit_logs")
+}

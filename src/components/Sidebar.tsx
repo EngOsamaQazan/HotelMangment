@@ -23,6 +23,7 @@ import {
   Users2,
   Bell,
   Sparkles,
+  ScrollText,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { BrandLogo, BrandLogoInline } from "@/components/BrandLogo";
@@ -100,6 +101,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/reports/monthly", label: "التقرير الشهري", icon: BarChart3, permission: "reports.monthly:view" },
       { href: "/notifications", label: "مركز الإشعارات", icon: Bell, permission: "notifications:view" },
+      { href: "/settings/audit-log", label: "سجل المراجعة", icon: ScrollText, permission: "settings.audit_log:view" },
       { href: "/settings", label: "الإعدادات", icon: Settings, permission: "settings:view" },
     ],
   },
