@@ -168,6 +168,8 @@ export interface BotSlots {
   lastShownOptions?: number[];
   /** Free-form notes the LLM wants to remember (allergies, requests). */
   freeNotes?: string;
+  /** True once the LLM takes over from the fallback menu (sticky per conversation). */
+  llmActive?: boolean;
   /**
    * Currently previewed unit (set by the quoting → previewing transition).
    * `previewKind` is "unit" | "merge" matching the option payload encoding.

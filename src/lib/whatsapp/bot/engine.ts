@@ -9,7 +9,7 @@ import {
   type ToolContext,
   type ToolName,
 } from "./tools";
-import { ensureBotConversation, ensureGuestAccountForPhone, normalizePhone, readSlots } from "./identity";
+import { advanceBotConversation, ensureBotConversation, ensureGuestAccountForPhone, normalizePhone, readSlots } from "./identity";
 import { buildSystemPrompt, sanitizeUserText, wrapUserText } from "./prompt";
 import type { NegotiationConfig } from "./prompt";
 import { runFallbackTurn } from "./fallback";
@@ -113,7 +113,20 @@ export async function runBotTurn(input: RunBotTurnInput): Promise<RunBotTurnResu
     now: input.inboundAt,
   };
 
-  // ── 2. Provider selection ───────────────────────────────────────────
+  // ── 2. Route: fallback menu vs LLM ──────────────────────────────────
+  const useFallback = shouldUseFallback(input, botConv);
+
+  if (useFallback) {
+    await runFallbackTurn({
+      phone,
+      body: input.inboundBody,
+      type: input.inboundType,
+      ctx,
+    });
+    return { mode: "fallback", botConvId: botConv.id, replied: true };
+  }
+
+  // ── 3. LLM provider ───────────────────────────────────────────────
   const provider = await getLLMProvider();
   if (!provider) {
     await runFallbackTurn({
@@ -125,7 +138,16 @@ export async function runBotTurn(input: RunBotTurnInput): Promise<RunBotTurnResu
     return { mode: "fallback", botConvId: botConv.id, replied: true };
   }
 
-  // ── 3. LLM tool-calling loop ────────────────────────────────────────
+  // Mark conversation as LLM-active so subsequent messages stay on LLM.
+  const slots = readSlots(botConv);
+  if (!slots.llmActive) {
+    await advanceBotConversation({
+      botConvId: botConv.id,
+      slotsPatch: { llmActive: true },
+    });
+  }
+
+  // ── 4. LLM tool-calling loop ────────────────────────────────────────
   try {
     const replied = await runLlmDialog({
       provider,
@@ -139,7 +161,6 @@ export async function runBotTurn(input: RunBotTurnInput): Promise<RunBotTurnResu
     };
   } catch (e) {
     console.error("[bot/engine] LLM turn failed — falling back", e);
-    // Fallback so the guest never gets silence.
     await runFallbackTurn({
       phone,
       body: input.inboundBody,
@@ -153,6 +174,51 @@ export async function runBotTurn(input: RunBotTurnInput): Promise<RunBotTurnResu
       error: e instanceof Error ? e.message : String(e),
     };
   }
+}
+
+// ─────────────────────── internal: routing decision ─────────────────────
+
+/**
+ * Decides whether the current inbound should be handled by the deterministic
+ * fallback menu or the LLM. Once the LLM takes over (`slots.llmActive`),
+ * all subsequent messages stay with the LLM.
+ *
+ * Fallback handles: initial greeting (idle), menu button clicks for
+ * booking/lookup, and the structured date-collection flow.
+ *
+ * LLM handles: "تحدث مع موظف" click, free-form text in greeting state,
+ * and all messages once the LLM is active.
+ */
+function shouldUseFallback(
+  input: RunBotTurnInput,
+  botConv: BotConversation,
+): boolean {
+  const slots = readSlots(botConv);
+  if (slots.llmActive) return false;
+
+  const body = input.inboundBody ?? "";
+  const isInteractive = input.inboundType === "interactive";
+
+  if (isInteractive && body.startsWith("bot:menu:human")) return false;
+
+  if (botConv.state === "idle" || botConv.state === "done") return true;
+
+  if (botConv.state === "greeting") {
+    if (isInteractive) return true;
+    return false;
+  }
+
+  if (
+    ["collecting", "quoting", "previewing", "holding", "awaiting_payment"].includes(
+      botConv.state,
+    )
+  ) {
+    if (isInteractive) return true;
+    if (botConv.state === "collecting") return true;
+    return false;
+  }
+
+  return true;
 }
 
 // ─────────────────────── internal: history rebuild ──────────────────────
@@ -258,11 +324,22 @@ async function runLlmDialog(args: RunLlmDialogArgs): Promise<boolean> {
     negotiation,
   });
 
-  const messages = await buildMessageHistory(ctx.botConv, maxTurns);
-  // Append the inbound message as the latest turn.
+  // When the LLM just took over from the fallback, skip old fallback
+  // history so the model starts fresh without stale button-click context.
+  const justActivated = !readSlots(ctx.botConv).llmActive;
+  const messages = justActivated
+    ? []
+    : await buildMessageHistory(ctx.botConv, maxTurns);
+
+  // Rewrite "bot:menu:human|تحدث مع موظف" into natural language so the
+  // LLM sees a human greeting, not a raw interactive payload.
+  let userText = input.inboundBody ?? "";
+  if (input.inboundType === "interactive" && userText.startsWith("bot:menu:human")) {
+    userText = "أهلاً، حابب أستفسر";
+  }
   messages.push({
     role: "user",
-    content: wrapUserText(sanitizeUserText(input.inboundBody ?? "")),
+    content: wrapUserText(sanitizeUserText(userText)),
   });
 
   let totalCost = 0;
