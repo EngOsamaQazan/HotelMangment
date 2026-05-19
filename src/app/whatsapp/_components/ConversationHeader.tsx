@@ -101,59 +101,193 @@ export function ConversationHeader({
   const status = STATUS_LABELS[conversation.status] ?? STATUS_LABELS.open;
 
   return (
-    <header className="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-gray-100 flex items-center gap-2 sm:gap-3">
-      {/* Avatar + name block */}
-      <div
-        className={cn(
-          "w-10 h-10 rounded-full text-sm font-bold flex items-center justify-center shrink-0",
-          conversation.contact?.isBlocked
-            ? "bg-red-50 text-red-500"
-            : "bg-primary/10 text-primary",
-        )}
-        aria-hidden
-      >
-        {initials(name)}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="font-medium text-sm text-gray-800 flex items-center gap-1.5 min-w-0">
-          <span className="truncate">{name}</span>
-          {conversation.contact?.isBlocked && (
-            <span className="inline-flex items-center gap-1 text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded shrink-0">
-              <AlertOctagon size={10} />
-              <span className="hidden sm:inline">محظور</span>
-            </span>
+    <header className="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-gray-100">
+      <div className="flex items-start gap-2 sm:gap-3">
+        {/* Avatar + name block */}
+        <div
+          className={cn(
+            "w-10 h-10 rounded-full text-sm font-bold flex items-center justify-center shrink-0",
+            conversation.contact?.isBlocked
+              ? "bg-red-50 text-red-500"
+              : "bg-primary/10 text-primary",
           )}
+          aria-hidden
+        >
+          {initials(name)}
         </div>
-        <div className="flex items-center gap-1.5 mt-0.5 text-[10px] sm:text-[11px] flex-wrap">
-          <span className="text-gray-500 direction-ltr">
-            +{conversation.contactPhone}
-          </span>
-          <span className={cn("px-1.5 py-0.5 rounded", status.className)}>
-            {status.label}
-          </span>
-          <span
-            className={cn(
-              "inline-flex items-center gap-1 px-1.5 py-0.5 rounded border",
-              prio.className,
+        <div className="flex-1 min-w-0">
+          <div className="font-medium text-sm text-gray-800 flex items-center gap-1.5 min-w-0">
+            <span className="truncate">{name}</span>
+            {conversation.contact?.isBlocked && (
+              <span className="inline-flex items-center gap-1 text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded shrink-0">
+                <AlertOctagon size={10} />
+                <span className="hidden sm:inline">محظور</span>
+              </span>
             )}
+          </div>
+          <div className="flex items-center gap-1.5 mt-1 text-[10px] sm:text-[11px] flex-wrap">
+            <span className="text-gray-500 direction-ltr">
+              +{conversation.contactPhone}
+            </span>
+            <span className={cn("px-1.5 py-0.5 rounded", status.className)}>
+              {status.label}
+            </span>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 px-1.5 py-0.5 rounded border",
+                prio.className,
+              )}
+            >
+              <Flag size={9} />
+              {prio.label}
+            </span>
+            {conversation.assignedTo ? (
+              <span className="text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded truncate max-w-[10rem]">
+                {conversation.assignedTo.name}
+              </span>
+            ) : (
+              <span className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                غير مسندة
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* ═════════════ Mobile compact actions (< md) ═════════════ */}
+        <div className="md:hidden flex items-center gap-1 shrink-0" ref={overflowRef}>
+          <button
+            onClick={() => setShowDetails(!showDetails)}
+            className={cn(
+              "tap-44 flex items-center justify-center p-2 rounded-lg border",
+              showDetails
+                ? "border-primary text-primary bg-gold-soft"
+                : "border-gray-200 text-gray-700 hover:bg-gray-50",
+            )}
+            aria-pressed={showDetails}
+            aria-label="تفاصيل جهة الاتصال"
           >
-            <Flag size={9} />
-            {prio.label}
-          </span>
-          {conversation.assignedTo ? (
-            <span className="text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded truncate max-w-[10rem]">
-              {conversation.assignedTo.name}
-            </span>
-          ) : (
-            <span className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
-              غير مسندة
-            </span>
+            <Info size={16} />
+          </button>
+          <button
+            onClick={() => setOverflowOpen((v) => !v)}
+            className="tap-44 flex items-center justify-center p-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50"
+            aria-label="المزيد من الإجراءات"
+            aria-haspopup="menu"
+            aria-expanded={overflowOpen}
+          >
+            <MoreVertical size={16} />
+          </button>
+
+          {overflowOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-40 bg-black/40"
+                onClick={() => setOverflowOpen(false)}
+                aria-hidden
+              />
+              <div
+                role="menu"
+                className="fixed inset-x-3 bottom-3 z-50 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] max-h-[70dvh] overflow-y-auto"
+              >
+                <div className="flex justify-center pt-1 pb-2">
+                  <span
+                    aria-hidden
+                    className="w-10 h-1.5 rounded-full bg-gray-200"
+                  />
+                </div>
+                <div className="px-2 pb-1 text-[11px] text-gray-500 font-medium">
+                  الإسناد
+                </div>
+                <AssignMenuCompact
+                  contactPhone={conversation.contactPhone}
+                  assignedToUserId={conversation.assignedToUserId}
+                  currentUserId={currentUserId}
+                  onChange={() => {
+                    onChange();
+                    setOverflowOpen(false);
+                  }}
+                />
+
+                {canManage && (
+                  <>
+                    <div className="px-2 pt-3 pb-1 text-[11px] text-gray-500 font-medium">
+                      الأولوية
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5 px-1">
+                      {(["low", "normal", "high", "urgent"] as const).map((p) => (
+                        <button
+                          key={p}
+                          onClick={() =>
+                            call("priority", `${basePath}/priority`, { priority: p })
+                          }
+                          disabled={busy === "priority"}
+                          className={cn(
+                            "tap-44 text-xs px-3 py-2 rounded-lg border",
+                            conversation.priority === p
+                              ? "bg-gold-soft border-primary text-primary"
+                              : "border-gray-200 text-gray-700 hover:bg-gray-50",
+                          )}
+                        >
+                          {PRIORITY_LABELS[p].label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {canManage && (
+                  <>
+                    <div className="px-2 pt-3 pb-1 text-[11px] text-gray-500 font-medium">
+                      الحالة
+                    </div>
+                    <div className="flex flex-col gap-1 px-1">
+                      {conversation.status === "open" && (
+                        <button
+                          onClick={() =>
+                            call("status", `${basePath}/status`, { status: "resolved" })
+                          }
+                          disabled={busy === "status"}
+                          className="tap-44 flex items-center gap-2 text-sm px-3 py-2 rounded-lg hover:bg-gray-50"
+                        >
+                          <CheckCircle2 size={16} className="text-green-600" />
+                          تعيين كمحلولة
+                        </button>
+                      )}
+                      {conversation.status !== "archived" && (
+                        <button
+                          onClick={() =>
+                            call("status", `${basePath}/status`, { status: "archived" })
+                          }
+                          disabled={busy === "status"}
+                          className="tap-44 flex items-center gap-2 text-sm px-3 py-2 rounded-lg hover:bg-gray-50"
+                        >
+                          <ArchiveX size={16} className="text-gray-500" />
+                          أرشفة
+                        </button>
+                      )}
+                      {conversation.status !== "open" && (
+                        <button
+                          onClick={() =>
+                            call("status", `${basePath}/status`, { status: "open" })
+                          }
+                          disabled={busy === "status"}
+                          className="tap-44 flex items-center gap-2 text-sm px-3 py-2 rounded-lg hover:bg-gray-50"
+                        >
+                          <ArchiveRestore size={16} className="text-gray-500" />
+                          إعادة فتح
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>
 
       {/* ═════════════ Desktop action row (≥ md) ═════════════ */}
-      <div className="hidden md:flex items-center gap-2 flex-wrap">
+      <div className="hidden md:flex items-center gap-2 flex-wrap pt-3">
         <AssignMenu
           contactPhone={conversation.contactPhone}
           assignedToUserId={conversation.assignedToUserId}
@@ -163,7 +297,7 @@ export function ConversationHeader({
 
         {canManage && (
           <details className="relative group">
-            <summary className="tap-44 list-none cursor-pointer flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50">
+            <summary className="tap-44 list-none cursor-pointer flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 whitespace-nowrap">
               <Flag size={12} />
               الأولوية
               <ChevronDown size={10} />
@@ -190,7 +324,7 @@ export function ConversationHeader({
           <button
             onClick={() => call("status", `${basePath}/status`, { status: "resolved" })}
             disabled={busy === "status"}
-            className="tap-44 flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="tap-44 flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 whitespace-nowrap"
           >
             {busy === "status" ? (
               <Loader2 size={12} className="animate-spin" />
@@ -204,7 +338,7 @@ export function ConversationHeader({
           <button
             onClick={() => call("status", `${basePath}/status`, { status: "archived" })}
             disabled={busy === "status"}
-            className="tap-44 flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="tap-44 flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 whitespace-nowrap"
           >
             <ArchiveX size={12} className="text-gray-500" />
             أرشفة
@@ -214,7 +348,7 @@ export function ConversationHeader({
           <button
             onClick={() => call("status", `${basePath}/status`, { status: "open" })}
             disabled={busy === "status"}
-            className="tap-44 flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="tap-44 flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 whitespace-nowrap"
           >
             <ArchiveRestore size={12} className="text-gray-500" />
             إعادة فتح
@@ -224,7 +358,7 @@ export function ConversationHeader({
         <button
           onClick={() => setShowDetails(!showDetails)}
           className={cn(
-            "tap-44 flex items-center gap-1.5 text-xs px-2.5 py-1.5 border rounded-lg hover:bg-gray-50",
+            "tap-44 flex items-center gap-1.5 text-xs px-2.5 py-1.5 border rounded-lg hover:bg-gray-50 whitespace-nowrap",
             showDetails
               ? "border-primary text-primary bg-gold-soft"
               : "border-gray-200 text-gray-700",
@@ -236,137 +370,6 @@ export function ConversationHeader({
         </button>
       </div>
 
-      {/* ═════════════ Mobile compact actions (< md) ═════════════ */}
-      <div className="md:hidden flex items-center gap-1 shrink-0" ref={overflowRef}>
-        <button
-          onClick={() => setShowDetails(!showDetails)}
-          className={cn(
-            "tap-44 flex items-center justify-center p-2 rounded-lg border",
-            showDetails
-              ? "border-primary text-primary bg-gold-soft"
-              : "border-gray-200 text-gray-700 hover:bg-gray-50",
-          )}
-          aria-pressed={showDetails}
-          aria-label="تفاصيل جهة الاتصال"
-        >
-          <Info size={16} />
-        </button>
-        <button
-          onClick={() => setOverflowOpen((v) => !v)}
-          className="tap-44 flex items-center justify-center p-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50"
-          aria-label="المزيد من الإجراءات"
-          aria-haspopup="menu"
-          aria-expanded={overflowOpen}
-        >
-          <MoreVertical size={16} />
-        </button>
-
-        {overflowOpen && (
-          <>
-            <div
-              className="fixed inset-0 z-40 bg-black/40"
-              onClick={() => setOverflowOpen(false)}
-              aria-hidden
-            />
-            <div
-              role="menu"
-              className="fixed inset-x-3 bottom-3 z-50 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] max-h-[70dvh] overflow-y-auto"
-            >
-              <div className="flex justify-center pt-1 pb-2">
-                <span
-                  aria-hidden
-                  className="w-10 h-1.5 rounded-full bg-gray-200"
-                />
-              </div>
-              <div className="px-2 pb-1 text-[11px] text-gray-500 font-medium">
-                الإسناد
-              </div>
-              <AssignMenuCompact
-                contactPhone={conversation.contactPhone}
-                assignedToUserId={conversation.assignedToUserId}
-                currentUserId={currentUserId}
-                onChange={() => {
-                  onChange();
-                  setOverflowOpen(false);
-                }}
-              />
-
-              {canManage && (
-                <>
-                  <div className="px-2 pt-3 pb-1 text-[11px] text-gray-500 font-medium">
-                    الأولوية
-                  </div>
-                  <div className="grid grid-cols-2 gap-1.5 px-1">
-                    {(["low", "normal", "high", "urgent"] as const).map((p) => (
-                      <button
-                        key={p}
-                        onClick={() =>
-                          call("priority", `${basePath}/priority`, { priority: p })
-                        }
-                        disabled={busy === "priority"}
-                        className={cn(
-                          "tap-44 text-xs px-3 py-2 rounded-lg border",
-                          conversation.priority === p
-                            ? "bg-gold-soft border-primary text-primary"
-                            : "border-gray-200 text-gray-700 hover:bg-gray-50",
-                        )}
-                      >
-                        {PRIORITY_LABELS[p].label}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {canManage && (
-                <>
-                  <div className="px-2 pt-3 pb-1 text-[11px] text-gray-500 font-medium">
-                    الحالة
-                  </div>
-                  <div className="flex flex-col gap-1 px-1">
-                    {conversation.status === "open" && (
-                      <button
-                        onClick={() =>
-                          call("status", `${basePath}/status`, { status: "resolved" })
-                        }
-                        disabled={busy === "status"}
-                        className="tap-44 flex items-center gap-2 text-sm px-3 py-2 rounded-lg hover:bg-gray-50"
-                      >
-                        <CheckCircle2 size={16} className="text-green-600" />
-                        تعيين كمحلولة
-                      </button>
-                    )}
-                    {conversation.status !== "archived" && (
-                      <button
-                        onClick={() =>
-                          call("status", `${basePath}/status`, { status: "archived" })
-                        }
-                        disabled={busy === "status"}
-                        className="tap-44 flex items-center gap-2 text-sm px-3 py-2 rounded-lg hover:bg-gray-50"
-                      >
-                        <ArchiveX size={16} className="text-gray-500" />
-                        أرشفة
-                      </button>
-                    )}
-                    {conversation.status !== "open" && (
-                      <button
-                        onClick={() =>
-                          call("status", `${basePath}/status`, { status: "open" })
-                        }
-                        disabled={busy === "status"}
-                        className="tap-44 flex items-center gap-2 text-sm px-3 py-2 rounded-lg hover:bg-gray-50"
-                      >
-                        <ArchiveRestore size={16} className="text-gray-500" />
-                        إعادة فتح
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          </>
-        )}
-      </div>
     </header>
   );
 }

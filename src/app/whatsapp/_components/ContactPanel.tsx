@@ -22,10 +22,9 @@ interface Props {
   onClose: () => void;
   onChange: () => void;
   /**
-   * `inline` (default) renders as a side drawer inside the conversation
-   * layout, appropriate for lg+ viewports. `overlay` renders as a
-   * fixed-position bottom-sheet with backdrop, appropriate for mobile and
-   * tablet viewports where real-estate is scarce.
+   * `inline` renders as a side drawer inside the conversation layout for
+   * legacy callers. `overlay` renders independently above the inbox, as a
+   * mobile bottom-sheet and a desktop side drawer.
    */
   variant?: "inline" | "overlay";
   /** Extra classes appended to the root so the caller can toggle visibility. */
@@ -40,9 +39,9 @@ type Tab = "profile" | "notes" | "timeline";
  * + assignment timeline + reservation linkage.
  *
  * Two layout variants:
- *   • inline  : `lg+` inline drawer inside the thread section.
- *   • overlay : bottom-sheet with backdrop for `< lg` devices. Includes a
- *               drag handle, dismiss-by-backdrop-tap, and Esc-to-close.
+ *   • inline  : legacy inline drawer inside the thread section.
+ *   • overlay : independent drawer with backdrop. It behaves as a bottom
+ *               sheet on phones and a left-side drawer on wider screens.
  */
 export function ContactPanel({
   phone,
@@ -196,7 +195,7 @@ export function ContactPanel({
     return (
       <>
         <div
-          className={cn("fixed inset-0 z-40 bg-black/40", className)}
+          className={cn("fixed inset-0 z-40 bg-black/30", className)}
           onClick={onClose}
           aria-hidden
         />
@@ -207,6 +206,8 @@ export function ContactPanel({
           className={cn(
             "fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-2xl shadow-2xl flex flex-col",
             "max-h-[92dvh] min-h-[50dvh]",
+            "sm:inset-y-4 sm:left-4 sm:right-auto sm:bottom-auto sm:w-[min(28rem,calc(100vw-2rem))]",
+            "sm:h-[calc(100dvh-2rem)] sm:min-h-0 sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:border sm:border-gray-100",
             className,
           )}
         >

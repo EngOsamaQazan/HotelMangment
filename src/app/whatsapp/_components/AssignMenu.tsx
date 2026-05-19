@@ -205,7 +205,7 @@ export function AssignMenu({
       <button
         onClick={() => setOpen((v) => !v)}
         disabled={busy}
-        className="tap-44 flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        className="tap-44 flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 whitespace-nowrap"
         aria-haspopup="menu"
         aria-expanded={open}
       >
@@ -234,8 +234,9 @@ export function AssignMenu({
             aria-hidden
           />
           <div
-            role="menu"
+            role="dialog"
             aria-modal="true"
+            aria-label="إسناد المحادثة"
             className="fixed inset-x-3 bottom-3 z-50 bg-white rounded-2xl shadow-2xl border border-gray-100 max-h-[80dvh] overflow-hidden pb-[env(safe-area-inset-bottom)]"
           >
             {panel}

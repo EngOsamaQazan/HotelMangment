@@ -295,13 +295,13 @@ export function Composer({
             pendingFile
               ? "أضف تعليقًا (اختياري)…"
               : mode === "reply"
-                ? "اكتب ردًا للعميل… (Enter للإرسال، Shift+Enter لسطر جديد)"
+                ? "اكتب ردًا للعميل…"
                 : "ملاحظة داخلية للفريق — لن تصل للعميل."
           }
           rows={1}
           className={cn(
             "flex-1 min-w-0 border rounded-2xl px-3 py-2 text-base sm:text-sm resize-none focus:outline-none focus:ring-2 transition-colors",
-            "leading-6 max-h-40",
+            "leading-6 max-h-40 placeholder:text-gray-400",
             mode === "reply"
               ? "border-gray-200 focus:ring-primary/20 focus:border-primary"
               : "border-yellow-200 bg-yellow-50 focus:ring-yellow-300 focus:border-yellow-400",

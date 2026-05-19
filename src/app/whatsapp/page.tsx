@@ -35,7 +35,7 @@ import { TemplateSendModal } from "./_components/TemplateSendModal";
 import { PushBadge } from "./_components/PushBadge";
 
 import { useInboxData } from "./_hooks/useInboxData";
-import { useIsMobile, useIsBelowLg } from "./_hooks/useMediaQuery";
+import { useIsMobile } from "./_hooks/useMediaQuery";
 import { useWhatsAppRealtime } from "@/lib/whatsapp/hooks/useWhatsAppRealtime";
 import { useWhatsAppPush } from "@/lib/whatsapp/hooks/useWhatsAppPush";
 import { useWhatsAppSound } from "@/lib/whatsapp/hooks/useWhatsAppSound";
@@ -71,7 +71,6 @@ function WhatsAppInboxInner() {
   const canDeleteMessage = useHasPermission("whatsapp:delete_message");
 
   const isMobile = useIsMobile();
-  const isBelowLg = useIsBelowLg();
 
   // ─── Filters ──────────────────────────────────────────────
   // Default to "الكل" so staff see the full inbox on first open — the old
@@ -128,24 +127,10 @@ function WhatsAppInboxInner() {
   const [newTo, setNewTo] = useState("");
   const [composerText, setComposerText] = useState("");
   const [sending, setSending] = useState(false);
-  // On desktop (≥ lg) the contact details live inline beside the thread, so
-  // we default them to open. On anything smaller (tablet/mobile) the panel is
-  // an overlay — keep it CLOSED by default so landing here from a push
-  // notification doesn't pop a big sheet on top of the conversation.
-  //
-  // NOTE: `useIsBelowLg` is SSR-safe and starts at `false` on first render,
-  // only flipping to the real value inside a client effect. The old code
-  // ran the auto-open branch during that initial `false` tick on mobile —
-  // and never reset it once the real media query resolved. Fix: one-shot
-  // init using the authoritative `matchMedia` result inside an effect.
+  // Keep details closed by default. Opening them now uses an overlay drawer
+  // rather than squeezing the active conversation and composer into a narrow
+  // column, which was the root of the desktop overlap seen in production.
   const [showDetails, setShowDetails] = useState(false);
-  const showDetailsInitRef = useRef(false);
-  useEffect(() => {
-    if (showDetailsInitRef.current) return;
-    if (typeof window === "undefined") return;
-    showDetailsInitRef.current = true;
-    setShowDetails(window.matchMedia("(min-width: 1024px)").matches);
-  }, []);
 
   // ─── Mobile history-state Back handling ───────────────────
   // When the user taps a thread on mobile we push a history entry so the
@@ -642,24 +627,12 @@ function WhatsAppInboxInner() {
             )}
           </div>
 
-          {/* Inline details drawer — desktop only (≥ lg) */}
-          {active && showDetails && !showNew && (
-            <ContactPanel
-              variant="inline"
-              phone={active.contactPhone}
-              onClose={() => setShowDetails(false)}
-              onChange={() => {
-                data.loadList();
-                if (data.selectedPhone) data.loadMessages(data.selectedPhone);
-              }}
-              className="hidden lg:flex"
-            />
-          )}
         </section>
       </div>
 
-      {/* Overlay details — mobile + tablet (< lg) */}
-      {active && showDetails && !showNew && isBelowLg && (
+      {/* Details live in an overlay on every viewport so they never compress
+          the conversation header, thread, or composer. */}
+      {active && showDetails && !showNew && (
         <ContactPanel
           variant="overlay"
           phone={active.contactPhone}
