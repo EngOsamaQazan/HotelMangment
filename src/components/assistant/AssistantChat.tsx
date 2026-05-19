@@ -12,6 +12,7 @@ import {
   Paperclip,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { microphoneErrorMessage, microphoneUnsupportedMessage } from "@/lib/assistant/microphone";
 import { ActionDraftCard, type AssistantAction } from "./ActionDraftCard";
 
 interface AssistantMessage {
@@ -204,7 +205,7 @@ export function AssistantChat({ conversationId }: Props) {
   const startRecording = useCallback(async () => {
     if (recording || sending) return;
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError("متصفحك لا يدعم تسجيل الصوت");
+      setError(microphoneUnsupportedMessage());
       return;
     }
     try {
@@ -253,7 +254,7 @@ export function AssistantChat({ conversationId }: Props) {
       setError(null);
     } catch (err) {
       console.error("[assistant/chat] mic permission denied", err);
-      setError("لم يتم منح إذن المايكروفون");
+      setError(await microphoneErrorMessage(err));
     }
   }, [recording, sending]);
 
