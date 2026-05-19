@@ -274,6 +274,7 @@ jobs:
 
             # ───── 5. Build Next.js (incremental via .next/cache) ────
             echo "==> [5/6] next build (incremental if .next/cache exists)"
+            sudo chown -R "$USER":"$USER" .next 2>/dev/null || true
             NEXTAUTH_SECRET=build-time-placeholder \
             NEXTAUTH_URL=https://mafhotel.com \
             NEXT_PUBLIC_SITE_URL=https://mafhotel.com \
